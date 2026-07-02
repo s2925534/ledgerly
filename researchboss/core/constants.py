@@ -29,7 +29,6 @@ class WorkspaceFiles:
     context_changelog_md: str = "context-changelog.md"
 
     app_settings_local: str = "app-settings.local.yaml"
-    env_example: str = ".env.example"
     gitignore: str = ".gitignore"
 
 

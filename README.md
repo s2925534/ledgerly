@@ -85,7 +85,6 @@ pyproject.toml
 - `context-changelog.md`
 - `artefact-registry.yaml`
 - `app-settings.local.yaml`
-- `.env.example`
 - `.gitignore`
 
 It is also intended to create source, artefact, output, log, and context version folders.
@@ -116,6 +115,22 @@ researchboss sources accept <source-id> --workspace <path>
 researchboss sources maybe <source-id> --workspace <path>
 researchboss sources ignore <source-id> --reason "Reason" --workspace <path>
 ```
+
+During `researchboss init`, ResearchBoss looks for a default Zotero storage directory on macOS and Windows. If found, the source prompt defaults to that storage path, for example:
+
+```text
+Where are your source files? [/Users/pedro/Zotero/storage]:
+```
+
+If Zotero storage is not found, the prompt falls back to:
+
+```text
+Where are your source files? [configure_later]:
+```
+
+The destination artefact root defaults to the current user's `Documents` directory.
+
+Environment variables are read from the repository root `.env` file during local development. Workspaces do not create their own `.env` files.
 
 Source statuses are currently limited to:
 

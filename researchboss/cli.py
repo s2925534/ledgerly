@@ -19,7 +19,13 @@ from researchboss.engine.sources import (
     set_source_status,
     source_counts,
 )
-from researchboss.engine.workspace import PROJECT_TYPES, init_workspace
+from researchboss.engine.workspace import (
+    PROJECT_TYPES,
+    default_documents_dir,
+    find_default_zotero_storage,
+    infer_source_mode,
+    init_workspace,
+)
 
 app = typer.Typer(add_completion=False, help="ResearchBoss (Phase 1 foundation).")
 sources_app = typer.Typer(help="Source inbox + register commands.")
@@ -63,16 +69,19 @@ def init(
     project_name = typer.prompt("Project name")
     project_type = typer.prompt("Project type", type=click.Choice(PROJECT_TYPES), default=PROJECT_TYPES[0])
     topic = typer.prompt("Research topic / short description", default="")
-    source_mode = typer.prompt(
+    default_zotero_storage = find_default_zotero_storage()
+    source_answer = typer.prompt(
         "Where are your source files?",
-        type=click.Choice(["local_folder", "zotero_storage", "configure_later"]),
-        default="configure_later",
+        default=str(default_zotero_storage) if default_zotero_storage else "configure_later",
     )
+    source_mode = infer_source_mode(source_answer, default_zotero_storage)
     source_root = None
-    if source_mode in ("local_folder", "zotero_storage"):
+    if source_answer in ("local_folder", "zotero_storage"):
         source_root = typer.prompt("Source root folder path", default="")
+    elif source_mode in ("local_folder", "zotero_storage"):
+        source_root = source_answer
 
-    artefact_root = typer.prompt("Destination / artefact root (optional)", default="")
+    artefact_root = typer.prompt("Destination / artefact root (optional)", default=str(default_documents_dir()))
     strict = typer.confirm("Enable strict evidence mode?", default=True)
 
     workspace = path or (

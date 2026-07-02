@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import platform
 from pathlib import Path
 from typing import Any, Optional
 
@@ -8,6 +9,53 @@ from researchboss.core.yamlio import write_yaml
 
 
 PROJECT_TYPES = ["M.Phil", "PhD", "Other academic research", "Industry research", "Custom"]
+SOURCE_MODES = {"local_folder", "zotero_storage", "configure_later"}
+
+
+def default_documents_dir(home: Optional[Path] = None) -> Path:
+    return (home or Path.home()) / "Documents"
+
+
+def zotero_storage_candidates(home: Optional[Path] = None, system: Optional[str] = None) -> list[Path]:
+    user_home = home or Path.home()
+    os_name = system or platform.system()
+
+    if os_name == "Darwin":
+        return [
+            user_home / "Zotero" / "storage",
+            *sorted((user_home / "Library" / "Application Support" / "Zotero" / "Profiles").glob("*/storage")),
+        ]
+
+    if os_name == "Windows":
+        app_data = user_home / "AppData" / "Roaming" / "Zotero" / "Profiles"
+        return [
+            user_home / "Zotero" / "storage",
+            user_home / "Documents" / "Zotero" / "storage",
+            *sorted(app_data.glob("*/storage")),
+        ]
+
+    return []
+
+
+def find_default_zotero_storage(home: Optional[Path] = None, system: Optional[str] = None) -> Optional[Path]:
+    for candidate in zotero_storage_candidates(home=home, system=system):
+        if candidate.is_dir():
+            return candidate
+    return None
+
+
+def infer_source_mode(source_answer: str, zotero_storage: Optional[Path] = None) -> str:
+    if source_answer in SOURCE_MODES:
+        return source_answer
+
+    source_path = Path(source_answer).expanduser()
+    if zotero_storage and source_path == zotero_storage.expanduser():
+        return "zotero_storage"
+
+    if source_path.name == "storage" and source_path.parent.name == "Zotero":
+        return "zotero_storage"
+
+    return "local_folder"
 
 
 def _default_app_settings() -> dict[str, Any]:
@@ -95,8 +143,6 @@ def init_workspace(
     (workspace / WORKSPACE_FILES.context_changelog_md).write_text("# Context changelog\n", encoding="utf-8")
 
     write_yaml(workspace / WORKSPACE_FILES.app_settings_local, _default_app_settings())
-
-    (workspace / WORKSPACE_FILES.env_example).write_text("OPENAI_API_KEY=\n", encoding="utf-8")
 
     (workspace / WORKSPACE_FILES.gitignore).write_text(
         "\n".join(

@@ -2,7 +2,13 @@ from pathlib import Path
 
 from researchboss.core.constants import WORKSPACE_DIRS, WORKSPACE_FILES
 from researchboss.core.yamlio import read_yaml
-from researchboss.engine.workspace import init_workspace
+from researchboss.engine.workspace import (
+    default_documents_dir,
+    find_default_zotero_storage,
+    infer_source_mode,
+    init_workspace,
+    zotero_storage_candidates,
+)
 
 
 def test_init_workspace_creates_expected_files_and_dirs(tmp_path: Path) -> None:
@@ -39,7 +45,6 @@ def test_init_workspace_creates_expected_files_and_dirs(tmp_path: Path) -> None:
         WORKSPACE_FILES.memory_md,
         WORKSPACE_FILES.context_changelog_md,
         WORKSPACE_FILES.app_settings_local,
-        WORKSPACE_FILES.env_example,
         WORKSPACE_FILES.gitignore,
     ]
 
@@ -76,3 +81,41 @@ def test_default_app_settings_keep_ai_optional(tmp_path: Path) -> None:
 
     gitignore = (workspace / WORKSPACE_FILES.gitignore).read_text(encoding="utf-8")
     assert ".env" in gitignore.splitlines()
+
+
+def test_default_documents_dir_uses_home_documents(tmp_path: Path) -> None:
+    assert default_documents_dir(home=tmp_path) == tmp_path / "Documents"
+
+
+def test_zotero_storage_candidates_cover_macos_and_windows_defaults(tmp_path: Path) -> None:
+    mac_candidates = zotero_storage_candidates(home=tmp_path, system="Darwin")
+    windows_candidates = zotero_storage_candidates(home=tmp_path, system="Windows")
+
+    assert tmp_path / "Zotero" / "storage" in mac_candidates
+    assert tmp_path / "Library" / "Application Support" / "Zotero" / "Profiles" not in mac_candidates
+    assert tmp_path / "Zotero" / "storage" in windows_candidates
+    assert tmp_path / "Documents" / "Zotero" / "storage" in windows_candidates
+
+
+def test_find_default_zotero_storage_prefers_user_zotero_storage(tmp_path: Path) -> None:
+    storage = tmp_path / "Zotero" / "storage"
+    storage.mkdir(parents=True)
+
+    assert find_default_zotero_storage(home=tmp_path, system="Darwin") == storage
+    assert find_default_zotero_storage(home=tmp_path, system="Windows") == storage
+
+
+def test_find_default_zotero_storage_falls_back_to_profile_storage(tmp_path: Path) -> None:
+    profile_storage = tmp_path / "Library" / "Application Support" / "Zotero" / "Profiles" / "abc.default" / "storage"
+    profile_storage.mkdir(parents=True)
+
+    assert find_default_zotero_storage(home=tmp_path, system="Darwin") == profile_storage
+
+
+def test_infer_source_mode_from_answer() -> None:
+    zotero_storage = Path("/Users/pedro/Zotero/storage")
+
+    assert infer_source_mode("configure_later", zotero_storage) == "configure_later"
+    assert infer_source_mode("local_folder", zotero_storage) == "local_folder"
+    assert infer_source_mode(str(zotero_storage), zotero_storage) == "zotero_storage"
+    assert infer_source_mode("/Users/pedro/Documents/papers", zotero_storage) == "local_folder"
