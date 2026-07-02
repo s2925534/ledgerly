@@ -1,11 +1,15 @@
-# ... existing code ...
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
 
 [project]
-# ... existing code ...
+name = "researchboss"
+version = "0.1.0"
+description = "Local-first, evidence-first research workspace engine and CLI."
+readme = "README.md"
 requires-python = ">=3.11"
-
 dependencies = [
-  # ... keep existing deps ...
+  "click>=8.1.0",
   "typer>=0.12.0",
   "rich>=13.7.0",
   "pydantic>=2.6.0",
@@ -21,4 +25,5 @@ dev = [
 [project.scripts]
 researchboss = "researchboss.cli:app"
 
-# ... existing code ...
+[tool.setuptools.packages.find]
+include = ["researchboss*"]

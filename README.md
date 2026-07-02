@@ -2,7 +2,7 @@
 
 ResearchBoss is a local-first, evidence-first research workspace for managing research context, source files, review state, and project memory without requiring cloud services for the MVP.
 
-The project is currently in early Phase 1. The core engine has started, but the CLI still needs syntax fixes and tests before the foundation should be considered usable.
+The project is currently in Phase 1. The core engine and CLI foundation are now importable and covered by an initial pytest suite.
 
 ## Project Goals
 
@@ -31,11 +31,9 @@ Implemented or started:
 
 Known gaps:
 
-- `researchboss/cli.py` currently has indentation errors and does not import.
-- No tests exist yet.
-- Development dependencies are declared but not installed in the current `.venv`.
-- README, AGENTS.md, and architecture docs are incomplete or missing.
-- Conversion, metadata extraction, data profiling, research question workflows, OpenAI features, FastAPI, UI, and packaging are not implemented yet.
+- Conversion, metadata extraction, data profiling, research question workflows, OpenAI features, FastAPI, UI, and packaging are planned but not implemented yet.
+- Zotero support is currently storage-folder scanning only; Zotero API collection selection is not implemented yet.
+- The source review workflow is implemented for local workspace state, but no downstream research tasks consume accepted sources yet.
 
 ## Intended MVP Scope
 
@@ -59,8 +57,9 @@ researchboss/
 
 README.md
 TODO.md
+AGENTS.md
+docs/ARCHITECTURE.md
 pyproject.toml
-main.py               # unused PyCharm sample script
 ```
 
 ## Planned Workspace Files
@@ -103,14 +102,12 @@ python -m pip install -e ".[dev]"
 
 ## Validation
 
-The first milestone is to make these pass:
+Run these checks before committing:
 
 ```bash
-python -m py_compile researchboss/cli.py
+python -m py_compile researchboss/cli.py researchboss/engine/sources.py researchboss/engine/workspace.py researchboss/core/runlog.py researchboss/core/yamlio.py researchboss/core/constants.py
 python -m pytest
 ```
-
-At the moment, `researchboss/cli.py` is expected to fail compilation until the Phase 1 cleanup is completed.
 
 ## Roadmap
 

@@ -2,16 +2,16 @@
 
 ## Phase 1: Engine and CLI Foundation
 
-- [ ] Fix `researchboss/cli.py` indentation errors so the package imports.
-- [ ] Import or remove the `ScanResult` annotation in the scan command.
-- [ ] Install and verify development dependencies from `pyproject.toml`.
-- [ ] Add a `tests/` folder with pytest coverage for workspace initialization.
-- [ ] Add tests for source scanning, hashing, duplicate detection, and allowed extensions.
-- [ ] Add tests for source status transitions: accepted, ignored, and maybe.
-- [ ] Add Typer CLI smoke tests for `init`, `status`, `config validate`, `scan`, and `sources` commands.
+- [x] Fix `researchboss/cli.py` indentation errors so the package imports.
+- [x] Import or remove the `ScanResult` annotation in the scan command.
+- [x] Install and verify development dependencies from `pyproject.toml`.
+- [x] Add a `tests/` folder with pytest coverage for workspace initialization.
+- [x] Add tests for source scanning, hashing, duplicate detection, and allowed extensions.
+- [x] Add tests for source status transitions: accepted, ignored, and maybe.
+- [x] Add Typer CLI smoke tests for `init`, `status`, `config validate`, `scan`, and `sources` commands.
 - [ ] Validate source status values instead of accepting arbitrary strings.
-- [ ] Add `AGENTS.md` with project instructions and development rules.
-- [ ] Remove or replace the unused PyCharm sample `main.py`.
+- [x] Add `AGENTS.md` with project instructions and development rules.
+- [x] Remove or replace the unused PyCharm sample `main.py`.
 - [ ] Decide whether `.idea/` should stay out of source control.
 - [ ] Expand README setup, testing, and architecture notes after the CLI is fixed.
 

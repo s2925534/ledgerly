@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Optional
 
+import click
 import typer
 from rich.console import Console
 from rich.progress import BarColumn, Progress, TaskProgressColumn, TextColumn, TimeElapsedColumn
@@ -11,6 +12,7 @@ from rich.table import Table
 from researchboss.core.runlog import JsonlLogger, RunSummary, make_run_paths, write_run_summary
 from researchboss.core.yamlio import read_yaml
 from researchboss.engine.sources import (
+    ScanResult,
     iter_source_files,
     list_sources,
     scan_sources,
@@ -48,7 +50,7 @@ def _run_ctx(command_parts: list[str], workspace: Path, log_level: str):
 
 def _finish(summary: RunSummary, summary_path: Path, *, next_action: Optional[str] = None) -> None:
     summary.complete(next_action=next_action)
-        write_run_summary(summary_path, summary)
+    write_run_summary(summary_path, summary)
 
 
 @app.command()
@@ -59,13 +61,13 @@ def init(
 ):
     """Create a new ResearchBoss workspace (bare minimum wizard)."""
     project_name = typer.prompt("Project name")
-    project_type = typer.prompt("Project type", type=typer.Choice(PROJECT_TYPES), default=PROJECT_TYPES[0])
+    project_type = typer.prompt("Project type", type=click.Choice(PROJECT_TYPES), default=PROJECT_TYPES[0])
     topic = typer.prompt("Research topic / short description", default="")
     source_mode = typer.prompt(
         "Where are your source files?",
-        type=typer.Choice(["local_folder", "zotero_storage", "configure_later"]),
+        type=click.Choice(["local_folder", "zotero_storage", "configure_later"]),
         default="configure_later",
-        )
+    )
     source_root = None
     if source_mode in ("local_folder", "zotero_storage"):
         source_root = typer.prompt("Source root folder path", default="")
@@ -117,7 +119,7 @@ def status(
     _slug, logger, summary, summary_path, _log_path = _run_ctx(["status"], ws, log_level)
 
     try:
-    counts = source_counts(ws)
+        counts = source_counts(ws)
         logger.info("Computed status", operation="status", counts=counts)
         _finish(summary, summary_path, next_action="Use `researchboss sources list` to inspect sources.")
     except Exception as e:
@@ -380,7 +382,7 @@ def sources_review(
     for s in pending:
         sid = s["source_id"]
         console.print(f"\n[bold]{sid}[/bold]  {s.get('file_name')}  ({s.get('file_path')})")
-        action = typer.prompt("Action", type=typer.Choice(["accept", "ignore", "maybe", "skip"]), default="skip")
+        action = typer.prompt("Action", type=click.Choice(["accept", "ignore", "maybe", "skip"]), default="skip")
         if action == "skip":
             skipped_n += 1
             continue
