@@ -1,0 +1,124 @@
+# ResearchBoss
+
+ResearchBoss is a local-first, evidence-first research workspace for managing research context, source files, review state, and project memory without requiring cloud services for the MVP.
+
+The project is currently in early Phase 1. The core engine has started, but the CLI still needs syntax fixes and tests before the foundation should be considered usable.
+
+## Project Goals
+
+- Create reproducible local research workspaces.
+- Keep source registers, review decisions, context, memory, logs, and generated artefact metadata in project files.
+- Support local folder and Zotero storage scanning without modifying original source files.
+- Track accepted, ignored, maybe, and pending sources per project.
+- Build toward conversion, metadata extraction, data profiling, research question workflows, optional OpenAI assistance, a local FastAPI backend, and future cross-platform UI.
+
+## Current Status
+
+Implemented or started:
+
+- Python package structure under `researchboss/`
+- Typer CLI command definitions
+- Workspace creation engine
+- Default YAML and Markdown workspace files
+- Source folder constants
+- Source scanning engine for selected file extensions
+- SHA-256 file hashing
+- Duplicate detection by content hash
+- Source register records with `pending_review`
+- Accept, ignore, and maybe source status helpers
+- JSONL logs and YAML run summary helpers
+- Local-first and no external search flags in generated config
+
+Known gaps:
+
+- `researchboss/cli.py` currently has indentation errors and does not import.
+- No tests exist yet.
+- Development dependencies are declared but not installed in the current `.venv`.
+- README, AGENTS.md, and architecture docs are incomplete or missing.
+- Conversion, metadata extraction, data profiling, research question workflows, OpenAI features, FastAPI, UI, and packaging are not implemented yet.
+
+## Intended MVP Scope
+
+ResearchBoss should not require Dropbox, Google Drive, OneDrive, SharePoint, AWS, Azure, Firebase, Supabase, or any remote database for the MVP.
+
+The MVP should also avoid external academic search. Source discovery should begin with local folders and Zotero storage folders. Future Zotero API support may add collection selection while still preserving local-first behavior.
+
+## Repository Layout
+
+```text
+researchboss/
+  core/
+    constants.py      # workspace file and folder names
+    runlog.py         # JSONL logging and run summary helpers
+    yamlio.py         # YAML read/write helpers
+  engine/
+    sources.py        # source scanning, hashing, status updates
+    workspace.py      # workspace initialization
+  cli.py              # Typer CLI, currently needs syntax fixes
+  __main__.py         # python -m researchboss entry point
+
+README.md
+TODO.md
+pyproject.toml
+main.py               # unused PyCharm sample script
+```
+
+## Planned Workspace Files
+
+`researchboss init` is intended to create files such as:
+
+- `research-context.yaml`
+- `research-state.yaml`
+- `research-stages.yaml`
+- `research-questions.yaml`
+- `research-question-candidates.yaml`
+- `rejected-research-questions.yaml`
+- `source-register.yaml`
+- `accepted-sources.yaml`
+- `ignored-sources.yaml`
+- `maybe-sources.yaml`
+- `claims-ledger.yaml`
+- `novelty-ledger.yaml`
+- `terminology.yaml`
+- `supervisor-feedback.yaml`
+- `decisions.md`
+- `memory.md`
+- `context-changelog.md`
+- `artefact-registry.yaml`
+- `app-settings.local.yaml`
+- `.env.example`
+- `.gitignore`
+
+It is also intended to create source, artefact, output, log, and context version folders.
+
+## Development Setup
+
+Requires Python 3.11 or newer.
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -e ".[dev]"
+```
+
+## Validation
+
+The first milestone is to make these pass:
+
+```bash
+python -m py_compile researchboss/cli.py
+python -m pytest
+```
+
+At the moment, `researchboss/cli.py` is expected to fail compilation until the Phase 1 cleanup is completed.
+
+## Roadmap
+
+1. Finish Phase 1 engine and CLI foundation.
+2. Add conversion and citation metadata extraction.
+3. Add CSV and SQLite profiling plus artefact metadata.
+4. Add research question templates, stages, and approval workflows.
+5. Add optional OpenAI features with strict privacy boundaries.
+6. Add a local FastAPI backend.
+7. Prepare a cross-platform UI.
+8. Add packaging plans for desktop distribution.
