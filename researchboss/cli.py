@@ -14,6 +14,7 @@ from rich.table import Table
 from researchboss.core.runlog import JsonlLogger, RunSummary, make_run_paths, write_run_summary
 from researchboss.core.yamlio import read_yaml, write_yaml
 from researchboss.engine.artefacts import list_artefacts, register_artefact
+from researchboss.engine.claims import add_claim, list_claims, write_citation_gap_report
 from researchboss.engine.conversion import convert_sources
 from researchboss.engine.data import data_source_counts, list_data_sources, profile_data_sources
 from researchboss.engine.metadata import extract_citation_metadata
@@ -67,6 +68,7 @@ metadata_app = typer.Typer(help="Deterministic metadata commands.")
 data_app = typer.Typer(help="Local data source commands.")
 rqs_app = typer.Typer(help="Research question workflow commands.")
 artefacts_app = typer.Typer(help="Artefact registry commands.")
+claims_app = typer.Typer(help="Claim ledger commands.")
 
 app.add_typer(sources_app, name="sources")
 app.add_typer(config_app, name="config")
@@ -75,6 +77,7 @@ app.add_typer(metadata_app, name="metadata")
 app.add_typer(data_app, name="data")
 app.add_typer(rqs_app, name="rqs")
 app.add_typer(artefacts_app, name="artefacts")
+app.add_typer(claims_app, name="claims")
 
 console = Console()
 DEFAULT_WORKSPACES_DIR = "workspaces"
@@ -924,6 +927,64 @@ def artefacts_list(
     for row in rows:
         table.add_row(str(row.get("id")), str(row.get("type")), str(row.get("review_status")), str(row.get("title")))
     console.print(table)
+
+
+@claims_app.command("add")
+def claims_add(
+    text: str = typer.Argument(...),
+    linked_source: Optional[list[str]] = typer.Option(None, "--source", help="Linked source ID. Repeatable."),
+    linked_rq: Optional[list[str]] = typer.Option(None, "--rq", help="Linked research question ID. Repeatable."),
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Add a manual claim to the local claims ledger."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["claims", "add"], ws, log_level)
+    claim = add_claim(ws, text=text, linked_sources=linked_source or [], linked_research_questions=linked_rq or [])
+    logger.info("Added claim", operation="claims_add", claim_id=claim["id"])
+    _finish(summary, summary_path)
+    if not quiet:
+        console.print(f"[green]Added[/green] {claim['id']}")
+
+
+@claims_app.command("list")
+def claims_list(
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """List local claims."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["claims", "list"], ws, log_level)
+    rows = list_claims(ws)
+    logger.info("Listed claims", operation="claims_list", count=len(rows))
+    _finish(summary, summary_path)
+    if quiet:
+        return
+    table = Table(title="Claims")
+    table.add_column("id")
+    table.add_column("sources")
+    table.add_column("text")
+    for row in rows:
+        table.add_row(str(row.get("id")), str(len(row.get("linked_sources", []))), str(row.get("text")))
+    console.print(table)
+
+
+@claims_app.command("gaps")
+def claims_gaps(
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Write a local citation gap report for claims without linked sources."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["claims", "gaps"], ws, log_level)
+    output_path = write_citation_gap_report(ws)
+    logger.info("Wrote citation gap report", operation="claims_gaps", output_path=str(output_path))
+    _finish(summary, summary_path)
+    if not quiet:
+        console.print(f"[green]Wrote[/green] {output_path}")
 
 
 @zotero_app.command("collections")

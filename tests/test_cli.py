@@ -419,6 +419,21 @@ def test_cli_artefacts_register_and_list(tmp_path: Path) -> None:
     assert artefact["linked_research_questions"] == ["rq-001"]
 
 
+def test_cli_claims_add_list_and_gaps(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test Project", project_type="M.Phil", topic="")
+
+    add_result = runner.invoke(app, ["claims", "add", "Unsupported claim", "--workspace", str(workspace), "--quiet"])
+    list_result = runner.invoke(app, ["claims", "list", "--workspace", str(workspace), "--quiet"])
+    gaps_result = runner.invoke(app, ["claims", "gaps", "--workspace", str(workspace), "--quiet"])
+
+    assert add_result.exit_code == 0, add_result.output
+    assert list_result.exit_code == 0, list_result.output
+    assert gaps_result.exit_code == 0, gaps_result.output
+    assert read_yaml(workspace / "claims-ledger.yaml")["claims"][0]["id"] == "claim-001"
+    assert (workspace / "outputs" / "validation" / "citation-gaps.yaml").is_file()
+
+
 def test_cli_scan_uses_configured_zotero_provider_when_kind_is_omitted(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     storage_root = tmp_path / "Zotero" / "storage"
