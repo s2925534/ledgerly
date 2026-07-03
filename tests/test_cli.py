@@ -329,6 +329,23 @@ def test_cli_convert_converts_registered_txt_sources(tmp_path: Path) -> None:
     assert Path(source["conversion"]["output_path"]).is_file()
 
 
+def test_cli_metadata_extract_updates_source_register(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    source_root = tmp_path / "sources"
+    source_root.mkdir()
+    (source_root / "paper.txt").write_text("Title Line\n2025\nDOI: 10.1234/example", encoding="utf-8")
+    init_workspace_with_cli(workspace)
+    assert runner.invoke(app, ["scan", "--workspace", str(workspace), "--source", str(source_root), "--quiet"]).exit_code == 0
+    assert runner.invoke(app, ["convert", "--workspace", str(workspace), "--quiet"]).exit_code == 0
+
+    result = runner.invoke(app, ["metadata", "extract", "--workspace", str(workspace), "--quiet"])
+
+    assert result.exit_code == 0, result.output
+    source = read_yaml(workspace / "source-register.yaml")["sources"][0]
+    assert source["citation_metadata"]["doi"] == "10.1234/example"
+    assert source["citation_metadata"]["year"] == "2025"
+
+
 def test_cli_scan_uses_configured_zotero_provider_when_kind_is_omitted(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     storage_root = tmp_path / "Zotero" / "storage"

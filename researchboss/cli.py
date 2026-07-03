@@ -14,6 +14,7 @@ from rich.table import Table
 from researchboss.core.runlog import JsonlLogger, RunSummary, make_run_paths, write_run_summary
 from researchboss.core.yamlio import read_yaml, write_yaml
 from researchboss.engine.conversion import convert_sources
+from researchboss.engine.metadata import extract_citation_metadata
 from researchboss.engine.sources import (
     ScanResult,
     iter_source_files,
@@ -54,10 +55,12 @@ app = typer.Typer(add_completion=False, help="ResearchBoss (Phase 1 foundation).
 sources_app = typer.Typer(help="Source inbox + register commands.")
 config_app = typer.Typer(help="Config commands.")
 zotero_app = typer.Typer(help="Read-only local Zotero storage commands.")
+metadata_app = typer.Typer(help="Deterministic metadata commands.")
 
 app.add_typer(sources_app, name="sources")
 app.add_typer(config_app, name="config")
 app.add_typer(zotero_app, name="zotero")
+app.add_typer(metadata_app, name="metadata")
 
 console = Console()
 DEFAULT_WORKSPACES_DIR = "workspaces"
@@ -674,6 +677,33 @@ def convert(
         f"[green]Convert complete[/green] processed={result.processed} converted={result.converted} "
         f"skipped={result.skipped} failed={result.failed}"
     )
+
+
+@metadata_app.command("extract")
+def metadata_extract(
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
+    status: Optional[str] = typer.Option(None, "--status", help="Only extract metadata for sources with this status."),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Extract deterministic citation metadata without inventing missing fields."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["metadata", "extract"], ws, log_level)
+
+    result = extract_citation_metadata(ws, status=status)
+    summary.files_processed = result.processed
+    summary.files_succeeded = result.updated
+    logger.info(
+        "Extracted citation metadata",
+        operation="metadata_extract",
+        status_filter=status,
+        processed=result.processed,
+        updated=result.updated,
+    )
+    _finish(summary, summary_path, next_action="Inspect sources_metadata/ for extracted citation metadata.")
+
+    if not quiet:
+        console.print(f"[green]Metadata extracted[/green] processed={result.processed} updated={result.updated}")
 
 
 @zotero_app.command("collections")
