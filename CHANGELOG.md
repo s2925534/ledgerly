@@ -4,6 +4,9 @@ All notable changes to ResearchBoss will be documented in this file.
 
 ## Unreleased
 
+- Bumped project version to 0.5.2.
+- Added explicit Scopus external-search foundation with query planning, query history, readiness checks, response snapshots, no-results logs, and `--external-search` opt-in.
+- Added safe AI workspace reports for corpus summaries, claim-check assistance, citation-gap recommendations, artefact cross-reference, and source-relevance recommendations.
 - Bumped project version to 0.5.1.
 - Added AI-assisted review, novelty assessment, and research-question assessment commands behind explicit `--ai` opt-in, with local report outputs and mocked privacy-boundary tests.
 - Added TODO and roadmap lists for future AI work that still makes sense to implement.

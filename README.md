@@ -1,6 +1,6 @@
 # ResearchBoss
 
-Current version: 0.5.1
+Current version: 0.5.2
 
 ResearchBoss is a local-first, evidence-first research workspace for managing research context, source files, review state, and project memory without requiring cloud services for the MVP.
 
@@ -56,7 +56,7 @@ Phase 1 complete:
 - Workspace health reports and backup restore dry-run inspection
 - OpenAI readiness checks through `researchboss ai test`, with live requests requiring explicit `--ai`
 - Safe local AI context previews through `researchboss ai context-preview --ai`, excluding original files and whole documents or datasets by default
-- AI-assisted review, novelty assessment, and research-question assessment commands, all requiring explicit `--ai`
+- AI-assisted review, novelty assessment, research-question assessment, corpus summary, claim-checking, citation-gap, artefact cross-reference, and source-relevance commands, all requiring explicit `--ai`
 - Zotero-style citation wording during init, including explicit `American Psychological Association 7th edition`
 - Strict one-way Zotero-to-ResearchBoss blocker config that prevents writes inside the local Zotero directory
 - SHA-256 file hashing
@@ -227,6 +227,14 @@ researchboss ai context-preview --ai [--workspace <path>]
 researchboss ai review --ai [--workspace <path>]
 researchboss assess-novelty --ai [--workspace <path>]
 researchboss rqs assess --ai [--workspace <path>] [--rq <rq-id>]
+researchboss ai corpus-summary --ai [--workspace <path>]
+researchboss ai claim-check --ai [--workspace <path>]
+researchboss ai citation-gaps --ai [--workspace <path>]
+researchboss ai artefact-cross-reference --ai [--workspace <path>]
+researchboss ai source-relevance --ai [--workspace <path>]
+researchboss search plan [--workspace <path>]
+researchboss search scopus-test --external-search [--workspace <path>]
+researchboss search scopus --external-search "query" [--workspace <path>]
 researchboss zotero search "keyword terms" [--workspace <path>] [--storage <zotero-storage-folder>]
 researchboss zotero collections [--workspace <path>]
 researchboss zotero test [--workspace <path>]
@@ -346,7 +354,7 @@ OpenAI support is optional and disabled by default. `researchboss ai test` check
 
 `researchboss ai context-preview --ai` writes a local preview file at `outputs/validation/openai-safe-context.yaml`. It uses accepted source metadata and bounded converted-text excerpts only. It excludes original files, whole PDFs, whole CSV files, whole SQLite databases, and Zotero directory writes by default. It does not call OpenAI.
 
-`researchboss ai review --ai`, `researchboss assess-novelty --ai`, and `researchboss rqs assess --ai` use the same safe context boundary and write local reports. They are AI-assisted outputs, not proof. Human review is required before using their conclusions.
+`researchboss ai review --ai`, `researchboss assess-novelty --ai`, `researchboss rqs assess --ai`, `researchboss ai corpus-summary --ai`, `researchboss ai claim-check --ai`, `researchboss ai citation-gaps --ai`, `researchboss ai artefact-cross-reference --ai`, and `researchboss ai source-relevance --ai` use the same safe context boundary and write local reports. They are AI-assisted outputs, not proof. Human review is required before using their conclusions. External search commands use `--external-search` and write local snapshots/history only inside the workspace.
 
 Source statuses are currently limited to:
 

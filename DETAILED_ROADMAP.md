@@ -1,6 +1,6 @@
 # ResearchBoss Detailed Roadmap
 
-Project version: 0.5.1
+Project version: 0.5.2
 
 Last updated: 2026-07-03
 
@@ -61,7 +61,7 @@ Partially implemented:
 
 Not implemented:
 
-- Future AI corpus summary, claim checking assistance, citation gap recommendations, artefact cross-reference, explicit full-file opt-ins, and source relevance recommendations.
+- Future explicit full-file/directory AI opt-ins and AI-assisted abstract screening.
 - FastAPI backend.
 - Cross-platform UI.
 - Packaging.
@@ -280,15 +280,17 @@ Implemented:
 - `researchboss ai review --ai` for AI-assisted source/corpus review.
 - `researchboss assess-novelty --ai` with `novelty-ledger.yaml` updates.
 - `researchboss rqs assess --ai` for AI-assisted research question strength, novelty, field usefulness, and evidence-quality review.
+- `researchboss ai corpus-summary --ai` for safe-context corpus summary reports.
+- `researchboss ai claim-check --ai` for safe-context claim-checking recommendations.
+- `researchboss ai citation-gaps --ai` for safe-context citation-gap recommendations.
+- `researchboss ai artefact-cross-reference --ai` for safe-context artefact cross-reference review.
+- `researchboss ai source-relevance --ai` for safe-context source relevance recommendations.
 - Privacy-boundary tests for missing keys, key non-disclosure, explicit `--ai`, and whole-document/dataset exclusion.
 
 Next work:
 
-- AI corpus summary reports.
-- AI claim-checking assistance.
-- AI citation gap recommendations.
-- AI artefact cross-reference review.
 - Explicit full-file and full-directory opt-in modes with warning output and tests.
+- AI-assisted abstract screening for locally imported abstracts.
 
 ### Phase 6: FastAPI Local Backend
 
@@ -468,14 +470,12 @@ Implemented:
 - `researchboss ai review --ai` writes a local AI-assisted review report.
 - `researchboss assess-novelty --ai` writes a local novelty report and appends `novelty-ledger.yaml`.
 - `researchboss rqs assess --ai` writes a local AI-assisted research-question assessment report.
-- Tests cover missing key behavior, key non-disclosure, explicit `--ai`, no default whole-document/dataset inclusion, and mocked AI workflow outputs.
+- Tests cover missing key behavior, key non-disclosure, explicit `--ai`, no default whole-document/dataset inclusion, mocked AI workflow outputs, and explicit external-search opt-in.
 
 Missing:
 
 - Corpus summary behavior.
-- AI-assisted claim checking.
-- AI-assisted citation gap recommendations.
-- AI-assisted artefact cross-reference review.
+- AI-assisted abstract screening for local abstract imports.
 - Explicit full-file and directory opt-in modes.
 
 Planned AI options:
@@ -491,13 +491,8 @@ Planned AI options:
 Future AI work that makes sense to implement next:
 
 - AI-assisted abstract screening for locally imported abstracts, writing recommendations only.
-- AI corpus summary reports from safe context only.
-- AI claim-checking assistance against accepted sources and `claims-ledger.yaml`.
-- AI citation gap recommendations using accepted sources, claims, and research questions.
-- AI artefact cross-reference review against in-progress artefacts.
 - Explicit per-run full-file AI opt-in flags with warning output and tests.
 - Explicit per-run directory AI opt-in flags with warning output and tests.
-- AI source relevance recommendations that cite source IDs and never modify source statuses automatically.
 
 ## 12. Tests Audit
 

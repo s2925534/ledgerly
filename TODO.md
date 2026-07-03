@@ -125,21 +125,21 @@
 
 ## Future AI Work That Makes Sense To Implement
 
-- [ ] <span style="color: #ef6c00; font-weight: 600;">Add</span> AI corpus summary reports from safe context only.
-- [ ] <span style="color: #ef6c00; font-weight: 600;">Add</span> AI claim-checking assistance against accepted sources and `claims-ledger.yaml`.
-- [ ] <span style="color: #ef6c00; font-weight: 600;">Add</span> AI citation gap recommendations using accepted sources, claims, and research questions.
-- [ ] <span style="color: #ef6c00; font-weight: 600;">Add</span> AI artefact cross-reference review against in-progress artefacts.
+- [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add AI corpus summary reports from safe context only through `researchboss ai corpus-summary --ai`.
+- [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add AI claim-checking assistance against accepted sources and `claims-ledger.yaml` through `researchboss ai claim-check --ai`.
+- [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add AI citation gap recommendations using accepted sources, claims, and research questions through `researchboss ai citation-gaps --ai`.
+- [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add AI artefact cross-reference review against in-progress artefacts through `researchboss ai artefact-cross-reference --ai`.
 - [ ] <span style="color: #ef6c00; font-weight: 600;">Add</span> explicit per-run full-file AI opt-in flags with warning output and tests.
 - [ ] <span style="color: #ef6c00; font-weight: 600;">Add</span> explicit per-run directory AI opt-in flags with warning output and tests.
-- [ ] <span style="color: #ef6c00; font-weight: 600;">Add</span> AI source relevance recommendations that cite source IDs and never modify source statuses automatically.
+- [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add AI source relevance recommendations that cite source IDs and never modify source statuses automatically through `researchboss ai source-relevance --ai`.
 - [ ] <span style="color: #ef6c00; font-weight: 600;">Add</span> AI-assisted abstract screening for locally imported abstracts, writing recommendations only.
 
 ## Future External Search Work After MVP
 
-- [ ] <span style="color: #1565c0; font-weight: 600;">Add</span> deterministic search query plan generation from research context and approved RQs.
-- [ ] <span style="color: #1565c0; font-weight: 600;">Add</span> search query history so repeated query combinations can be skipped or intentionally rerun.
-- [ ] <span style="color: #1565c0; font-weight: 600;">Add</span> external Scopus or academic search integration only after MVP boundaries are complete and the user explicitly enables it.
-- [ ] <span style="color: #1565c0; font-weight: 600;">Add</span> API response snapshots and no-results logs for external search reproducibility.
+- [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add deterministic search query plan generation from research context and approved RQs through `researchboss search plan`.
+- [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add search query history so repeated query combinations can be skipped or intentionally rerun.
+- [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add explicit Scopus integration with `--external-search` opt-in.
+- [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add API response snapshots and no-results logs for external search reproducibility.
 
 ## Phase 6: FastAPI Local Backend
 
