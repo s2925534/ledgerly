@@ -41,6 +41,9 @@
 - [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Enrich source-register entries with Zotero metadata.
 - [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add duplicate detection across Zotero metadata.
 - [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add conservative offline BibTeX export from local metadata.
+- [ ] Validate scan provider values such as `local_folder` and `zotero_storage`.
+- [ ] Add a workspace health command for config, folders, source counts, failed conversions, citation gaps, RQ readiness, and unsupported files.
+- [ ] Add local backup restore dry-run reporting without restoring files.
 
 ## Future Zotero Work
 
@@ -57,6 +60,10 @@
 - [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add failed conversion handling and conversion statuses.
 - [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add DOI detection.
 - [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add basic citation metadata extraction without inventing missing metadata.
+- [ ] Add deterministic DOI syntax and resolver-link validation to flag malformed or suspicious DOI links without rewriting metadata.
+- [ ] Add citation consistency checks for missing DOI, year, title, author, or mismatched DOI URL formats.
+- [ ] Add duplicate filename, title, and DOI reports beyond content-hash duplicates.
+- [ ] Build a local keyword index over converted text in `sources_text/`.
 - [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add tests for all conversion paths.
 
 ## Phase 3: Data and Artefacts
@@ -66,6 +73,9 @@
 - [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add JSON source registration and profiling.
 - [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add data profile reports under `outputs/data-profiles`.
 - [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Expand artefact registry records with linked sources and metadata.
+- [ ] Add evidence bundle export for accepted source metadata, claims, RQs, artefacts, and data profiles.
+- [ ] Add artefact review statuses such as reviewed, needs revision, and accepted.
+- [ ] Add artefact dependency checks against existing accepted sources and approved RQs.
 - [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add tests for data profiling and artefact registry behavior.
 
 ## Phase 4: Research Questions and Stages
@@ -76,6 +86,16 @@
 - [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add research question candidate, approval, rejection, and archive workflows beyond init-time capture.
 - [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add deterministic research question readiness checks without claiming novelty or contribution strength.
 - [ ] Add warning thresholds without hard limits by default.
+- [ ] Add source notes commands for local per-source notes.
+- [ ] Add manual source tags for deterministic review categories.
+- [ ] Add claim status workflow for supported, needs evidence, rejected, and needs review.
+- [ ] Add claim-source validation to ensure claims link only to accepted sources.
+- [ ] Add source review reports for pending, accepted, maybe, ignored, duplicates, and failed files.
+- [ ] Add decision log commands for structured project decisions.
+- [ ] Add terminology glossary commands.
+- [ ] Add supervisor or stakeholder feedback commands.
+- [ ] Add context changelog commands.
+- [ ] Add local timeline report from logs, decisions, scans, conversions, and RQ changes.
 - [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add tests for research question and stage workflows.
 
 ## Phase 5: Optional OpenAI Features

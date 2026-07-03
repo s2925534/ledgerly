@@ -1,6 +1,6 @@
 # ResearchBoss Detailed Roadmap
 
-Project version: 0.3.5
+Project version: 0.3.6
 
 Last updated: 2026-07-03
 
@@ -195,6 +195,13 @@ Implemented:
 - Failed conversion handling.
 - DOI detection and basic citation metadata extraction without invented metadata.
 
+Future:
+
+- Deterministic DOI syntax and resolver-link validation to flag malformed DOI values or suspicious DOI URLs without rewriting metadata.
+- Citation consistency reports for missing DOI, title, year, author, and mismatched DOI URL formats.
+- Duplicate reports by filename, title, and DOI in addition to content hashes.
+- Local keyword index over converted text in `sources_text/`.
+
 ### Phase 3: Data and Artefacts
 
 Status: implemented for deterministic local MVP paths.
@@ -206,6 +213,12 @@ Implemented:
 - JSON source registration and profiling.
 - Data profile reports.
 - Rich artefact registry records.
+
+Future:
+
+- Evidence bundle export containing accepted source metadata, claims, research questions, artefacts, and data profiles.
+- Artefact review workflow with reviewed, needs revision, and accepted states.
+- Artefact dependency checks against existing accepted sources and approved research questions.
 
 ### Phase 4: Research Questions and Stages
 
@@ -226,6 +239,8 @@ Future:
 
 - Richer RQ templates for all project types.
 - Warning thresholds.
+- Source notes, manual source tags, source review reports, and claim status workflows.
+- Decision log, terminology glossary, supervisor/stakeholder feedback, context changelog, and local timeline commands.
 - AI-assisted RQ strength, novelty, field usefulness, contribution, and evidence-quality review after privacy-boundary tests exist.
 
 ### Phase 5: Optional OpenAI Features
@@ -509,33 +524,103 @@ Missing:
    - Complexity: low.
    - Phase: 1 refinement.
 
-2. Add richer local Zotero metadata coverage.
+2. Add deterministic DOI validation.
+   - Why: generated or copied citations often contain malformed DOI values or DOI URLs that do not match the stored DOI.
+   - Likely files: `metadata.py`, new metadata-quality engine module, `cli.py`, tests.
+   - Tests: valid DOI, malformed DOI, `doi.org` URL normalization, mismatched DOI URL/value.
+   - Complexity: medium.
+   - Phase: 2 refinement.
+
+3. Add citation consistency reports.
+   - Why: missing title, year, authors, DOI, or mismatched DOI URL formats should be visible before writing or exporting.
+   - Likely files: metadata engine, reports, CLI, tests.
+   - Tests: missing-field and suspicious-field fixtures.
+   - Complexity: medium.
+   - Phase: 2 refinement.
+
+4. Add duplicate filename/title/DOI reports.
+   - Why: content hashes miss common citation-library duplicates that have different files but the same title or DOI.
+   - Likely files: sources/metadata engine, reports, tests.
+   - Tests: duplicate title, duplicate DOI, same filename with different hash.
+   - Complexity: medium.
+   - Phase: 2 refinement.
+
+5. Build a local keyword index over converted text.
+   - Why: enables offline deterministic search over already converted accepted sources without AI or external search.
+   - Likely files: new index/search engine module, CLI, tests.
+   - Tests: indexing converted TXT/MD/PDF text and deterministic keyword search.
+   - Complexity: medium.
+   - Phase: 2 refinement.
+
+6. Add source review reports.
+   - Why: reviewers need one local report of pending, accepted, maybe, ignored, duplicates, failed conversions, and metadata gaps.
+   - Likely files: reports engine, sources engine, CLI, tests.
+   - Tests: mixed-status workspace report.
+   - Complexity: medium.
+   - Phase: 4 refinement.
+
+7. Add source notes and manual source tags.
+   - Why: offline review needs human annotations and deterministic categories without modifying original files.
+   - Likely files: new source-notes/tags engine module, workspace files, CLI, tests.
+   - Tests: add/list/update notes and tags.
+   - Complexity: medium.
+   - Phase: 4 refinement.
+
+8. Add claim status and claim-source validation.
+   - Why: claims should distinguish supported, needs evidence, rejected, and needs review, and should link only to accepted sources.
+   - Likely files: `claims.py`, CLI, reports, tests.
+   - Tests: invalid source links, ignored source links, status transitions.
+   - Complexity: medium.
+   - Phase: 4 refinement.
+
+9. Add artefact review and dependency checks.
+   - Why: generated artefacts need deterministic review status and checks that linked sources/RQs still exist and are accepted/approved.
+   - Likely files: `artefacts.py`, `artefact_creation.py`, CLI, tests.
+   - Tests: missing source, ignored source, rejected RQ, status transitions.
+   - Complexity: medium.
+   - Phase: 3 refinement.
+
+10. Add evidence bundle export.
+    - Why: users need an offline export of accepted source metadata, claims, RQs, artefacts, and data profiles for backup or supervisor review.
+    - Likely files: new export engine module, CLI, tests.
+    - Tests: export structure and excluded ignored/original full files by default.
+    - Complexity: medium.
+    - Phase: 3 refinement.
+
+11. Add structured project-log commands.
+    - Why: decisions, terminology, supervisor feedback, context changes, and timelines should be maintained locally and consistently.
+    - Likely files: new decisions/terminology/feedback/changelog engine modules, CLI, tests.
+    - Tests: add/list/update workflows.
+    - Complexity: medium.
+    - Phase: 4 refinement.
+
+12. Add workspace health command.
+    - Why: one command should validate config, folders, source counts, failed conversions, unsupported files, RQ readiness, and citation gaps.
+    - Likely files: new health engine module, CLI, tests.
+    - Tests: healthy workspace and workspace with missing paths/issues.
+    - Complexity: medium.
+    - Phase: 1/4 refinement.
+
+13. Add backup restore dry-run.
+    - Why: users should inspect what a backup contains and what would be restored before any restore feature writes files.
+    - Likely files: backup engine, CLI, tests.
+    - Tests: zip inspection, missing manifest, no filesystem mutation.
+    - Complexity: low.
+    - Phase: 1 refinement.
+
+14. Add richer local Zotero metadata coverage.
     - Why: tags, notes, item links, and relations can improve offline review without AI/API.
     - Likely files: `zotero.py`, tests, docs.
     - Tests: SQLite fixture for notes/tags/relations.
     - Complexity: medium.
     - Phase: 1 refinement / Phase 2 support.
 
-3. Add integrated source review/report workflow.
-   - Why: ties source review, conversion, metadata, claims, and reports into one deterministic command.
-   - Likely files: `cli.py`, new engine module, tests.
-   - Tests: end-to-end local workspace workflow.
-   - Complexity: medium.
-   - Phase: 4 refinement.
-
-4. Add richer PDF extraction using an optional local dependency.
-   - Why: current PDF support is intentionally conservative for simple uncompressed streams.
-   - Likely files: conversion engine, docs, tests.
-   - Tests: realistic PDF fixture.
-   - Complexity: medium.
-   - Phase: 2 refinement.
-
-5. Start FastAPI local backend contracts.
-   - Why: deterministic engine contracts now exist for CLI reuse.
-   - Likely files: `researchboss/api`, tests, docs.
-   - Tests: API route tests.
-   - Complexity: high.
-   - Phase: 6.
+15. Add richer PDF extraction using an optional local dependency.
+    - Why: current PDF support is intentionally conservative for simple uncompressed streams.
+    - Likely files: conversion engine, docs, tests.
+    - Tests: realistic PDF fixture.
+    - Complexity: medium.
+    - Phase: 2 refinement.
 
 ## 16. Recommended Resume Point
 

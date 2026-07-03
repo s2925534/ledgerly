@@ -4,6 +4,8 @@ All notable changes to ResearchBoss will be documented in this file.
 
 ## Unreleased
 
+- Bumped project version to 0.3.6.
+- Added offline deterministic roadmap/TODO items for DOI validation, citation consistency, duplicate metadata reports, source review reports, source notes/tags, claim validation, artefact review, evidence bundle export, project-log commands, workspace health, and backup restore dry-run.
 - Bumped project version to 0.3.5.
 - Added deterministic `researchboss rqs check` readiness checks with local validation reports and per-question readiness metadata.
 - Documented that novelty, contribution strength, field usefulness, and evidence-quality certainty remain human-review or future AI-assisted concerns.
