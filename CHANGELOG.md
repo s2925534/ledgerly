@@ -4,6 +4,10 @@ All notable changes to ResearchBoss will be documented in this file.
 
 ## Unreleased
 
+- Bumped project version to 0.3.8.
+- Completed current Phase 1, Phase 2, and Phase 3 offline deterministic TODO items that do not require AI or API implementation.
+- Added scan provider validation, workspace health reports, backup dry-run inspection, DOI/citation consistency validation, metadata duplicate reports, converted-text keyword indexing, evidence bundle export, artefact review statuses, and artefact dependency checks.
+- Color-marked pending TODO items that require AI implementation or API development.
 - Bumped project version to 0.3.7.
 - Added richer read-only local Zotero SQLite coverage for notes, tags, relations, linked items, and extra metadata fields.
 - Expanded deterministic Zotero search, snapshots, metadata-quality reports, and BibTeX export to use the richer offline metadata.

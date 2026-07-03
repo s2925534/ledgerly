@@ -4,7 +4,12 @@ import pytest
 
 from researchboss.core.yamlio import read_yaml, write_yaml
 from researchboss.engine.artefact_creation import create_deterministic_artefact
-from researchboss.engine.artefacts import list_artefacts, register_artefact
+from researchboss.engine.artefacts import (
+    artefact_dependency_report,
+    list_artefacts,
+    register_artefact,
+    set_artefact_review_status,
+)
 from researchboss.engine.claims import add_claim
 from researchboss.engine.workspace import init_workspace
 
@@ -158,3 +163,33 @@ def test_create_artefact_requires_overwrite_for_existing_file(tmp_path: Path) ->
 
     result = create_deterministic_artefact(workspace, "source-summary-report", overwrite=True)
     assert result.path.is_file()
+
+
+def test_artefact_review_status_and_dependency_report(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(
+        workspace,
+        project_name="Test Project",
+        project_type="M.Phil",
+        topic="",
+        research_questions=[{"question": "Approved?", "status": "approved", "subquestions": []}],
+    )
+    write_yaml(
+        workspace / "source-register.yaml",
+        {"version": 1, "sources": [{"source_id": "source-001", "status": "maybe"}]},
+    )
+    record = register_artefact(
+        workspace,
+        title="Report",
+        artefact_type="report",
+        path=workspace / "artefacts" / "reports" / "report.md",
+        linked_sources=["source-001"],
+        linked_research_questions=["rq-001"],
+    )
+
+    set_artefact_review_status(workspace, record["id"], "needs_revision")
+    report = artefact_dependency_report(workspace)
+
+    assert list_artefacts(workspace)[0]["review_status"] == "needs_revision"
+    assert report["artefacts"][0]["status"] == "needs_review"
+    assert report["artefacts"][0]["issues"][0]["kind"] == "source_not_accepted"

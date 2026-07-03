@@ -352,6 +352,28 @@ def test_cli_metadata_extract_updates_source_register(tmp_path: Path) -> None:
     assert source["citation_metadata"]["year"] == "2025"
 
 
+def test_cli_metadata_validation_duplicates_and_index(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    source_root = tmp_path / "sources"
+    source_root.mkdir()
+    (source_root / "paper.txt").write_text("Title Line\n2025\nDOI: 10.1234/example", encoding="utf-8")
+    init_workspace_with_cli(workspace)
+    assert runner.invoke(app, ["scan", "--workspace", str(workspace), "--source", str(source_root), "--quiet"]).exit_code == 0
+    assert runner.invoke(app, ["convert", "--workspace", str(workspace), "--quiet"]).exit_code == 0
+    assert runner.invoke(app, ["metadata", "extract", "--workspace", str(workspace), "--quiet"]).exit_code == 0
+
+    validate_result = runner.invoke(app, ["metadata", "validate", "--workspace", str(workspace), "--quiet"])
+    duplicates_result = runner.invoke(app, ["metadata", "duplicates", "--workspace", str(workspace), "--quiet"])
+    index_result = runner.invoke(app, ["metadata", "index", "--workspace", str(workspace), "--quiet"])
+
+    assert validate_result.exit_code == 0, validate_result.output
+    assert duplicates_result.exit_code == 0, duplicates_result.output
+    assert index_result.exit_code == 0, index_result.output
+    assert (workspace / "outputs" / "validation" / "citation-consistency.yaml").is_file()
+    assert (workspace / "outputs" / "validation" / "metadata-duplicates.yaml").is_file()
+    assert (workspace / "sources_metadata" / "keyword-index.yaml").is_file()
+
+
 def test_cli_data_profile_profiles_registered_data_sources(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     source_root = tmp_path / "sources"
@@ -473,6 +495,46 @@ def test_cli_artefacts_create_source_summary(tmp_path: Path) -> None:
     artefact = read_yaml(workspace / "artefact-registry.yaml")["artefacts"][0]
     assert artefact["type"] == "source-summary-report"
     assert artefact["ai_generated"] is False
+
+
+def test_cli_artefact_review_dependencies_health_export_and_backup_inspect(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test Project", project_type="M.Phil", topic="")
+    artefact_path = workspace / "artefacts" / "reports" / "summary.md"
+    artefact_path.write_text("# Summary", encoding="utf-8")
+    register_result = runner.invoke(
+        app,
+        [
+            "artefacts",
+            "register",
+            "Summary",
+            "--path",
+            str(artefact_path),
+            "--workspace",
+            str(workspace),
+            "--quiet",
+        ],
+    )
+    assert register_result.exit_code == 0, register_result.output
+
+    review_result = runner.invoke(app, ["artefacts", "review", "artefact-001", "accepted", "--workspace", str(workspace), "--quiet"])
+    deps_result = runner.invoke(app, ["artefacts", "dependencies", "--workspace", str(workspace), "--quiet"])
+    health_result = runner.invoke(app, ["health", "--workspace", str(workspace), "--quiet"])
+    export_result = runner.invoke(app, ["export-evidence", "--workspace", str(workspace), "--quiet"])
+    backup_result = runner.invoke(app, ["backup", "--workspace", str(workspace), "--quiet"])
+    backup_path = workspace / "outputs" / "backups" / f"{workspace.name}-backup.zip"
+    inspect_result = runner.invoke(app, ["backup-inspect", str(backup_path), "--workspace", str(workspace), "--quiet"])
+
+    assert review_result.exit_code == 0, review_result.output
+    assert deps_result.exit_code == 0, deps_result.output
+    assert health_result.exit_code == 0, health_result.output
+    assert export_result.exit_code == 0, export_result.output
+    assert backup_result.exit_code == 0, backup_result.output
+    assert inspect_result.exit_code == 0, inspect_result.output
+    assert read_yaml(workspace / "artefact-registry.yaml")["artefacts"][0]["review_status"] == "accepted"
+    assert (workspace / "outputs" / "validation" / "artefact-dependencies.yaml").is_file()
+    assert (workspace / "outputs" / "reports" / "evidence-bundle.zip").is_file()
+    assert (workspace / "outputs" / "validation" / "backup-inspect.yaml").is_file()
 
 
 def test_cli_claims_add_list_and_gaps(tmp_path: Path) -> None:

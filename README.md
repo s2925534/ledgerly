@@ -1,6 +1,6 @@
 # ResearchBoss
 
-Current version: 0.3.7
+Current version: 0.3.8
 
 ResearchBoss is a local-first, evidence-first research workspace for managing research context, source files, review state, and project memory without requiring cloud services for the MVP.
 
@@ -39,13 +39,16 @@ Phase 1 complete:
 - TXT, MD, DOCX, and page-marked PDF conversion into `sources_text/`
 - Conversion cache keyed by source hash and failed conversion records under `sources_failed/`
 - Deterministic citation metadata extraction without inventing missing fields
+- DOI syntax and resolver-link validation, citation consistency reports, metadata duplicate reports, and local keyword indexing
 - CSV, SQLite, and JSON data profiling under `outputs/data-profiles/`
 - M.Phil and PhD research stage templates
 - Research question approve, reject, archive, list, and deterministic readiness-check workflows
 - Manual claim ledger and citation gap reports
 - Artefact registry records with linked sources, linked research questions, and review flags
 - Deterministic artefact creation for source summaries, literature review matrices, claim-evidence tables, research question briefs, and data profile summaries
+- Artefact review statuses, artefact dependency validation, and offline evidence bundle export
 - Local Markdown report generation, one-shot source watch reports, workspace backups, and config migration
+- Workspace health reports and backup restore dry-run inspection
 - Zotero-style citation wording during init, including explicit `American Psychological Association 7th edition`
 - Strict one-way Zotero-to-ResearchBoss blocker config that prevents writes inside the local Zotero directory
 - SHA-256 file hashing
@@ -204,7 +207,10 @@ researchboss data list [--workspace <path>]
 researchboss data status [--workspace <path>]
 researchboss report [--workspace <path>]
 researchboss watch [--workspace <path>]
+researchboss health [--workspace <path>]
 researchboss backup [--workspace <path>] [--include-originals]
+researchboss backup-inspect <backup.zip> [--workspace <path>]
+researchboss export-evidence [--workspace <path>]
 researchboss zotero search "keyword terms" [--workspace <path>] [--storage <zotero-storage-folder>]
 researchboss zotero collections [--workspace <path>]
 researchboss zotero test [--workspace <path>]
@@ -217,6 +223,9 @@ researchboss zotero fulltext-report [--workspace <path>]
 researchboss zotero duplicates [--workspace <path>]
 researchboss zotero snapshot [--workspace <path>]
 researchboss zotero export-bibtex [--workspace <path>]
+researchboss metadata validate [--workspace <path>]
+researchboss metadata duplicates [--workspace <path>]
+researchboss metadata index [--workspace <path>]
 researchboss sources list [--workspace <path>]
 researchboss sources status [--workspace <path>]
 researchboss sources review [--workspace <path>]
@@ -238,6 +247,8 @@ researchboss artefacts create claim-evidence-table [--workspace <path>]
 researchboss artefacts create research-question-brief [--workspace <path>] [--rq <rq-id>]
 researchboss artefacts create data-profile-summary [--workspace <path>]
 researchboss artefacts list [--workspace <path>]
+researchboss artefacts review <artefact-id> <status> [--workspace <path>]
+researchboss artefacts dependencies [--workspace <path>]
 ```
 
 `researchboss artefacts create` is deterministic and non-AI. It only extracts and arranges existing workspace state, excludes ignored sources, writes generated artefacts inside the workspace, marks them as requiring user review, and records `ai_generated: false`.

@@ -16,6 +16,7 @@ from researchboss.engine.zotero import (
 
 
 ALLOWED_EXTENSIONS = {".pdf", ".docx", ".txt", ".md", ".csv", ".sqlite", ".db", ".json"}
+SOURCE_PROVIDERS = {"local_folder", "zotero_storage"}
 SOURCE_STATUSES = {"pending_review", "accepted", "ignored", "maybe"}
 REVIEW_STATUSES = {"accepted", "ignored", "maybe"}
 INITIAL_SOURCE_STATUSES = {"pending_review", "maybe"}
@@ -73,6 +74,12 @@ def validate_source_status(status: str) -> None:
         raise ValueError(f"Invalid source status: {status!r}. Expected one of: {allowed}")
 
 
+def validate_source_provider(provider: str) -> None:
+    if provider not in SOURCE_PROVIDERS:
+        allowed = ", ".join(sorted(SOURCE_PROVIDERS))
+        raise ValueError(f"Invalid source provider: {provider!r}. Expected one of: {allowed}")
+
+
 def scan_sources(
     workspace: Path,
     source_root: Path,
@@ -83,6 +90,7 @@ def scan_sources(
     initial_status: str = "pending_review",
     zotero_root: Optional[Path] = None,
 ) -> ScanResult:
+    validate_source_provider(provider)
     if initial_status not in INITIAL_SOURCE_STATUSES:
         allowed = ", ".join(sorted(INITIAL_SOURCE_STATUSES))
         raise ValueError(f"Invalid initial source status: {initial_status!r}. Expected one of: {allowed}")

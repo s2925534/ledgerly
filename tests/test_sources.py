@@ -9,6 +9,7 @@ from researchboss.engine.sources import (
     scan_sources,
     set_source_status,
     source_counts,
+    validate_source_provider,
 )
 from researchboss.engine.workspace import init_workspace
 
@@ -108,6 +109,18 @@ def test_scan_sources_rejects_invalid_initial_status(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="Invalid initial source status"):
         scan_sources(workspace, source_root, initial_status="accepted")
+
+
+def test_scan_sources_rejects_invalid_provider(tmp_path: Path) -> None:
+    workspace = make_workspace(tmp_path)
+    source_root = tmp_path / "sources"
+    source_root.mkdir()
+
+    with pytest.raises(ValueError, match="Invalid source provider"):
+        scan_sources(workspace, source_root, provider="cloud")
+
+    with pytest.raises(ValueError, match="Invalid source provider"):
+        validate_source_provider("api")
 
 
 def test_set_source_status_updates_register_and_review_lists(tmp_path: Path) -> None:

@@ -23,3 +23,18 @@ def create_workspace_backup(workspace: Path, *, include_originals: bool = False)
                 continue
             zf.write(path, relative.as_posix())
     return output_path
+
+
+def inspect_backup(backup_path: Path) -> dict[str, object]:
+    with ZipFile(backup_path, "r") as zf:
+        names = sorted(zf.namelist())
+        total_size = sum(info.file_size for info in zf.infolist())
+    return {
+        "version": 1,
+        "backup_path": str(backup_path),
+        "file_count": len(names),
+        "total_uncompressed_bytes": total_size,
+        "contains_original_sources": any(name.startswith("sources_original/") for name in names),
+        "files": names,
+        "dry_run": True,
+    }

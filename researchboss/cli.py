@@ -14,12 +14,15 @@ from rich.table import Table
 from researchboss.core.runlog import JsonlLogger, RunSummary, make_run_paths, write_run_summary
 from researchboss.core.yamlio import read_yaml, write_yaml
 from researchboss.engine.artefact_creation import SUPPORTED_ARTEFACT_TYPES, create_deterministic_artefact
-from researchboss.engine.artefacts import list_artefacts, register_artefact
-from researchboss.engine.backup import create_workspace_backup
+from researchboss.engine.artefacts import artefact_dependency_report, list_artefacts, register_artefact, set_artefact_review_status
+from researchboss.engine.backup import create_workspace_backup, inspect_backup
 from researchboss.engine.claims import add_claim, list_claims, write_citation_gap_report
 from researchboss.engine.conversion import convert_sources
 from researchboss.engine.data import data_source_counts, list_data_sources, profile_data_sources
+from researchboss.engine.export import export_evidence_bundle
+from researchboss.engine.health import workspace_health_report
 from researchboss.engine.metadata import extract_citation_metadata
+from researchboss.engine.metadata_quality import build_keyword_index, citation_consistency_report, duplicate_metadata_report
 from researchboss.engine.migrations import migrate_workspace
 from researchboss.engine.research_questions import (
     check_research_question_readiness,
@@ -36,6 +39,7 @@ from researchboss.engine.sources import (
     scan_sources,
     set_source_status,
     source_counts,
+    validate_source_provider,
 )
 from researchboss.engine.watch import write_watch_report
 from researchboss.engine.zotero import (
@@ -623,7 +627,8 @@ def scan(
 
     cfg_root, source_mode, source_config = _configured_source_root(ws)
     initial_status = source_config.get("new_source_status", "pending_review")
-    provider = kind or source_mode
+    provider = kind or (source_mode if source_mode in {"local_folder", "zotero_storage"} else "local_folder")
+    validate_source_provider(provider)
     scan_root = source or cfg_root
     if not scan_root:
         logger.error("No source root configured or provided", operation="scan")
@@ -740,6 +745,59 @@ def backup(
         console.print(f"[green]Wrote[/green] {output_path}")
 
 
+@app.command("backup-inspect")
+def backup_inspect(
+    backup_path: Path = typer.Argument(..., help="Backup zip path to inspect without restoring."),
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path for run logs."),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Inspect a backup zip without restoring or writing its contents."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["backup", "inspect"], ws, log_level)
+    report = inspect_backup(backup_path)
+    output_path = ws / "outputs" / "validation" / "backup-inspect.yaml"
+    write_yaml(output_path, report)
+    logger.info("Inspected backup", operation="backup_inspect", output_path=str(output_path))
+    _finish(summary, summary_path)
+    if not quiet:
+        console.print(f"[green]Wrote[/green] {output_path}")
+        console.print(f"files={report['file_count']} dry_run={report['dry_run']}")
+
+
+@app.command("health")
+def health(
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Run deterministic local workspace health checks."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["health"], ws, log_level)
+    report = workspace_health_report(ws)
+    logger.info("Wrote workspace health report", operation="health", status=report["status"])
+    _finish(summary, summary_path)
+    if not quiet:
+        console.print(f"[green]Health[/green] {report['status']}")
+        console.print(f"Wrote {ws / 'outputs' / 'validation' / 'workspace-health.yaml'}")
+
+
+@app.command("export-evidence")
+def export_evidence(
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Export a local evidence bundle without original source files."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["export", "evidence"], ws, log_level)
+    output_path = export_evidence_bundle(ws)
+    logger.info("Exported evidence bundle", operation="export_evidence", output_path=str(output_path))
+    _finish(summary, summary_path)
+    if not quiet:
+        console.print(f"[green]Wrote[/green] {output_path}")
+
+
 @app.command()
 def convert(
     workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
@@ -800,6 +858,54 @@ def metadata_extract(
 
     if not quiet:
         console.print(f"[green]Metadata extracted[/green] processed={result.processed} updated={result.updated}")
+
+
+@metadata_app.command("validate")
+def metadata_validate(
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Validate deterministic citation metadata quality, including DOI consistency."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["metadata", "validate"], ws, log_level)
+    report = citation_consistency_report(ws)
+    logger.info("Wrote citation consistency report", operation="metadata_validate", source_count=report["source_count"])
+    _finish(summary, summary_path)
+    if not quiet:
+        console.print(f"[green]Wrote[/green] {ws / 'outputs' / 'validation' / 'citation-consistency.yaml'}")
+
+
+@metadata_app.command("duplicates")
+def metadata_duplicates(
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Report possible duplicate metadata by filename, title, and DOI."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["metadata", "duplicates"], ws, log_level)
+    report = duplicate_metadata_report(ws)
+    logger.info("Wrote metadata duplicate report", operation="metadata_duplicates", groups=len(report["duplicate_groups"]))
+    _finish(summary, summary_path)
+    if not quiet:
+        console.print(f"[green]Wrote[/green] {ws / 'outputs' / 'validation' / 'metadata-duplicates.yaml'}")
+
+
+@metadata_app.command("index")
+def metadata_index(
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Build a deterministic local keyword index over converted text."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["metadata", "index"], ws, log_level)
+    index = build_keyword_index(ws)
+    logger.info("Built keyword index", operation="metadata_index", entry_count=index["entry_count"])
+    _finish(summary, summary_path)
+    if not quiet:
+        console.print(f"[green]Wrote[/green] {ws / 'sources_metadata' / 'keyword-index.yaml'}")
 
 
 @data_app.command("profile")
@@ -1078,6 +1184,40 @@ def artefacts_list(
     for row in rows:
         table.add_row(str(row.get("id")), str(row.get("type")), str(row.get("review_status")), str(row.get("title")))
     console.print(table)
+
+
+@artefacts_app.command("review")
+def artefacts_review(
+    artefact_id: str = typer.Argument(...),
+    status: str = typer.Argument(..., help="reviewed | needs_revision | accepted | pending_review"),
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Set an artefact review status."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["artefacts", "review"], ws, log_level)
+    set_artefact_review_status(ws, artefact_id, status)
+    logger.info("Updated artefact review status", operation="artefacts_review", artefact_id=artefact_id, status=status)
+    _finish(summary, summary_path)
+    if not quiet:
+        console.print(f"[green]Updated[/green] {artefact_id} {status}")
+
+
+@artefacts_app.command("dependencies")
+def artefacts_dependencies(
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Check artefact links against accepted sources and approved RQs."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["artefacts", "dependencies"], ws, log_level)
+    report = artefact_dependency_report(ws)
+    logger.info("Wrote artefact dependency report", operation="artefacts_dependencies", count=len(report["artefacts"]))
+    _finish(summary, summary_path)
+    if not quiet:
+        console.print(f"[green]Wrote[/green] {ws / 'outputs' / 'validation' / 'artefact-dependencies.yaml'}")
 
 
 @claims_app.command("add")

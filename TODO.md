@@ -41,13 +41,13 @@
 - [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Enrich source-register entries with Zotero metadata.
 - [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add duplicate detection across Zotero metadata.
 - [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add conservative offline BibTeX export from local metadata.
-- [ ] Validate scan provider values such as `local_folder` and `zotero_storage`.
-- [ ] Add a workspace health command for config, folders, source counts, failed conversions, citation gaps, RQ readiness, and unsupported files.
-- [ ] Add local backup restore dry-run reporting without restoring files.
+- [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Validate scan provider values such as `local_folder` and `zotero_storage`.
+- [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add a workspace health command for config, folders, source counts, failed conversions, citation gaps, RQ readiness, and unsupported files.
+- [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add local backup restore dry-run reporting without restoring files.
 
 ## Future Zotero Work
 
-- [ ] Add future Zotero API collection listing and selection only if needed after offline workflows are stable.
+- [ ] <span style="color: #1565c0; font-weight: 600;">Add</span> future Zotero API collection listing and selection only if needed after offline workflows are stable.
 - [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add richer local SQLite coverage for notes, tags, relations, and item links.
 - [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add more complete BibTeX item-type and field mapping.
 
@@ -60,10 +60,10 @@
 - [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add failed conversion handling and conversion statuses.
 - [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add DOI detection.
 - [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add basic citation metadata extraction without inventing missing metadata.
-- [ ] Add deterministic DOI syntax and resolver-link validation to flag malformed or suspicious DOI links without rewriting metadata.
-- [ ] Add citation consistency checks for missing DOI, year, title, author, or mismatched DOI URL formats.
-- [ ] Add duplicate filename, title, and DOI reports beyond content-hash duplicates.
-- [ ] Build a local keyword index over converted text in `sources_text/`.
+- [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add deterministic DOI syntax and resolver-link validation to flag malformed or suspicious DOI links without rewriting metadata.
+- [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add citation consistency checks for missing DOI, year, title, author, or mismatched DOI URL formats.
+- [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add duplicate filename, title, and DOI reports beyond content-hash duplicates.
+- [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Build a local keyword index over converted text in `sources_text/`.
 - [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add tests for all conversion paths.
 
 ## Phase 3: Data and Artefacts
@@ -73,9 +73,9 @@
 - [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add JSON source registration and profiling.
 - [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add data profile reports under `outputs/data-profiles`.
 - [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Expand artefact registry records with linked sources and metadata.
-- [ ] Add evidence bundle export for accepted source metadata, claims, RQs, artefacts, and data profiles.
-- [ ] Add artefact review statuses such as reviewed, needs revision, and accepted.
-- [ ] Add artefact dependency checks against existing accepted sources and approved RQs.
+- [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add evidence bundle export for accepted source metadata, claims, RQs, artefacts, and data profiles.
+- [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add artefact review statuses such as reviewed, needs revision, and accepted.
+- [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add artefact dependency checks against existing accepted sources and approved RQs.
 - [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add tests for data profiling and artefact registry behavior.
 
 ## Phase 4: Research Questions and Stages
@@ -100,22 +100,22 @@
 
 ## Phase 5: Optional OpenAI Features
 
-- [ ] Add `researchboss ai test`.
-- [ ] Read `OPENAI_API_KEY` from the environment without printing or logging it.
-- [ ] Keep OpenAI disabled unless explicitly enabled.
-- [ ] Keep Anthropic, Claude, and local LLM providers as future flags only.
-- [ ] Add a safe context builder that never sends whole PDFs, CSVs, or SQLite databases.
-- [ ] Add optional AI-assisted review.
-- [ ] Add optional novelty assessment backed by `novelty-ledger.yaml`.
-- [ ] Add AI-assisted research question strength, novelty, field usefulness, and evidence-quality review after privacy-boundary tests exist.
-- [ ] Add tests for missing API key behavior and privacy boundaries.
+- [ ] <span style="color: #ef6c00; font-weight: 600;">Add</span> `researchboss ai test`.
+- [ ] <span style="color: #ef6c00; font-weight: 600;">Read</span> `OPENAI_API_KEY` from the environment without printing or logging it.
+- [ ] <span style="color: #ef6c00; font-weight: 600;">Keep</span> OpenAI disabled unless explicitly enabled.
+- [ ] <span style="color: #ef6c00; font-weight: 600;">Keep</span> Anthropic, Claude, and local LLM providers as future flags only.
+- [ ] <span style="color: #ef6c00; font-weight: 600;">Add</span> a safe context builder that never sends whole PDFs, CSVs, or SQLite databases.
+- [ ] <span style="color: #ef6c00; font-weight: 600;">Add</span> optional AI-assisted review.
+- [ ] <span style="color: #ef6c00; font-weight: 600;">Add</span> optional novelty assessment backed by `novelty-ledger.yaml`.
+- [ ] <span style="color: #ef6c00; font-weight: 600;">Add</span> AI-assisted research question strength, novelty, field usefulness, and evidence-quality review after privacy-boundary tests exist.
+- [ ] <span style="color: #ef6c00; font-weight: 600;">Add</span> tests for missing API key behavior and privacy boundaries.
 
 ## Phase 6: FastAPI Local Backend
 
-- [ ] Add a local FastAPI app.
-- [ ] Add routes for projects, sources, artefacts, research questions, reports, settings, logs, AI, and novelty.
-- [ ] Reuse engine logic rather than duplicating business logic.
-- [ ] Add API tests.
+- [ ] <span style="color: #1565c0; font-weight: 600;">Add</span> a local FastAPI app.
+- [ ] <span style="color: #1565c0; font-weight: 600;">Add</span> routes for projects, sources, artefacts, research questions, reports, settings, logs, AI, and novelty.
+- [ ] <span style="color: #1565c0; font-weight: 600;">Reuse</span> engine logic rather than duplicating business logic.
+- [ ] <span style="color: #1565c0; font-weight: 600;">Add</span> API tests.
 
 ## Phase 7: Cross-Platform UI Preparation
 
