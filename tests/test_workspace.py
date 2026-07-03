@@ -85,7 +85,7 @@ def test_init_workspace_creates_expected_files_and_dirs(tmp_path: Path) -> None:
         "primary_output_type": "notes",
         "custom_primary_output_type": None,
     }
-    assert context["citation"] == {"style": "Not sure", "custom_style": None}
+    assert context["citation"] == {"style": "American Psychological Association 7th edition", "custom_style": None}
     assert context["data"] == {"expects_csv_or_sqlite": "not sure"}
     assert context["warning_thresholds"]["draft_research_questions"] == 10
     assert context["privacy"]["local_first"] is True

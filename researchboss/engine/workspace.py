@@ -25,6 +25,7 @@ ZOTERO_COMMON_CITATION_STYLES = [
     "American Chemical Society",
     "Not sure",
 ]
+DEFAULT_CITATION_STYLE = "American Psychological Association 7th edition"
 CITATION_STYLES = ZOTERO_COMMON_CITATION_STYLES
 PRIMARY_OUTPUT_TYPES = ["thesis", "paper", "report", "presentation", "notes", "custom"]
 DATA_FILE_EXPECTATIONS = ["yes", "no", "not sure"]
@@ -244,7 +245,7 @@ def init_workspace(
     artefact_root: Optional[str] = None,
     research_questions: Optional[list[dict[str, Any]]] = None,
     supervisors: Optional[list[str]] = None,
-    citation_style: str = "Not sure",
+    citation_style: str = DEFAULT_CITATION_STYLE,
     custom_citation_style: Optional[str] = None,
     primary_output_type: str = "notes",
     custom_primary_output_type: Optional[str] = None,

@@ -118,6 +118,7 @@ from researchboss.engine.workspace import (
     PRIMARY_OUTPUT_TYPES,
     PROJECT_TYPES,
     SOURCE_REVIEW_DEFAULTS,
+    DEFAULT_CITATION_STYLE,
     citation_style_choices,
     default_documents_dir,
     find_default_zotero_storage,
@@ -379,7 +380,9 @@ def _prompt_setup_preferences() -> dict[str, object]:
     citation_style = _prompt_numbered_choice(
         "Preferred citation style",
         citation_styles,
-        default_index=citation_styles.index("Not sure") + 1 if "Not sure" in citation_styles else len(citation_styles),
+        default_index=citation_styles.index(DEFAULT_CITATION_STYLE) + 1
+        if DEFAULT_CITATION_STYLE in citation_styles
+        else 1,
     )
     custom_citation_style = None
     if citation_style == "Custom Zotero/CSL style name":
