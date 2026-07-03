@@ -13,6 +13,7 @@ from rich.table import Table
 
 from researchboss.core.runlog import JsonlLogger, RunSummary, make_run_paths, write_run_summary
 from researchboss.core.yamlio import read_yaml, write_yaml
+from researchboss.engine.artefact_creation import SUPPORTED_ARTEFACT_TYPES, create_deterministic_artefact
 from researchboss.engine.artefacts import list_artefacts, register_artefact
 from researchboss.engine.backup import create_workspace_backup
 from researchboss.engine.claims import add_claim, list_claims, write_citation_gap_report
@@ -980,6 +981,51 @@ def artefacts_register(
     _finish(summary, summary_path)
     if not quiet:
         console.print(f"[green]Registered[/green] {record['id']}")
+
+
+@artefacts_app.command("create")
+def artefacts_create(
+    artefact_type: str = typer.Argument(
+        ...,
+        help="Deterministic artefact type. Use one of: "
+        + ", ".join(sorted(SUPPORTED_ARTEFACT_TYPES.keys())),
+    ),
+    title: Optional[str] = typer.Option(None, "--title", help="Optional artefact title."),
+    include_maybe: bool = typer.Option(False, "--include-maybe", help="Include maybe sources as well as accepted sources."),
+    rq_id: Optional[str] = typer.Option(None, "--rq", help="Optional research question ID to link/filter."),
+    overwrite: bool = typer.Option(False, "--overwrite", help="Overwrite an existing generated artefact file."),
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Create a deterministic, non-AI artefact from existing workspace state."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["artefacts", "create"], ws, log_level)
+    try:
+        result = create_deterministic_artefact(
+            ws,
+            artefact_type,
+            title=title,
+            include_maybe=include_maybe,
+            rq_id=rq_id,
+            overwrite=overwrite,
+        )
+    except ValueError as e:
+        logger.error("Artefact creation failed", operation="artefacts_create", error=str(e))
+        summary.errors += 1
+        _finish(summary, summary_path)
+        raise
+
+    logger.info(
+        "Created deterministic artefact",
+        operation="artefacts_create",
+        artefact_id=result.record["id"],
+        output_path=str(result.path),
+    )
+    _finish(summary, summary_path, next_action="Review the artefact before using it as evidence.")
+    if not quiet:
+        console.print(f"[green]Created[/green] {result.record['id']}")
+        console.print(f"Wrote {result.path}")
 
 
 @artefacts_app.command("list")

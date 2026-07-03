@@ -1,6 +1,6 @@
 # ResearchBoss Detailed Roadmap
 
-Project version: 0.3.2
+Project version: 0.3.3
 
 Last updated: 2026-07-03
 
@@ -28,6 +28,7 @@ Implemented:
 - Deterministic citation metadata extraction.
 - CSV, SQLite, and JSON data profiling.
 - Artefact registry with linked sources, linked research questions, review flags, and AI flags.
+- Deterministic artefact creation for source summaries, literature review matrices, claim-evidence tables, research question briefs, and data profile summaries.
 - M.Phil and PhD stage templates.
 - Research question list, approve, reject, and archive workflows.
 - Manual claim ledger and citation gap detection.
@@ -73,6 +74,7 @@ researchboss/
     conversion.py
     metadata.py
     data.py
+    artefact_creation.py
     artefacts.py
     research_questions.py
     claims.py
@@ -145,6 +147,7 @@ Expected future folders:
 | Conversion | Implemented | `researchboss/engine/conversion.py`, `cli.py` | TXT, MD, DOCX, simple page-marked PDF, cache, failures. |
 | Citation metadata | Implemented | `researchboss/engine/metadata.py`, `cli.py` | DOI/year/title extraction without invented fields. |
 | Data profiling | Implemented | `researchboss/engine/data.py`, `cli.py` | CSV, SQLite, JSON profiles. |
+| Deterministic artefact creation | Implemented | `researchboss/engine/artefact_creation.py`, `cli.py` | Non-AI workspace reports/tables requiring user review. |
 | Artefact registry | Implemented | `researchboss/engine/artefacts.py`, `cli.py` | Linked sources/RQs, review and AI flags. |
 | Research stages/questions | Implemented | `workspace.py`, `research_questions.py`, `cli.py` | M.Phil/PhD stages and RQ workflow commands. |
 | Claims and citation gaps | Implemented | `researchboss/engine/claims.py`, `cli.py` | Manual claims and gap report. |
@@ -304,6 +307,7 @@ Next work:
 | `researchboss rqs archive` | Implemented | Archives RQs. |
 | `researchboss claims add/list/gaps` | Implemented | Manual claim ledger and citation gaps. |
 | `researchboss artefacts register/list` | Implemented | Artefact registry workflow. |
+| `researchboss artefacts create` | Implemented | Deterministic non-AI artefact creation from existing workspace state. |
 | `researchboss review` | Missing | Later integrated review workflow. |
 | `researchboss assess-novelty` | Missing | Phase 5. |
 | `researchboss ai test` | Missing | Phase 5. |

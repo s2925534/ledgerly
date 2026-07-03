@@ -1,6 +1,6 @@
 # ResearchBoss
 
-Current version: 0.3.2
+Current version: 0.3.3
 
 ResearchBoss is a local-first, evidence-first research workspace for managing research context, source files, review state, and project memory without requiring cloud services for the MVP.
 
@@ -44,6 +44,7 @@ Phase 1 complete:
 - Research question approve, reject, archive, and list workflows
 - Manual claim ledger and citation gap reports
 - Artefact registry records with linked sources, linked research questions, and review flags
+- Deterministic artefact creation for source summaries, literature review matrices, claim-evidence tables, research question briefs, and data profile summaries
 - Local Markdown report generation, one-shot source watch reports, workspace backups, and config migration
 - Zotero-style citation wording during init, including explicit `American Psychological Association 7th edition`
 - Strict one-way Zotero-to-ResearchBoss blocker config that prevents writes inside the local Zotero directory
@@ -66,7 +67,7 @@ Known gaps:
 
 - OpenAI behavior, FastAPI, UI, and packaging are planned but not implemented yet.
 - Zotero support is local filesystem and read-only SQLite based only; Zotero API integration is not implemented yet.
-- The source review workflow is implemented for local workspace state, but no downstream research tasks consume accepted sources yet.
+- The source review workflow is implemented for local workspace state. Deterministic artefact creation can consume accepted sources, but AI-assisted research tasks are not implemented yet.
 - AI is not implemented. Init stores AI preference metadata only and keeps AI disabled.
 
 ## Intended MVP Scope
@@ -84,6 +85,7 @@ researchboss/
     runlog.py         # JSONL logging and run summary helpers
     yamlio.py         # YAML read/write helpers
   engine/
+    artefact_creation.py # deterministic artefact creation helpers
     artefacts.py      # artefact registry helpers
     backup.py         # local workspace backup helpers
     claims.py         # manual claim ledger and citation gap helpers
@@ -229,8 +231,15 @@ researchboss claims add "Claim text" [--source <source-id>] [--workspace <path>]
 researchboss claims list [--workspace <path>]
 researchboss claims gaps [--workspace <path>]
 researchboss artefacts register "Title" --path <path> [--type report] [--workspace <path>]
+researchboss artefacts create source-summary-report [--workspace <path>]
+researchboss artefacts create literature-review-matrix [--workspace <path>] [--rq <rq-id>]
+researchboss artefacts create claim-evidence-table [--workspace <path>]
+researchboss artefacts create research-question-brief [--workspace <path>] [--rq <rq-id>]
+researchboss artefacts create data-profile-summary [--workspace <path>]
 researchboss artefacts list [--workspace <path>]
 ```
+
+`researchboss artefacts create` is deterministic and non-AI. It only extracts and arranges existing workspace state, excludes ignored sources, writes generated artefacts inside the workspace, marks them as requiring user review, and records `ai_generated: false`.
 
 For commands that mutate a specific source by ID, passing `--workspace` is still recommended in scripts. In interactive use, omitting `--workspace` triggers the same workspace discovery and default-selection flow.
 

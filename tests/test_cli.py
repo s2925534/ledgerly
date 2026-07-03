@@ -7,7 +7,7 @@ from typer.testing import CliRunner
 import researchboss.cli as cli
 from researchboss import __version__
 from researchboss.cli import app
-from researchboss.core.yamlio import read_yaml
+from researchboss.core.yamlio import read_yaml, write_yaml
 from researchboss.engine.workspace import init_workspace
 
 
@@ -423,6 +423,36 @@ def test_cli_artefacts_register_and_list(tmp_path: Path) -> None:
     assert artefact["title"] == "Summary"
     assert artefact["linked_sources"] == ["source-001"]
     assert artefact["linked_research_questions"] == ["rq-001"]
+
+
+def test_cli_artefacts_create_source_summary(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace_with_cli(workspace)
+    write_yaml(
+        workspace / "source-register.yaml",
+        {
+            "version": 1,
+            "sources": [{"source_id": "source-001", "status": "accepted", "file_name": "paper.pdf", "file_ext": "pdf"}],
+        },
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "artefacts",
+            "create",
+            "source-summary-report",
+            "--workspace",
+            str(workspace),
+            "--quiet",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert (workspace / "artefacts" / "reports" / "source-summary-report.md").is_file()
+    artefact = read_yaml(workspace / "artefact-registry.yaml")["artefacts"][0]
+    assert artefact["type"] == "source-summary-report"
+    assert artefact["ai_generated"] is False
 
 
 def test_cli_claims_add_list_and_gaps(tmp_path: Path) -> None:

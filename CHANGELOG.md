@@ -4,6 +4,9 @@ All notable changes to ResearchBoss will be documented in this file.
 
 ## Unreleased
 
+- Bumped project version to 0.3.3.
+- Added deterministic `researchboss artefacts create` workflows for source summaries, literature review matrices, claim-evidence tables, research question briefs, and data profile summaries.
+- Ensured generated artefacts are non-AI, workspace-only, exclude ignored sources by default, and require user review.
 - Bumped project version to 0.3.2.
 - Added strict one-way Zotero-to-ResearchBoss config flags and guards that block writes inside the local Zotero directory.
 - Added roadmap notes for future explicit AI options to read whole files or directories for full-paper reasoning and artefact cross-reference workflows.
