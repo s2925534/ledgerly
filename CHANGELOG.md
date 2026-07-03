@@ -4,6 +4,10 @@ All notable changes to ResearchBoss will be documented in this file.
 
 ## Unreleased
 
+- Bumped project version to 0.5.4.
+- Added structured external-search query plans with legacy params-file import, broad/balanced/strict strategy modes, query group labels, and research-question links.
+- Bumped project version to 0.5.3.
+- Added Scopus quality scoring, threshold filtering, query validation reports, external-paper candidate registers, metadata-only full-text availability signals, and no-result or low-result query logs.
 - Bumped project version to 0.5.2.
 - Added explicit Scopus external-search foundation with query planning, query history, readiness checks, response snapshots, no-results logs, and `--external-search` opt-in.
 - Added safe AI workspace reports for corpus summaries, claim-check assistance, citation-gap recommendations, artefact cross-reference, and source-relevance recommendations.

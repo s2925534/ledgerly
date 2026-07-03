@@ -39,6 +39,7 @@ from researchboss.engine.data import data_source_counts, list_data_sources, prof
 from researchboss.engine.export import export_evidence_bundle
 from researchboss.engine.external_search import (
     ExternalSearchError,
+    SearchThresholds,
     filter_unused_queries,
     generate_search_query_plan,
     require_external_search_flag,
@@ -936,6 +937,8 @@ def ai_source_relevance(
 def search_plan(
     workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
     max_queries: int = typer.Option(20, "--max-queries", help="Maximum query combinations to generate."),
+    strategy: str = typer.Option("balanced", "--strategy", help="Query generation strategy: broad|balanced|strict."),
+    params_file: Optional[Path] = typer.Option(None, "--params-file", help="Legacy params file to import into the query plan."),
     unused_only: bool = typer.Option(False, "--unused-only", help="Show only queries not present in query history."),
     log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
     quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
@@ -943,7 +946,15 @@ def search_plan(
     """Generate deterministic external-search query plans without calling external APIs."""
     ws = _resolve_workspace(workspace)
     _slug, logger, summary, summary_path, _log_path = _run_ctx(["search", "plan"], ws, log_level)
-    plan = generate_search_query_plan(ws, max_queries=max_queries)
+    try:
+        plan = generate_search_query_plan(ws, max_queries=max_queries, strategy=strategy, params_file=params_file)
+    except ExternalSearchError as e:
+        logger.error("External search query planning failed", operation="search_plan", error=str(e))
+        summary.errors += 1
+        _finish(summary, summary_path)
+        if not quiet:
+            console.print(f"[red]{e}[/red]")
+        raise typer.Exit(code=2)
     queries = filter_unused_queries(ws, plan["queries"]) if unused_only else plan["queries"]
     logger.info("Generated external search query plan", operation="search_plan", query_count=len(queries))
     _finish(summary, summary_path)
@@ -952,8 +963,12 @@ def search_plan(
     table = Table(title="External search query plan")
     table.add_column("#", justify="right")
     table.add_column("query")
+    table.add_column("group")
+    table.add_column("source")
+    records_by_query = {record["query"]: record for record in plan.get("query_records", []) if isinstance(record, dict)}
     for index, query in enumerate(queries, start=1):
-        table.add_row(str(index), query)
+        record = records_by_query.get(query, {})
+        table.add_row(str(index), query, str(record.get("group_label") or ""), str(record.get("source") or ""))
     console.print(table)
 
 
@@ -991,6 +1006,11 @@ def search_scopus(
     workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
     external_search: bool = typer.Option(False, "--external-search", help="Required explicit opt-in for live Scopus API access."),
     count: int = typer.Option(25, "--count", help="Maximum Scopus results to request."),
+    min_citations: int = typer.Option(0, "--min-citations", help="Minimum citation count for candidate-register inclusion."),
+    year_from: Optional[int] = typer.Option(None, "--year-from", help="Earliest publication year for candidate-register inclusion."),
+    year_to: Optional[int] = typer.Option(None, "--year-to", help="Latest publication year for candidate-register inclusion."),
+    open_access_only: bool = typer.Option(False, "--open-access-only", help="Only include Scopus results marked open access in the candidate register."),
+    low_result_threshold: int = typer.Option(3, "--low-result-threshold", help="Log query as low-result when processed results are at or below this count."),
     log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
     quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
 ):
@@ -999,7 +1019,15 @@ def search_scopus(
     _slug, logger, summary, summary_path, _log_path = _run_ctx(["search", "scopus"], ws, log_level)
     try:
         require_external_search_flag(external_search)
-        report = scopus_search(ws, scopus_credentials(ws), query=query, count=count)
+        thresholds = SearchThresholds.from_options(
+            min_citations=min_citations,
+            year_from=year_from,
+            year_to=year_to,
+            open_access_only=open_access_only,
+            max_results_per_query=count,
+            low_result_threshold=low_result_threshold,
+        )
+        report = scopus_search(ws, scopus_credentials(ws), query=query, count=count, thresholds=thresholds)
     except ExternalSearchError as e:
         logger.error("Scopus search failed", operation="search_scopus", error=str(e))
         summary.errors += 1
@@ -1007,10 +1035,17 @@ def search_scopus(
         if not quiet:
             console.print(f"[red]{e}[/red]")
         raise typer.Exit(code=2)
-    logger.info("Ran Scopus search", operation="search_scopus", processed=report["metrics"]["processed"])
+    logger.info(
+        "Ran Scopus search",
+        operation="search_scopus",
+        processed=report["metrics"]["processed"],
+        candidate_count=report["metrics"]["candidate_count"],
+    )
     _finish(summary, summary_path)
     if not quiet:
         console.print(f"[green]Wrote[/green] {report['snapshot_path']}")
+        console.print(f"[green]Wrote[/green] {report['metrics']['candidate_register_path']}")
+        console.print(f"[green]Wrote[/green] {report['metrics']['query_validation_path']}")
 
 
 @app.command("assess-novelty")

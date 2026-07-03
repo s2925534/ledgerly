@@ -78,6 +78,11 @@
 - [ ] <span style="color: #2e7d32; font-weight: 600;">Add</span> merge manifests and CSV reports that record which source IDs were included, skipped, failed, or batched.
 - [ ] <span style="color: #2e7d32; font-weight: 600;">Add</span> deterministic filename normalization helpers based on title, author token, year, and source ID without renaming original files.
 - [ ] <span style="color: #2e7d32; font-weight: 600;">Add</span> local abstract-folder import and screening workflow for pre-collected abstracts.
+- [ ] <span style="color: #2e7d32; font-weight: 600;">Add</span> local abstract-file parser for old Scopus abstract text files with fields such as title, authors, publication, year, DOI, cited-by count, abstract, API URL, and Scopus view URL.
+- [ ] <span style="color: #2e7d32; font-weight: 600;">Add</span> abstract candidate register that separates imported abstracts into candidate, filtered, not relevant, skipped, and selected-for-review groups without moving or deleting original files.
+- [ ] <span style="color: #2e7d32; font-weight: 600;">Add</span> accepted-source text corpus export that can write one combined file plus a manifest, while preserving the individual converted text files.
+- [ ] <span style="color: #2e7d32; font-weight: 600;">Add</span> PDF merge dry-run and manifest-first mode before generating merged artefact PDFs.
+- [ ] <span style="color: #2e7d32; font-weight: 600;">Add</span> skipped/failed processing reports for protected PDFs, corrupt PDFs, OCR-needed PDFs, missing metadata, and unsupported formats without moving originals.
 
 ## Phase 3: Data and Artefacts
 
@@ -140,6 +145,31 @@
 - [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add search query history so repeated query combinations can be skipped or intentionally rerun.
 - [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add explicit Scopus integration with `--external-search` opt-in.
 - [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add API response snapshots and no-results logs for external search reproducibility.
+- [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add Scopus quality-scoring rules that rank candidate papers by citation count, publication year, source title, document type, open-access status, and identifier completeness without inventing quality.
+- [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add author-quality signals from available Scopus metadata, such as author IDs and affiliation IDs when the API response provides them.
+- [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add configurable search thresholds for minimum citation count, publication year range, open-access preference, maximum results per query, and low-result logging.
+- [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add query validation reports that compare result counts, duplicate rate, threshold pass rate, and topical keyword coverage for each query.
+- [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add no-result and low-result query logging with retry suggestions, without automatically entering infinite query-generation loops.
+- [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add deterministic query refinement candidates based on failed query terms and observed candidate metadata.
+- [ ] <span style="color: #1565c0; font-weight: 600;">Add</span> expanded hard search budgets per run covering API calls, generated queries, refinement rounds, result pages, and elapsed time.
+- [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add an external-paper candidate register that stores scored Scopus results separately from accepted local sources until reviewed.
+- [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add full-text availability detection from Scopus metadata, DOI links, and open-access links without downloading or scraping paywalled files.
+- [ ] <span style="color: #1565c0; font-weight: 600;">Add</span> local Zotero matching for external candidate full-text availability detection.
+- [ ] <span style="color: #1565c0; font-weight: 600;">Add</span> commands to import user-approved candidate metadata into the source register as metadata-only pending-review sources.
+- [ ] <span style="color: #1565c0; font-weight: 600;">Add</span> evidence validation reports that compare external candidates against approved RQs, claims, novelty ledger entries, and current source gaps.
+- [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add local reproducibility files for every external search run: thresholds, raw response snapshot, scored candidates, skipped results, no-result or low-result queries, and query validation output.
+- [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add import of legacy params files so curated query groups like RQ1/RQ2/RQ3 can seed `researchboss search plan`.
+- [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add query strategy modes: broad, balanced, and strict, with deterministic term expansion and saved strategy metadata.
+- [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add query group labels and RQ links so each external search query can be tied to one or more approved research questions.
+- [ ] <span style="color: #1565c0; font-weight: 600;">Add</span> batch search run summaries that aggregate processed, candidate, filtered, skipped, duplicate, no-result, and low-result counts across many queries.
+- [ ] <span style="color: #1565c0; font-weight: 600;">Add</span> deterministic auto-refine planning that produces broader follow-up queries only as a saved plan, requiring explicit user approval before execution.
+- [ ] <span style="color: #1565c0; font-weight: 600;">Add</span> query exhaustion protection that stops refinement after configured query, page, result, and time budgets.
+- [ ] <span style="color: #1565c0; font-weight: 600;">Add</span> filtered-candidate logs that record exactly why a paper failed thresholds, such as year, citation count, document type, source type, missing DOI, or duplicate EID.
+- [ ] <span style="color: #1565c0; font-weight: 600;">Add</span> high-signal candidate reports sorted by quality score, RQ coverage, citation count, recency, open-access flag, and metadata completeness.
+- [ ] <span style="color: #1565c0; font-weight: 600;">Add</span> candidate deduplication across Scopus runs, local Zotero metadata, source register entries, DOI, EID, title, and year.
+- [ ] <span style="color: #1565c0; font-weight: 600;">Add</span> external-search run comparison reports showing which query strategies produced the strongest accepted candidate yield.
+- [ ] <span style="color: #ef6c00; font-weight: 600;">Add</span> optional AI-assisted query generation and query refinement from safe context only, gated by both `--ai` and `--external-search`.
+- [ ] <span style="color: #ef6c00; font-weight: 600;">Add</span> optional AI-assisted paper relevance, research-question validation, idea validation, and novelty validation using candidate metadata/abstracts first, with full-text modes only by explicit opt-in.
 
 ## Phase 6: FastAPI Local Backend
 

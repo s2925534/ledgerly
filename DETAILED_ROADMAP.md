@@ -1,6 +1,6 @@
 # ResearchBoss Detailed Roadmap
 
-Project version: 0.5.2
+Project version: 0.5.4
 
 Last updated: 2026-07-03
 
@@ -474,7 +474,6 @@ Implemented:
 
 Missing:
 
-- Corpus summary behavior.
 - AI-assisted abstract screening for local abstract imports.
 - Explicit full-file and directory opt-in modes.
 
@@ -493,6 +492,70 @@ Future AI work that makes sense to implement next:
 - AI-assisted abstract screening for locally imported abstracts, writing recommendations only.
 - Explicit per-run full-file AI opt-in flags with warning output and tests.
 - Explicit per-run directory AI opt-in flags with warning output and tests.
+- Optional AI-assisted query generation, query refinement, paper relevance review, research-question validation, idea validation, and novelty validation using safe context first and full text only by explicit opt-in.
+
+## 11.1 External Search Quality Roadmap
+
+Goal: use external scholarly search as a controlled evidence-discovery workflow, not an unbounded automation loop.
+
+Implemented baseline:
+
+- `researchboss search plan` creates deterministic query plans from project context and research questions.
+- `researchboss search scopus --external-search` runs explicit Scopus searches and stores response snapshots.
+- `researchboss search scopus-test --external-search` checks credentials without printing keys.
+- Search query history and no-result snapshots are written inside the ResearchBoss workspace.
+- Scopus search runs now write quality-scored candidate registers, threshold-filtered candidate lists, query validation reports, low-result logs, and metadata-only full-text availability signals.
+- Query planning now supports legacy params-file import, broad/balanced/strict strategy modes, structured query records, query group labels, and research-question links.
+
+Planned deterministic work:
+
+- Expand configurable thresholds to include document type, source type, maximum queries per run, maximum refinement rounds, and elapsed-time budget.
+- Expand query validation reports to compare candidates against approved research questions, accepted source metadata, local keyword indexes, and citation gap reports.
+- Expand deterministic query refinement candidates from approved RQs, inclusion/exclusion terms, local keyword indexes, accepted source metadata, and citation gap reports.
+- Expand query group labels so queries can also be linked to claim gaps, source gaps, and manual search objectives.
+- Add deterministic auto-refine planning that writes broader follow-up queries when search yield is weak, but requires explicit user approval before making another API run.
+- Add query exhaustion protection: maximum API calls, maximum generated queries, maximum refinement rounds, maximum pages, maximum candidate records, and maximum elapsed time.
+- Add filtered-candidate logs with explicit threshold-failure reasons such as year, citation count, document type, source type, missing DOI, missing abstract, duplicate DOI/EID, or incomplete metadata.
+- Add batch search run summaries that aggregate processed, candidate, filtered, skipped, duplicate, no-result, and low-result counts across many queries.
+- Add high-signal candidate reports sorted by quality score, RQ coverage, citation count, recency, open-access flag, metadata completeness, and duplicate status.
+- Add candidate deduplication across Scopus runs, local Zotero metadata, source register records, DOI, EID, title, and year.
+- Add external-search run comparison reports to identify which query strategies produced the strongest candidate yield.
+- Add local Zotero matching to full-text availability detection. Do not download, scrape, or bypass access controls.
+- Add user-approved candidate import so selected external results become metadata-only pending-review sources.
+- Add evidence validation reports that compare candidate papers against RQs, claims, novelty ledger entries, artefacts, and known source gaps.
+- Expand reproducibility files for every external search run with skipped candidate reason details, threshold set IDs, and run-level search budgets.
+
+Planned AI-assisted work:
+
+- Add optional AI-assisted query generation and refinement only when both `--ai` and `--external-search` are supplied.
+- Add optional AI-assisted relevance, idea validation, RQ validation, and novelty validation using candidate metadata and abstracts first.
+- Add explicit full-text AI modes later, with warnings and per-run opt-in, for cases where the user approves whole-paper reasoning.
+
+## 11.2 Legacy Project Lessons
+
+The old `../pdf-merge` project is useful as workflow evidence, but ResearchBoss should not inherit its ad hoc file movement, cloud sync assumptions, automatic full-text retrieval attempts, or deletion of intermediate text. The useful ideas should be rebuilt as local-first, manifest-driven engine workflows.
+
+Useful patterns to bring forward:
+
+- Params-file import for curated query groups such as RQ1/RQ2/RQ3.
+- Query history with skip/re-run controls.
+- Broad, balanced, and strict query strategy modes.
+- Search quality thresholds and batch-level search summaries.
+- No-result, low-result, filtered, skipped, and not-relevant logs.
+- Abstract text-file import from old Scopus exports.
+- Combined abstract/text corpus export with source headers and separators.
+- PDF merge artefacts for accepted sources, always generated inside ResearchBoss artefact folders.
+- OCR readiness checks and optional local OCR fallback for scanned PDFs.
+- Manifest-first processing so every merge/export/search run records included, skipped, failed, and generated files.
+
+Rules for adapting these ideas:
+
+- Never move, rename, delete, or overwrite original source files.
+- Never write into Zotero storage or another external library directory.
+- Do not add Google Drive, cloud sync, or remote storage assumptions.
+- Do not automatically retrieve full text from publisher APIs. Detect availability, then require explicit user action.
+- Do not treat AI relevance labels as source status changes. AI can recommend; the user or deterministic commands must confirm.
+- Preserve all intermediate text and metadata files unless the user explicitly runs a cleanup command.
 
 ## 12. Tests Audit
 

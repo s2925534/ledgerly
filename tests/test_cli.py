@@ -104,6 +104,37 @@ def test_cli_search_plan_writes_query_plan(tmp_path: Path) -> None:
     assert (workspace / "outputs" / "recommendations" / "external-search-query-plan.yaml").is_file()
 
 
+def test_cli_search_plan_imports_params_file_and_strategy(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    params = tmp_path / "params.txt"
+    params.write_text(
+        'Search Parameters - RQ1: Container Readiness\n"container handling" AND "performance metric"\n',
+        encoding="utf-8",
+    )
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="container port evidence")
+
+    result = runner.invoke(
+        app,
+        [
+            "search",
+            "plan",
+            "--workspace",
+            str(workspace),
+            "--params-file",
+            str(params),
+            "--strategy",
+            "strict",
+            "--quiet",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    plan = read_yaml(workspace / "outputs" / "recommendations" / "external-search-query-plan.yaml")
+    assert plan["strategy"] == "strict"
+    assert plan["imported_query_count"] == 1
+    assert plan["query_records"][0]["group_label"] == "RQ1: Container Readiness"
+
+
 def test_cli_search_scopus_requires_external_search_flag(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
@@ -111,6 +142,65 @@ def test_cli_search_scopus_requires_external_search_flag(tmp_path: Path) -> None
     result = runner.invoke(app, ["search", "scopus-test", "--workspace", str(workspace), "--quiet"])
 
     assert result.exit_code == 2, result.output
+
+
+def test_cli_search_scopus_passes_threshold_options(tmp_path: Path, monkeypatch) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    captured = {}
+
+    def fake_credentials(_workspace):
+        return object()
+
+    def fake_scopus_search(_workspace, _credentials, *, query, count, thresholds):
+        captured["query"] = query
+        captured["count"] = count
+        captured["thresholds"] = thresholds
+        return {
+            "metrics": {
+                "processed": 1,
+                "candidate_count": 1,
+                "candidate_register_path": str(workspace / "outputs" / "recommendations" / "external-paper-candidates.yaml"),
+                "query_validation_path": str(workspace / "outputs" / "validation" / "external-search-query-validation.yaml"),
+            },
+            "snapshot_path": str(workspace / "outputs" / "external-search" / "snapshot.json"),
+        }
+
+    monkeypatch.setattr(cli, "scopus_credentials", fake_credentials)
+    monkeypatch.setattr(cli, "scopus_search", fake_scopus_search)
+
+    result = runner.invoke(
+        app,
+        [
+            "search",
+            "scopus",
+            '"container"',
+            "--workspace",
+            str(workspace),
+            "--external-search",
+            "--count",
+            "7",
+            "--min-citations",
+            "12",
+            "--year-from",
+            "2020",
+            "--year-to",
+            "2026",
+            "--open-access-only",
+            "--low-result-threshold",
+            "2",
+            "--quiet",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert captured["query"] == '"container"'
+    assert captured["count"] == 7
+    assert captured["thresholds"].min_citations == 12
+    assert captured["thresholds"].year_from == 2020
+    assert captured["thresholds"].year_to == 2026
+    assert captured["thresholds"].open_access_only is True
+    assert captured["thresholds"].low_result_threshold == 2
 
 
 def test_cli_ai_workspace_report_commands_require_ai_flag(tmp_path: Path) -> None:
