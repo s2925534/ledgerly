@@ -794,7 +794,8 @@ def zotero_search(
     _slug, logger, summary, summary_path, _log_path = _run_ctx(["zotero", "search"], ws, log_level)
 
     cfg_root, source_mode, _source_config = _configured_source_root(ws)
-    storage_root = storage or cfg_root
+    zotero_config = _configured_zotero(ws)
+    storage_root = storage or (Path(zotero_config["storage"]) if zotero_config.get("storage") else cfg_root)
     if not storage_root:
         logger.error("No Zotero storage root configured or provided", operation="zotero_search")
         summary.errors += 1
@@ -814,8 +815,9 @@ def zotero_search(
         _finish(summary, summary_path, next_action="Rerun search with at least one keyword.")
         raise typer.Exit(code=2)
 
+    zotero_root = Path(zotero_config["root"]) if zotero_config.get("root") else zotero_root_from_storage(storage_root)
     candidates = list(iter_source_files(storage_root))
-    hits = search_zotero_storage(storage_root, terms, candidates, limit=limit)
+    hits = search_zotero_storage(storage_root, terms, candidates, limit=limit, zotero_root=zotero_root)
 
     summary.files_processed = len(candidates)
     summary.files_succeeded = len(hits)

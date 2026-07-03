@@ -148,6 +148,18 @@ def test_readonly_sqlite_metadata_and_collections(tmp_path: Path) -> None:
     assert keys == {"ABCD1234", "WXYZ9876"}
 
 
+def test_zotero_search_can_match_sqlite_metadata(tmp_path: Path) -> None:
+    storage, first, _second = make_storage(tmp_path)
+    zotero_root = storage.parent
+    make_zotero_sqlite(zotero_root)
+
+    hit = score_zotero_relevance(first, storage, ["veloso"], zotero_root=zotero_root)
+
+    assert hit.score > 0
+    assert hit.matched_terms == ["veloso"]
+    assert hit.matched_in == ["creators"]
+
+
 def test_zotero_reports_snapshot_duplicates_and_bibtex(tmp_path: Path) -> None:
     storage, first, second = make_storage(tmp_path)
     zotero_root = storage.parent

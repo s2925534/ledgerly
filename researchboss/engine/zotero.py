@@ -542,10 +542,29 @@ def _snippet(text: str, term: str) -> Optional[str]:
     return snippet or None
 
 
-def score_zotero_relevance(file_path: Path, storage_root: Path, terms: list[str]) -> ZoteroSearchHit:
+def score_zotero_relevance(
+    file_path: Path,
+    storage_root: Path,
+    terms: list[str],
+    *,
+    zotero_root: Optional[Path] = None,
+) -> ZoteroSearchHit:
     name_text = file_path.name.lower()
     cache_text = read_zotero_fulltext_cache(file_path, storage_root)
     cache_lower = cache_text.lower()
+    metadata = None
+    if zotero_root:
+        storage_key = zotero_storage_key(file_path, storage_root)
+        if storage_key:
+            metadata = attachment_metadata_by_storage_key(zotero_root, storage_key)
+    metadata_fields = {
+        "title": metadata.title if metadata else None,
+        "creators": " ".join(metadata.creators) if metadata else None,
+        "abstract": metadata.abstract_note if metadata else None,
+        "collections": " ".join(collection.get("path", "") for collection in metadata.collections) if metadata else None,
+        "doi": metadata.doi if metadata else None,
+    }
+    metadata_lower = {field: str(value).lower() for field, value in metadata_fields.items() if value}
 
     score = 0
     matched_terms: list[str] = []
@@ -563,6 +582,10 @@ def score_zotero_relevance(file_path: Path, storage_root: Path, terms: list[str]
             locations.append("fulltext_cache")
             if first_snippet is None:
                 first_snippet = _snippet(cache_text, term)
+        for field, value in metadata_lower.items():
+            if term in value:
+                term_score += 6 if field in {"title", "creators"} else 4
+                locations.append(field)
 
         if term_score:
             score += term_score
@@ -588,8 +611,9 @@ def search_zotero_storage(
     file_paths: Iterable[Path],
     *,
     limit: int = 10,
+    zotero_root: Optional[Path] = None,
 ) -> list[ZoteroSearchHit]:
-    hits = [score_zotero_relevance(path, storage_root, terms) for path in file_paths]
+    hits = [score_zotero_relevance(path, storage_root, terms, zotero_root=zotero_root) for path in file_paths]
     hits = [hit for hit in hits if hit.score > 0]
     hits.sort(key=lambda hit: (-hit.score, str(hit.file_path).lower()))
     return hits[:limit]
