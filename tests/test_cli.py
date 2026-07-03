@@ -464,6 +464,16 @@ def test_cli_watch_writes_candidate_report(tmp_path: Path) -> None:
     assert (workspace / "outputs" / "recommendations" / "watch-candidates.yaml").is_file()
 
 
+def test_cli_backup_creates_zip(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test Project", project_type="M.Phil", topic="")
+
+    result = runner.invoke(app, ["backup", "--workspace", str(workspace), "--quiet"])
+
+    assert result.exit_code == 0, result.output
+    assert (workspace / "outputs" / "backups" / "workspace-backup.zip").is_file()
+
+
 def test_cli_scan_uses_configured_zotero_provider_when_kind_is_omitted(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     storage_root = tmp_path / "Zotero" / "storage"

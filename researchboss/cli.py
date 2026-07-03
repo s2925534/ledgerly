@@ -14,6 +14,7 @@ from rich.table import Table
 from researchboss.core.runlog import JsonlLogger, RunSummary, make_run_paths, write_run_summary
 from researchboss.core.yamlio import read_yaml, write_yaml
 from researchboss.engine.artefacts import list_artefacts, register_artefact
+from researchboss.engine.backup import create_workspace_backup
 from researchboss.engine.claims import add_claim, list_claims, write_citation_gap_report
 from researchboss.engine.conversion import convert_sources
 from researchboss.engine.data import data_source_counts, list_data_sources, profile_data_sources
@@ -695,6 +696,23 @@ def watch(
     if not quiet:
         console.print(f"[green]Wrote[/green] {output_path}")
         console.print(f"candidate_count={report_data.get('candidate_count', 0)}")
+
+
+@app.command()
+def backup(
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
+    include_originals: bool = typer.Option(False, "--include-originals", help="Include sources_original in the zip."),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Create a local zip backup of workspace state."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["backup"], ws, log_level)
+    output_path = create_workspace_backup(ws, include_originals=include_originals)
+    logger.info("Created workspace backup", operation="backup", output_path=str(output_path))
+    _finish(summary, summary_path)
+    if not quiet:
+        console.print(f"[green]Wrote[/green] {output_path}")
 
 
 @app.command()
