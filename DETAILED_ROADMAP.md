@@ -1,6 +1,6 @@
 # ResearchBoss Detailed Roadmap
 
-Project version: 0.2.0
+Project version: 0.3.0
 
 Last updated: 2026-07-03
 
@@ -8,7 +8,7 @@ This roadmap tracks implementation progress for ResearchBoss. Update this file w
 
 ## 1. Executive Summary
 
-ResearchBoss is currently in the early post-Phase 1 stage.
+ResearchBoss is currently past the local deterministic Phase 2-4 foundation and still before AI, FastAPI, UI, and packaging.
 
 Implemented:
 
@@ -23,6 +23,18 @@ Implemented:
 - Deterministic local Zotero search over filenames, `.zotero-ft-cache`, and local SQLite metadata.
 - Offline Zotero metadata reports, attachment health checks, full-text cache reports, metadata snapshots, duplicate checks, and BibTeX export.
 - Source hashing and duplicate detection.
+- TXT, MD, DOCX, and page-marked PDF conversion.
+- Conversion cache and failed conversion records.
+- Deterministic citation metadata extraction.
+- CSV, SQLite, and JSON data profiling.
+- Artefact registry with linked sources, linked research questions, review flags, and AI flags.
+- M.Phil and PhD stage templates.
+- Research question list, approve, reject, and archive workflows.
+- Manual claim ledger and citation gap detection.
+- Local Markdown workspace reports.
+- One-shot watch reports for unregistered source files.
+- Local workspace backups.
+- Config migration and workspace schema versioning.
 - Source review statuses: `pending_review`, `accepted`, `maybe`, `ignored`.
 - Workspace discovery, selection, and local default workspace memory.
 - JSONL logs and YAML run summaries.
@@ -31,21 +43,16 @@ Implemented:
 Partially implemented:
 
 - Zotero support: local storage-folder and read-only SQLite support exist; Zotero API integration is not implemented.
-- Research questions: init-time capture exists; full workflow commands are not implemented.
 - AI setup: local preference metadata exists; AI behavior is not implemented.
 
 Not implemented:
 
-- Conversion and metadata extraction.
-- CSV and SQLite profiling.
-- Artefact generation and richer artefact registry behavior.
-- Claim checking and citation gap detection.
 - Optional OpenAI workflows.
 - FastAPI backend.
 - Cross-platform UI.
 - Packaging.
 
-Current repository state: coherent and test-covered for Phase 1, with later phases intentionally not started.
+Current repository state: coherent and test-covered for local deterministic engine and CLI workflows through conversion, metadata, data profiling, Zotero offline support, research questions, claims, reports, backup, and migration.
 
 ## 2. Repository Structure Review
 
@@ -61,6 +68,16 @@ researchboss/
     sources.py
     workspace.py
     zotero.py
+    conversion.py
+    metadata.py
+    data.py
+    artefacts.py
+    research_questions.py
+    claims.py
+    reports.py
+    watch.py
+    backup.py
+    migrations.py
   cli.py
   __init__.py
   __main__.py
@@ -70,6 +87,16 @@ tests/
   test_sources.py
   test_workspace.py
   test_zotero.py
+  test_conversion.py
+  test_metadata.py
+  test_data.py
+  test_artefacts.py
+  test_research_questions.py
+  test_claims.py
+  test_reports.py
+  test_watch.py
+  test_backup.py
+  test_migrations.py
 
 docs/
   ARCHITECTURE.md
@@ -113,6 +140,13 @@ Expected future folders:
 | Zotero collection workflows | Implemented | `researchboss/cli.py`, `zotero.py` | Local collection listing, selection, and collection scans. |
 | Zotero storage search | Implemented | `researchboss/engine/zotero.py`, `cli.py` | Searches filenames, `.zotero-ft-cache`, and SQLite metadata. |
 | Zotero offline reports | Implemented | `researchboss/engine/zotero.py`, `cli.py` | Metadata, attachment, full-text, duplicates, snapshots, BibTeX. |
+| Conversion | Implemented | `researchboss/engine/conversion.py`, `cli.py` | TXT, MD, DOCX, simple page-marked PDF, cache, failures. |
+| Citation metadata | Implemented | `researchboss/engine/metadata.py`, `cli.py` | DOI/year/title extraction without invented fields. |
+| Data profiling | Implemented | `researchboss/engine/data.py`, `cli.py` | CSV, SQLite, JSON profiles. |
+| Artefact registry | Implemented | `researchboss/engine/artefacts.py`, `cli.py` | Linked sources/RQs, review and AI flags. |
+| Research stages/questions | Implemented | `workspace.py`, `research_questions.py`, `cli.py` | M.Phil/PhD stages and RQ workflow commands. |
+| Claims and citation gaps | Implemented | `researchboss/engine/claims.py`, `cli.py` | Manual claims and gap report. |
+| Reports/watch/backup/migration | Implemented | `reports.py`, `watch.py`, `backup.py`, `migrations.py` | Local deterministic utility workflows. |
 | Hashing | Implemented | `sha256_file` in `sources.py` | SHA-256 content hash. |
 | Duplicate detection | Implemented | `scan_sources` in `sources.py` | Duplicate by content hash. |
 | Source statuses | Implemented | `SOURCE_STATUSES` in `sources.py` | Pending, accepted, maybe, ignored. |
@@ -141,43 +175,43 @@ Remaining Phase 1 refinements:
 
 ### Phase 2: Conversion and Metadata
 
-Status: not started.
+Status: implemented for deterministic local MVP paths.
 
-Next work:
+Implemented:
 
-- TXT and MD conversion.
-- DOCX conversion.
-- PDF conversion with page markers.
+- TXT, MD, DOCX, and simple PDF conversion with page markers.
 - Conversion cache by file hash.
 - Failed conversion handling.
 - DOI detection and basic citation metadata extraction without invented metadata.
 
 ### Phase 3: Data and Artefacts
 
-Status: not started.
+Status: implemented for deterministic local MVP paths.
 
-Next work:
+Implemented:
 
 - CSV profiling.
 - SQLite profiling.
+- JSON source registration and profiling.
 - Data profile reports.
 - Rich artefact registry records.
 
 ### Phase 4: Research Questions and Stages
 
-Status: partially started during init only.
+Status: implemented for deterministic local MVP paths.
 
 Implemented:
 
 - Init-time research questions.
 - Draft and approved separation.
 - Optional subquestions.
+- M.Phil and PhD stage templates.
+- Stage statuses.
+- RQ list, approve, reject, and archive commands.
 
-Next work:
+Future:
 
-- Templates for M.Phil, PhD, Other academic, Industry, and Custom.
-- Stage templates.
-- RQ approve/reject/archive commands.
+- Richer RQ templates for all project types.
 - Warning thresholds.
 
 ### Phase 5: Optional OpenAI Features
@@ -233,7 +267,16 @@ Next work:
 | `researchboss init` | Implemented | Creates workspace and prompts for initial context. |
 | `researchboss status` | Implemented | Shows source counts. |
 | `researchboss config validate` | Implemented | Checks required workspace paths and YAML readability. |
+| `researchboss config migrate` | Implemented | Fills missing deterministic workspace config fields. |
 | `researchboss scan` | Implemented | Scans configured or provided source root. |
+| `researchboss convert` | Implemented | Converts TXT, MD, DOCX, and simple PDFs. |
+| `researchboss metadata extract` | Implemented | Extracts deterministic citation metadata. |
+| `researchboss data profile` | Implemented | Profiles CSV, SQLite, and JSON sources. |
+| `researchboss data list` | Implemented | Lists data sources. |
+| `researchboss data status` | Implemented | Shows data profile counts. |
+| `researchboss report` | Implemented | Generates local Markdown workspace report. |
+| `researchboss watch` | Implemented | Writes unregistered source candidate report. |
+| `researchboss backup` | Implemented | Creates local workspace zip backup. |
 | `researchboss sources list` | Implemented | Lists source register records. |
 | `researchboss sources review` | Implemented | Interactive pending source review. |
 | `researchboss sources accept` | Implemented | Marks source accepted. |
@@ -251,21 +294,17 @@ Next work:
 | `researchboss zotero duplicates` | Implemented | Writes DOI/title-year duplicate candidates. |
 | `researchboss zotero snapshot` | Implemented | Writes local metadata snapshot. |
 | `researchboss zotero export-bibtex` | Implemented | Writes conservative BibTeX from local metadata. |
-| `researchboss zotero test` | Missing | Future validation command. |
-| `researchboss convert` | Missing | Phase 2. |
-| `researchboss data profile` | Missing | Phase 3. |
-| `researchboss data list` | Missing | Phase 3. |
-| `researchboss data status` | Missing | Phase 3. |
-| `researchboss rqs list` | Missing | Phase 4. |
+| `researchboss zotero test` | Implemented | Validates local storage, SQLite, and cache availability. |
+| `researchboss rqs list` | Implemented | Lists RQ groups. |
 | `researchboss rqs suggest` | Missing | Phase 4 or Phase 5 depending on AI use. |
-| `researchboss rqs approve` | Missing | Phase 4. |
-| `researchboss rqs reject` | Missing | Phase 4. |
-| `researchboss rqs archive` | Missing | Phase 4. |
+| `researchboss rqs approve` | Implemented | Approves draft RQs. |
+| `researchboss rqs reject` | Implemented | Rejects RQs. |
+| `researchboss rqs archive` | Implemented | Archives RQs. |
+| `researchboss claims add/list/gaps` | Implemented | Manual claim ledger and citation gaps. |
+| `researchboss artefacts register/list` | Implemented | Artefact registry workflow. |
 | `researchboss review` | Missing | Later integrated review workflow. |
 | `researchboss assess-novelty` | Missing | Phase 5. |
 | `researchboss ai test` | Missing | Phase 5. |
-| `researchboss report` | Missing | Later reporting. |
-| `researchboss watch` | Missing | Later automation. |
 
 ## 6. Config and Workspace Audit
 
@@ -289,6 +328,8 @@ Missing or future:
 
 - Metadata-only source status.
 - Failed conversion status.
+- Conversion outputs and metadata.
+- Data profile statuses.
 - Manual review required status beyond current config flag.
 - Downstream enforcement that only accepted sources are used for research tasks.
 
@@ -324,31 +365,28 @@ Missing:
 
 ## 9. Data Source Audit
 
-Status: not implemented.
+Status: implemented for deterministic local MVP paths.
 
-Missing:
+Implemented:
 
 - CSV profiling.
 - SQLite profiling.
 - JSON source registration.
 - Data source statuses.
 - Data profile reports.
-- Tests proving full datasets are not sent to AI.
+- No AI dataset upload behavior exists.
 
 ## 10. Artefact Audit
 
-Status: skeleton only.
+Status: implemented for deterministic local MVP paths.
 
 Implemented:
 
 - Artefact folders.
 - `artefact-registry.yaml` shell.
-
-Missing:
-
 - Artefact metadata records.
 - Linked sources and research questions.
-- AI-generated metadata flags.
+- AI-generated flag.
 - `requires_user_review` flag.
 
 ## 11. AI and OpenAI Audit
@@ -383,20 +421,19 @@ Current tested areas:
 - Workspace selection.
 - Runtime checks.
 - Local Zotero storage helpers, SQLite metadata, collection filtering, reports, snapshots, duplicate checks, BibTeX export, and CLI search.
+- Conversion, metadata extraction, data profiling, artefact registry, research questions, claims, reports, watch, backup, and migration.
 
 Current expected validation:
 
 ```bash
-python -m py_compile researchboss/cli.py researchboss/engine/sources.py researchboss/engine/zotero.py researchboss/engine/workspace.py researchboss/core/runlog.py researchboss/core/yamlio.py researchboss/core/constants.py
+python -m py_compile researchboss/cli.py researchboss/engine/*.py researchboss/core/*.py
 python -m pytest
 ```
 
 Recommended next tests:
 
-- Zotero parent root config.
-- TXT/MD conversion.
-- Conversion cache.
-- Failed conversion records.
+- Integrated review workflow tests once review commands are added.
+- Future AI privacy-boundary tests before any AI implementation.
 
 ## 13. Security and Privacy Audit
 
@@ -442,72 +479,37 @@ Missing:
    - Complexity: low.
    - Phase: 1 refinement.
 
-2. Add TXT conversion.
-   - Why: first conversion path with low risk.
-   - Likely files: new conversion engine, CLI/tests/docs.
-   - Tests: TXT source to `sources_text`.
-   - Complexity: low.
-   - Phase: 2.
-
-3. Add MD conversion.
-   - Why: quick second text conversion path.
-   - Likely files: conversion engine/tests.
-   - Tests: MD source to text output.
-   - Complexity: low.
-   - Phase: 2.
-
-4. Add conversion cache keyed by hash.
-   - Why: avoids repeated conversion and supports reproducibility.
-   - Likely files: conversion engine, source register updates.
-   - Tests: repeated conversion no-op.
-   - Complexity: medium.
-   - Phase: 2.
-
-5. Add failed conversion handling.
-   - Why: failures must be visible and recoverable.
-   - Likely files: conversion engine, `sources_failed`, source status fields.
-   - Tests: unsupported/broken file path.
-   - Complexity: medium.
-   - Phase: 2.
-
-6. Add PDF conversion with page markers.
-   - Why: core evidence workflow needs page-specific text.
-   - Likely files: conversion engine, dependency selection, tests.
-   - Tests: sample PDF fixture.
-   - Complexity: high.
-   - Phase: 2.
-
-7. Add DOI detection.
-   - Why: citation metadata should start with deterministic extraction.
-   - Likely files: metadata engine, tests.
-   - Tests: DOI patterns and no invented metadata.
-   - Complexity: medium.
-   - Phase: 2.
-
-8. Add CSV profiling.
-    - Why: begins data source support.
-    - Likely files: data engine, CLI, tests.
-    - Tests: row/column/missing/type profile.
-    - Complexity: medium.
-    - Phase: 3.
-
-9. Add `researchboss zotero test`.
-   - Why: gives users a direct local validation command for storage path, parent root, SQLite readability, and cache availability.
-   - Likely files: `cli.py`, `zotero.py`, tests.
-   - Tests: fake storage and SQLite fixture.
-   - Complexity: low.
-   - Phase: 1 refinement.
-
-10. Add richer local Zotero metadata coverage.
+2. Add richer local Zotero metadata coverage.
     - Why: tags, notes, item links, and relations can improve offline review without AI/API.
     - Likely files: `zotero.py`, tests, docs.
     - Tests: SQLite fixture for notes/tags/relations.
     - Complexity: medium.
     - Phase: 1 refinement / Phase 2 support.
 
+3. Add integrated source review/report workflow.
+   - Why: ties source review, conversion, metadata, claims, and reports into one deterministic command.
+   - Likely files: `cli.py`, new engine module, tests.
+   - Tests: end-to-end local workspace workflow.
+   - Complexity: medium.
+   - Phase: 4 refinement.
+
+4. Add richer PDF extraction using an optional local dependency.
+   - Why: current PDF support is intentionally conservative for simple uncompressed streams.
+   - Likely files: conversion engine, docs, tests.
+   - Tests: realistic PDF fixture.
+   - Complexity: medium.
+   - Phase: 2 refinement.
+
+5. Start FastAPI local backend contracts.
+   - Why: deterministic engine contracts now exist for CLI reuse.
+   - Likely files: `researchboss/api`, tests, docs.
+   - Tests: API route tests.
+   - Complexity: high.
+   - Phase: 6.
+
 ## 16. Recommended Resume Point
 
-Resume with one small Phase 1 refinement, `researchboss zotero test`, then move to Phase 2 conversion, starting with TXT and MD conversion tests.
+Resume with either one final Phase 1 refinement, scan provider validation, or begin Phase 6 FastAPI local backend contracts. AI remains intentionally out of scope until explicit privacy-boundary tests and safe context contracts are designed.
 
 ## 17. Maintenance Rule
 

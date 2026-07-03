@@ -1,6 +1,6 @@
 # ResearchBoss
 
-Current version: 0.2.0
+Current version: 0.3.0
 
 ResearchBoss is a local-first, evidence-first research workspace for managing research context, source files, review state, and project memory without requiring cloud services for the MVP.
 
@@ -36,6 +36,15 @@ Phase 1 complete:
 - Deterministic Zotero storage keyword search over filenames and `.zotero-ft-cache` text
 - Read-only local Zotero SQLite metadata lookup without Zotero API use
 - Offline Zotero collection listing, selected-collection mode, metadata reports, health reports, snapshots, duplicate checks, and BibTeX export
+- TXT, MD, DOCX, and page-marked PDF conversion into `sources_text/`
+- Conversion cache keyed by source hash and failed conversion records under `sources_failed/`
+- Deterministic citation metadata extraction without inventing missing fields
+- CSV, SQLite, and JSON data profiling under `outputs/data-profiles/`
+- M.Phil and PhD research stage templates
+- Research question approve, reject, archive, and list workflows
+- Manual claim ledger and citation gap reports
+- Artefact registry records with linked sources, linked research questions, and review flags
+- Local Markdown report generation, one-shot source watch reports, workspace backups, and config migration
 - SHA-256 file hashing
 - Duplicate detection by content hash
 - Source register records with `pending_review`
@@ -53,7 +62,7 @@ Phase 1 complete:
 
 Known gaps:
 
-- Conversion, metadata extraction, data profiling, research stage workflows, OpenAI behavior, FastAPI, UI, and packaging are planned but not implemented yet.
+- OpenAI behavior, FastAPI, UI, and packaging are planned but not implemented yet.
 - Zotero support is local filesystem and read-only SQLite based only; Zotero API integration is not implemented yet.
 - The source review workflow is implemented for local workspace state, but no downstream research tasks consume accepted sources yet.
 - AI is not implemented. Init stores AI preference metadata only and keeps AI disabled.
@@ -73,7 +82,17 @@ researchboss/
     runlog.py         # JSONL logging and run summary helpers
     yamlio.py         # YAML read/write helpers
   engine/
+    artefacts.py      # artefact registry helpers
+    backup.py         # local workspace backup helpers
+    claims.py         # manual claim ledger and citation gap helpers
+    conversion.py     # TXT, MD, DOCX, and PDF-to-text conversion
+    data.py           # CSV, SQLite, and JSON profiling
+    metadata.py       # deterministic citation metadata extraction
+    migrations.py     # workspace config migrations
+    reports.py        # local Markdown report generation
+    research_questions.py # research question workflows
     sources.py        # source scanning, hashing, status updates
+    watch.py          # one-shot unregistered source detection
     zotero.py         # read-only Zotero storage, SQLite metadata, reports, and keyword search
     workspace.py      # workspace initialization
   cli.py              # Typer CLI command layer
@@ -164,7 +183,7 @@ researchboss sources status
 
 ## CLI Commands
 
-Phase 1 currently provides:
+Current CLI commands include:
 
 ```bash
 researchboss version
@@ -172,9 +191,19 @@ researchboss doctor
 researchboss init
 researchboss status [--workspace <path>]
 researchboss config validate [--workspace <path>]
+researchboss config migrate [--workspace <path>]
 researchboss scan [--workspace <path>] [--source <source-folder>]
+researchboss convert [--workspace <path>] [--status accepted]
+researchboss metadata extract [--workspace <path>]
+researchboss data profile [--workspace <path>]
+researchboss data list [--workspace <path>]
+researchboss data status [--workspace <path>]
+researchboss report [--workspace <path>]
+researchboss watch [--workspace <path>]
+researchboss backup [--workspace <path>] [--include-originals]
 researchboss zotero search "keyword terms" [--workspace <path>] [--storage <zotero-storage-folder>]
 researchboss zotero collections [--workspace <path>]
+researchboss zotero test [--workspace <path>]
 researchboss zotero select-collections <collection-key>... [--workspace <path>]
 researchboss zotero use-entire-library [--workspace <path>]
 researchboss zotero scan-collection <collection-key> [--workspace <path>]
@@ -190,6 +219,15 @@ researchboss sources review [--workspace <path>]
 researchboss sources accept <source-id> --workspace <path>
 researchboss sources maybe <source-id> --workspace <path>
 researchboss sources ignore <source-id> --reason "Reason" --workspace <path>
+researchboss rqs list [--workspace <path>]
+researchboss rqs approve <rq-id> [--workspace <path>]
+researchboss rqs reject <rq-id> --reason "Reason" [--workspace <path>]
+researchboss rqs archive <rq-id> --reason "Reason" [--workspace <path>]
+researchboss claims add "Claim text" [--source <source-id>] [--workspace <path>]
+researchboss claims list [--workspace <path>]
+researchboss claims gaps [--workspace <path>]
+researchboss artefacts register "Title" --path <path> [--type report] [--workspace <path>]
+researchboss artefacts list [--workspace <path>]
 ```
 
 For commands that mutate a specific source by ID, passing `--workspace` is still recommended in scripts. In interactive use, omitting `--workspace` triggers the same workspace discovery and default-selection flow.
@@ -244,14 +282,14 @@ Source statuses are currently limited to:
 - `maybe`
 - `ignored`
 
-The source review commands only update local workspace YAML files. Later phases will use accepted sources for conversion, validation, research question support, and reports.
+The source review commands update local workspace YAML files. Conversion, metadata extraction, data profiling, claim checks, and reports are local deterministic workflows and can be filtered by source status where supported.
 
 ## Validation
 
 Run these checks before committing:
 
 ```bash
-python -m py_compile researchboss/cli.py researchboss/engine/sources.py researchboss/engine/zotero.py researchboss/engine/workspace.py researchboss/core/runlog.py researchboss/core/yamlio.py researchboss/core/constants.py
+python -m py_compile researchboss/cli.py researchboss/engine/*.py researchboss/core/*.py
 python -m pytest
 ```
 
@@ -260,9 +298,9 @@ python -m pytest
 The detailed living roadmap is maintained in `DETAILED_ROADMAP.md`. Update that file, this README version line, and the changelog whenever development changes project behavior.
 
 1. Phase 1 engine and CLI foundation complete.
-2. Add conversion and citation metadata extraction.
-3. Add CSV and SQLite profiling plus artefact metadata.
-4. Add research question templates, stages, and approval workflows.
+2. Conversion and citation metadata extraction complete for deterministic local MVP paths.
+3. CSV, SQLite, JSON profiling plus artefact metadata complete for deterministic local MVP paths.
+4. Research stages and research question approval workflows complete for deterministic local MVP paths.
 5. Add optional OpenAI features with strict privacy boundaries.
 6. Add a local FastAPI backend.
 7. Prepare a cross-platform UI.

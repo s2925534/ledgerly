@@ -50,31 +50,32 @@
 
 ## Phase 2: Conversion and Metadata
 
-- [ ] Add TXT and MD conversion first.
-- [ ] Add DOCX conversion.
-- [ ] Add PDF conversion with page markers.
-- [ ] Add conversion cache keyed by file hash.
-- [ ] Add failed conversion handling and conversion statuses.
-- [ ] Add DOI detection.
-- [ ] Add basic citation metadata extraction without inventing missing metadata.
-- [ ] Add tests for all conversion paths.
+- [x] Add TXT and MD conversion first.
+- [x] Add DOCX conversion.
+- [x] Add PDF conversion with page markers.
+- [x] Add conversion cache keyed by file hash.
+- [x] Add failed conversion handling and conversion statuses.
+- [x] Add DOI detection.
+- [x] Add basic citation metadata extraction without inventing missing metadata.
+- [x] Add tests for all conversion paths.
 
 ## Phase 3: Data and Artefacts
 
-- [ ] Add CSV profiling: rows, columns, missing values, and inferred types.
-- [ ] Add SQLite profiling: tables, columns, and row counts where practical.
-- [ ] Add data profile reports under `outputs/data-profiles`.
-- [ ] Expand artefact registry records with linked sources and metadata.
-- [ ] Add tests for data profiling and artefact registry behavior.
+- [x] Add CSV profiling: rows, columns, missing values, and inferred types.
+- [x] Add SQLite profiling: tables, columns, and row counts where practical.
+- [x] Add JSON source registration and profiling.
+- [x] Add data profile reports under `outputs/data-profiles`.
+- [x] Expand artefact registry records with linked sources and metadata.
+- [x] Add tests for data profiling and artefact registry behavior.
 
 ## Phase 4: Research Questions and Stages
 
-- [ ] Add research question templates for M.Phil, PhD, Other academic research, Industry research, and Custom.
-- [ ] Add M.Phil and PhD stage templates.
-- [ ] Add stage statuses.
-- [ ] Add research question candidate, approval, rejection, and archive workflows beyond init-time capture.
+- [ ] Add richer research question templates for M.Phil, PhD, Other academic research, Industry research, and Custom.
+- [x] Add M.Phil and PhD stage templates.
+- [x] Add stage statuses.
+- [x] Add research question candidate, approval, rejection, and archive workflows beyond init-time capture.
 - [ ] Add warning thresholds without hard limits by default.
-- [ ] Add tests for research question and stage workflows.
+- [x] Add tests for research question and stage workflows.
 
 ## Phase 5: Optional OpenAI Features
 

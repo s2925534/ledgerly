@@ -4,6 +4,19 @@ All notable changes to ResearchBoss will be documented in this file.
 
 ## Unreleased
 
+- Bumped project version to 0.3.0.
+- Added deterministic conversion for TXT, MD, DOCX, and simple page-marked PDF text extraction.
+- Added conversion cache keyed by source hash and failed conversion records under `sources_failed/`.
+- Added deterministic citation metadata extraction with DOI/year/title handling and no invented metadata.
+- Added local CSV, SQLite, and JSON data profiling with reports under `outputs/data-profiles/`.
+- Added M.Phil and PhD research stage templates.
+- Added research question list, approve, reject, and archive workflows.
+- Added artefact registry commands with linked source IDs, linked research question IDs, review flags, and AI-generated flags.
+- Added manual claim ledger commands and citation gap reports.
+- Added local Markdown workspace report generation.
+- Added one-shot source watch candidate reports for unregistered files.
+- Added local workspace zip backups with original sources excluded by default.
+- Added workspace config migration and schema versioning.
 - Bumped project version to 0.2.0.
 - Added offline Zotero SQLite metadata support through read-only immutable local database connections.
 - Added Zotero parent-root config when a `storage/` folder is selected.

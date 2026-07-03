@@ -40,6 +40,14 @@ local workspace files
 - read-only Zotero SQLite metadata lookup through immutable local connections
 - offline Zotero collection listing, selected-collection scans, reports, snapshots, duplicate checks, and BibTeX export
 - deterministic Zotero storage keyword search over filenames, `.zotero-ft-cache` text, and local SQLite metadata
+- deterministic source conversion for TXT, MD, DOCX, and simple page-marked PDF text extraction
+- conversion cache and failed conversion records
+- deterministic citation metadata extraction without invented fields
+- local CSV, SQLite, and JSON data profiling
+- artefact registry records with linked source and research question IDs
+- manual claim ledger and citation gap detection
+- research stage templates and research question state transitions
+- local Markdown reports, one-shot watch reports, workspace backups, and config migrations
 - init-time research question capture into approved and draft YAML files
 - init-time setup preferences such as citation style, expected data files, source review defaults, AI preference metadata, and privacy preference
 
@@ -63,7 +71,7 @@ The workspace selector is intentionally local and file-based. It does not introd
 
 ## Workspace
 
-A ResearchBoss workspace is a local folder containing YAML, Markdown, source, artefact, output, and log files. The current implementation creates the Phase 1 workspace skeleton and stores source review state in local YAML files.
+A ResearchBoss workspace is a local folder containing YAML, Markdown, source, artefact, output, and log files. The current implementation creates the workspace skeleton and stores source review, conversion, metadata, data profile, research question, claim, artefact, report, and migration state in local files.
 
 Workspace identity is currently inferred by the presence of `research-context.yaml` and `source-register.yaml`. Commands that need workspace context can receive `--workspace` explicitly. If omitted, the CLI discovers workspaces from the current directory and `./workspaces/*`; a single discovered workspace is selected automatically, and multiple workspaces are presented as a numbered list.
 
@@ -79,6 +87,6 @@ The future desktop/web/mobile UI should consume the local API contract. UI state
 
 ResearchBoss should treat original source files as read-only inputs. MVP operation should not require cloud services, remote databases, or external academic search. Optional AI features must use a safe context builder and must not upload whole documents or datasets.
 
-AI behavior is not implemented in Phase 1. Init records only local AI preference metadata and writes `ai.enabled: false` in workspace settings.
+AI behavior is not implemented. Init records only local AI preference metadata and writes `ai.enabled: false` in workspace settings.
 
 Local Zotero support intentionally avoids the Zotero API for now. The engine can scan the `storage/` folder, register supported source files, store the Zotero storage item key, detect `.zotero-ft-cache`, read `zotero.sqlite` through immutable read-only SQLite connections, list and filter collections, enrich source records with metadata, generate local reports, snapshot metadata, detect duplicate candidates, export conservative BibTeX, and search filename/cache/metadata text deterministically. ResearchBoss must not write into Zotero storage or modify Zotero-owned files.
