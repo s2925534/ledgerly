@@ -31,3 +31,26 @@ def test_convert_sources_converts_txt_to_sources_text(tmp_path: Path) -> None:
     source = read_yaml(workspace / "source-register.yaml")["sources"][0]
     assert source["conversion"]["status"] == "converted"
     assert source["conversion"]["output_path"] == str(output_path)
+
+
+def test_convert_sources_converts_md_to_plain_text(tmp_path: Path) -> None:
+    workspace = make_workspace(tmp_path)
+    source_root = tmp_path / "sources"
+    source_root.mkdir()
+    source_file = source_root / "notes.md"
+    source_file.write_text(
+        "# Heading\n\n- **Important** [source](https://example.test)\n\n`code term`\n",
+        encoding="utf-8",
+    )
+    scan_sources(workspace, source_root)
+
+    result = convert_sources(workspace)
+
+    assert result.converted == 1
+    source_id = read_yaml(workspace / "source-register.yaml")["sources"][0]["source_id"]
+    output = (workspace / "sources_text" / f"{source_id}.txt").read_text(encoding="utf-8")
+    assert "Heading" in output
+    assert "Important source" in output
+    assert "code term" in output
+    assert "**" not in output
+    assert "https://example.test" not in output

@@ -3,11 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
+import re
 
 from researchboss.core.yamlio import read_yaml, write_yaml
 
 
-CONVERTIBLE_EXTENSIONS = {".txt"}
+CONVERTIBLE_EXTENSIONS = {".txt", ".md"}
 
 
 @dataclass(frozen=True)
@@ -46,6 +47,26 @@ def _convert_txt(source_path: Path, output_path: Path) -> None:
     output_path.write_text(normalized, encoding="utf-8")
 
 
+def _markdown_to_text(markdown: str) -> str:
+    text = markdown.replace("\r\n", "\n").replace("\r", "\n")
+    text = re.sub(r"```.*?```", "", text, flags=re.DOTALL)
+    text = re.sub(r"`([^`]+)`", r"\1", text)
+    text = re.sub(r"!\[([^\]]*)\]\([^)]+\)", r"\1", text)
+    text = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", text)
+    text = re.sub(r"^\s{0,3}#{1,6}\s*", "", text, flags=re.MULTILINE)
+    text = re.sub(r"^\s{0,3}>\s?", "", text, flags=re.MULTILINE)
+    text = re.sub(r"^\s*[-*+]\s+", "", text, flags=re.MULTILINE)
+    text = re.sub(r"^\s*\d+\.\s+", "", text, flags=re.MULTILINE)
+    text = text.replace("**", "").replace("__", "").replace("*", "").replace("_", "")
+    return text
+
+
+def _convert_md(source_path: Path, output_path: Path) -> None:
+    text = source_path.read_text(encoding="utf-8", errors="replace")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(_markdown_to_text(text), encoding="utf-8")
+
+
 def convert_source_record(workspace: Path, source: dict[str, Any]) -> ConversionResult:
     source_id = str(source.get("source_id") or "")
     source_path = Path(str(source.get("file_path") or ""))
@@ -59,7 +80,10 @@ def convert_source_record(workspace: Path, source: dict[str, Any]) -> Conversion
         return ConversionResult(source_id=source_id, status="not_supported", output_path=None)
 
     output_path = _conversion_output_path(workspace, source_id)
-    _convert_txt(source_path, output_path)
+    if extension == ".txt":
+        _convert_txt(source_path, output_path)
+    elif extension == ".md":
+        _convert_md(source_path, output_path)
     source["conversion"] = {
         "status": "converted",
         "output_path": str(output_path),
