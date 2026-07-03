@@ -1,6 +1,6 @@
 # ResearchBoss
 
-Current version: 0.4.0
+Current version: 0.4.1
 
 ResearchBoss is a local-first, evidence-first research workspace for managing research context, source files, review state, and project memory without requiring cloud services for the MVP.
 
@@ -37,6 +37,7 @@ Phase 1 complete:
 - Read-only local Zotero SQLite metadata lookup without Zotero API use
 - Offline Zotero collection listing, selected-collection mode, notes/tags/relations metadata, metadata reports, health reports, snapshots, duplicate checks, and BibTeX export
 - Optional read-only Zotero Web API credential test, collection listing, and collection selection
+- Planned local FastAPI boundary documented in `docs/api/CONTRACT.md`
 - TXT, MD, DOCX, and page-marked PDF conversion into `sources_text/`
 - Conversion cache keyed by source hash and failed conversion records under `sources_failed/`
 - Deterministic citation metadata extraction without inventing missing fields
@@ -114,6 +115,7 @@ CHANGELOG.md
 TODO.md
 AGENTS.md
 docs/ARCHITECTURE.md
+docs/api/CONTRACT.md
 pyproject.toml
 ```
 

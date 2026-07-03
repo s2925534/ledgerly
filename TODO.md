@@ -120,7 +120,7 @@
 ## Phase 7: Cross-Platform UI Preparation
 
 - [ ] Document the desktop, web, and mobile UI strategy.
-- [ ] <span style="color: #1565c0; font-weight: 600;">Define</span> a clear API contract.
+- [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Define a clear API contract in `docs/api/CONTRACT.md`.
 - [ ] Add a frontend folder or explicit planned UI structure.
 - [ ] Keep UI logic out of the core engine.
 

@@ -1,6 +1,6 @@
 # ResearchBoss Detailed Roadmap
 
-Project version: 0.4.0
+Project version: 0.4.1
 
 Last updated: 2026-07-03
 
@@ -49,6 +49,7 @@ Implemented:
 - Workspace discovery, selection, and local default workspace memory.
 - JSONL logs and YAML run summaries.
 - README, AGENTS.md, architecture notes, TODO, changelog, and tests.
+- Planned local FastAPI API contract in `docs/api/CONTRACT.md`.
 
 Partially implemented:
 
@@ -117,6 +118,8 @@ tests/
 
 docs/
   ARCHITECTURE.md
+  api/
+    CONTRACT.md
 
 AGENTS.md
 CHANGELOG.md
@@ -140,7 +143,6 @@ Expected future folders:
 
 - `researchboss/api` for FastAPI.
 - `frontend` or equivalent UI planning folder.
-- `docs/api` for API contracts.
 - `docs/packaging` for desktop packaging notes.
 
 ## 3. Implemented Features
@@ -264,21 +266,21 @@ Next work:
 
 ### Phase 6: FastAPI Local Backend
 
-Status: not started.
+Status: contract defined, backend not started.
 
 Next work:
 
-- Define engine contracts first.
+- Add a minimal local FastAPI app skeleton.
 - Add local API routes after core behavior is tested.
 
 ### Phase 7: Cross-Platform UI Preparation
 
-Status: not started.
+Status: API contract defined, UI strategy not started.
 
 Next work:
 
 - Document UI strategy.
-- Define API contract.
+- Use `docs/api/CONTRACT.md` as the first UI/backend contract.
 - Keep UI logic outside engine/core.
 
 ### Phase 8: Packaging
@@ -395,8 +397,6 @@ Implemented:
 Missing:
 
 - Zotero local API.
-- Richer local metadata coverage for tags, notes, relations, and item links.
-- More complete BibTeX item-type mapping.
 
 ## 9. Data Source Audit
 
@@ -507,13 +507,13 @@ Implemented:
 - `TODO.md`
 - `CHANGELOG.md`
 - `DETAILED_ROADMAP.md`
+- `docs/api/CONTRACT.md`
 - Setup and test instructions.
 - Initial OpenAI and Zotero notes.
 - Local-first privacy boundaries.
 
 Missing:
 
-- Full API contract.
 - Desktop/web/mobile strategy.
 - Packaging documentation.
 
@@ -528,9 +528,9 @@ Phase 1 through Phase 4 offline deterministic work is complete for the current r
    - Complexity: medium.
    - Phase: 2 enhancement, not blocking Phase 2 completion.
 
-2. Start FastAPI local backend contracts.
-   - Why: deterministic engine contracts now exist for CLI reuse.
-   - Likely files: `researchboss/api`, tests, docs.
+2. Start a minimal FastAPI local backend skeleton.
+   - Why: the API contract now exists and can be implemented as a thin transport layer over the tested engine.
+   - Likely files: `researchboss/api`, tests, `docs/api/CONTRACT.md`.
    - Tests: API route tests.
    - Complexity: high.
    - Phase: 6.
@@ -544,7 +544,7 @@ Phase 1 through Phase 4 offline deterministic work is complete for the current r
 
 ## 16. Recommended Resume Point
 
-Resume with either a Phase 2 PDF extraction enhancement, Phase 6 FastAPI local backend contracts, or Phase 5 AI privacy-boundary tests. Phase 1 through Phase 4 offline deterministic work is complete for the current roadmap. AI and API work remain intentionally separated until their contracts and privacy-boundary tests are designed.
+Resume with either a Phase 2 PDF extraction enhancement, a minimal Phase 6 FastAPI local backend skeleton based on `docs/api/CONTRACT.md`, or Phase 5 AI privacy-boundary tests. Phase 1 through Phase 4 offline deterministic work is complete for the current roadmap. AI work remains intentionally separated until privacy-boundary tests are designed.
 
 ## 17. Maintenance Rule
 

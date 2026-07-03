@@ -1,0 +1,503 @@
+# ResearchBoss Local API Contract
+
+This document defines the planned FastAPI boundary for ResearchBoss before any backend routes are implemented.
+
+Contract status: planned for project version `0.4.1`.
+
+The API must be local-first, workspace-scoped, and a thin transport layer over `researchboss.engine` functions. It must not duplicate business logic already implemented in the engine.
+
+## Non-Negotiable Boundaries
+
+- API routes must not modify original source files.
+- API routes must not write inside the local Zotero directory.
+- API routes must not require cloud storage or a remote database for MVP operation.
+- Zotero Web API routes must be read-only.
+- Zotero write routes are forbidden.
+- AI routes are future/disabled until privacy-boundary tests exist.
+- API keys must not be returned, printed, or logged.
+- Whole PDFs, CSV files, SQLite databases, or original documents must not be sent to AI by default.
+
+## Common Conventions
+
+Base path:
+
+```text
+/api/v1
+```
+
+Workspace selection:
+
+- All workspace-scoped routes accept a `workspace` query parameter or a configured workspace ID later.
+- Initial MVP may use absolute local workspace paths.
+- Future UI layers should pass opaque workspace IDs once a project registry exists.
+
+Response shape:
+
+```json
+{
+  "ok": true,
+  "data": {},
+  "warnings": [],
+  "errors": []
+}
+```
+
+Error shape:
+
+```json
+{
+  "ok": false,
+  "data": null,
+  "warnings": [],
+  "errors": [
+    {
+      "code": "workspace_not_found",
+      "message": "Workspace does not exist."
+    }
+  ]
+}
+```
+
+## Projects And Workspace Routes
+
+### `GET /api/v1/projects/status`
+
+Returns workspace status and source counts.
+
+Engine source:
+
+- `researchboss.engine.sources.source_counts`
+
+### `POST /api/v1/projects/init`
+
+Creates a local workspace.
+
+Engine source:
+
+- `researchboss.engine.workspace.init_workspace`
+
+Body fields should mirror the CLI init fields, including project type, topic, source mode, citation style, output type, AI preference metadata, and privacy preferences.
+
+### `GET /api/v1/projects/health`
+
+Returns deterministic workspace health checks.
+
+Engine source:
+
+- `researchboss.engine.health.workspace_health_report`
+
+## Source Routes
+
+### `GET /api/v1/sources`
+
+Lists sources, optionally filtered by status.
+
+Engine source:
+
+- `researchboss.engine.sources.list_sources`
+
+### `POST /api/v1/sources/scan`
+
+Scans local folders or Zotero storage.
+
+Engine source:
+
+- `researchboss.engine.sources.scan_sources`
+
+Allowed providers:
+
+- `local_folder`
+- `zotero_storage`
+
+### `POST /api/v1/sources/{source_id}/status`
+
+Sets source review status.
+
+Engine source:
+
+- `researchboss.engine.sources.set_source_status`
+
+Allowed statuses:
+
+- `accepted`
+- `ignored`
+- `maybe`
+
+### `POST /api/v1/sources/{source_id}/note`
+
+Sets a local note for a source.
+
+Engine source:
+
+- `researchboss.engine.sources.set_source_note`
+
+### `POST /api/v1/sources/{source_id}/tags`
+
+Adds a manual tag to a source.
+
+Engine source:
+
+- `researchboss.engine.sources.add_source_tag`
+
+### `GET /api/v1/sources/report`
+
+Returns source review report data.
+
+Engine source:
+
+- `researchboss.engine.sources.source_review_report`
+
+## Conversion And Metadata Routes
+
+### `POST /api/v1/conversion/run`
+
+Converts registered sources to local text.
+
+Engine source:
+
+- `researchboss.engine.conversion.convert_sources`
+
+### `POST /api/v1/metadata/extract`
+
+Extracts deterministic citation metadata.
+
+Engine source:
+
+- `researchboss.engine.metadata.extract_citation_metadata`
+
+### `GET /api/v1/metadata/validate`
+
+Returns citation consistency and DOI validation results.
+
+Engine source:
+
+- `researchboss.engine.metadata_quality.citation_consistency_report`
+
+### `GET /api/v1/metadata/duplicates`
+
+Returns duplicate metadata candidates.
+
+Engine source:
+
+- `researchboss.engine.metadata_quality.duplicate_metadata_report`
+
+### `POST /api/v1/metadata/index`
+
+Builds a local keyword index over converted text.
+
+Engine source:
+
+- `researchboss.engine.metadata_quality.build_keyword_index`
+
+## Data Routes
+
+### `POST /api/v1/data/profile`
+
+Profiles local CSV, SQLite, DB, and JSON sources.
+
+Engine source:
+
+- `researchboss.engine.data.profile_data_sources`
+
+### `GET /api/v1/data`
+
+Lists local data sources.
+
+Engine source:
+
+- `researchboss.engine.data.list_data_sources`
+
+### `GET /api/v1/data/status`
+
+Returns data profile counts.
+
+Engine source:
+
+- `researchboss.engine.data.data_source_counts`
+
+## Research Question Routes
+
+### `GET /api/v1/rqs`
+
+Lists approved, candidate, and rejected research questions.
+
+Engine source:
+
+- `researchboss.engine.research_questions.list_research_questions`
+
+### `POST /api/v1/rqs/check`
+
+Runs deterministic research question readiness checks.
+
+Engine source:
+
+- `researchboss.engine.research_questions.check_research_question_readiness`
+
+### `POST /api/v1/rqs/{rq_id}/approve`
+
+Approves a candidate research question.
+
+Engine source:
+
+- `researchboss.engine.research_questions.approve_research_question`
+
+### `POST /api/v1/rqs/{rq_id}/reject`
+
+Rejects a research question.
+
+Engine source:
+
+- `researchboss.engine.research_questions.reject_research_question`
+
+### `POST /api/v1/rqs/{rq_id}/archive`
+
+Archives a research question.
+
+Engine source:
+
+- `researchboss.engine.research_questions.archive_research_question`
+
+## Claim Routes
+
+### `GET /api/v1/claims`
+
+Lists claims.
+
+Engine source:
+
+- `researchboss.engine.claims.list_claims`
+
+### `POST /api/v1/claims`
+
+Adds a manual claim.
+
+Engine source:
+
+- `researchboss.engine.claims.add_claim`
+
+### `POST /api/v1/claims/{claim_id}/status`
+
+Sets claim review status.
+
+Engine source:
+
+- `researchboss.engine.claims.set_claim_status`
+
+### `GET /api/v1/claims/gaps`
+
+Returns citation gap report data.
+
+Engine source:
+
+- `researchboss.engine.claims.write_citation_gap_report`
+
+### `GET /api/v1/claims/validate`
+
+Validates that claims link only to existing accepted sources.
+
+Engine source:
+
+- `researchboss.engine.claims.claim_source_validation_report`
+
+## Artefact Routes
+
+### `GET /api/v1/artefacts`
+
+Lists artefacts.
+
+Engine source:
+
+- `researchboss.engine.artefacts.list_artefacts`
+
+### `POST /api/v1/artefacts`
+
+Registers a local artefact.
+
+Engine source:
+
+- `researchboss.engine.artefacts.register_artefact`
+
+### `POST /api/v1/artefacts/create`
+
+Creates deterministic non-AI artefacts.
+
+Engine source:
+
+- `researchboss.engine.artefact_creation.create_deterministic_artefact`
+
+### `POST /api/v1/artefacts/{artefact_id}/review`
+
+Sets artefact review status.
+
+Engine source:
+
+- `researchboss.engine.artefacts.set_artefact_review_status`
+
+### `GET /api/v1/artefacts/dependencies`
+
+Checks artefact links against accepted sources and approved research questions.
+
+Engine source:
+
+- `researchboss.engine.artefacts.artefact_dependency_report`
+
+## Zotero Routes
+
+### `GET /api/v1/zotero/local/collections`
+
+Lists collections from local `zotero.sqlite`.
+
+Engine source:
+
+- `researchboss.engine.zotero.list_zotero_collections`
+
+### `GET /api/v1/zotero/local/search`
+
+Searches local Zotero storage and local metadata.
+
+Engine source:
+
+- `researchboss.engine.zotero.search_zotero_storage`
+
+### `GET /api/v1/zotero/api/test`
+
+Tests Zotero Web API credentials without exposing the key.
+
+Engine source:
+
+- `researchboss.engine.zotero_api.zotero_api_readiness`
+
+### `GET /api/v1/zotero/api/collections`
+
+Lists Zotero Web API collections using read-only credentials.
+
+Engine source:
+
+- `researchboss.engine.zotero_api.zotero_api_collections`
+
+### `POST /api/v1/zotero/api/collections/select`
+
+Stores selected Zotero Web API collection keys in workspace config.
+
+Rules:
+
+- This route writes only to the ResearchBoss workspace.
+- It must not modify Zotero.
+- It must not call Zotero write endpoints.
+
+## Report And Export Routes
+
+### `GET /api/v1/reports/workspace`
+
+Generates local Markdown workspace report.
+
+Engine source:
+
+- `researchboss.engine.reports.generate_workspace_report`
+
+### `GET /api/v1/reports/timeline`
+
+Generates a local timeline report.
+
+Engine source:
+
+- `researchboss.engine.project_log.timeline_report`
+
+### `POST /api/v1/export/evidence`
+
+Creates an offline evidence bundle without original source files by default.
+
+Engine source:
+
+- `researchboss.engine.export.export_evidence_bundle`
+
+### `POST /api/v1/backup`
+
+Creates a local backup.
+
+Engine source:
+
+- `researchboss.engine.backup.create_workspace_backup`
+
+### `GET /api/v1/backup/inspect`
+
+Inspects a backup zip without restoring it.
+
+Engine source:
+
+- `researchboss.engine.backup.inspect_backup`
+
+## Project Log Routes
+
+### `POST /api/v1/decisions`
+
+Adds a structured local decision.
+
+Engine source:
+
+- `researchboss.engine.project_log.add_decision`
+
+### `POST /api/v1/terminology`
+
+Adds or updates a glossary term.
+
+Engine source:
+
+- `researchboss.engine.project_log.add_terminology`
+
+### `POST /api/v1/feedback`
+
+Adds supervisor or stakeholder feedback.
+
+Engine source:
+
+- `researchboss.engine.project_log.add_feedback`
+
+### `POST /api/v1/context/changelog`
+
+Adds a context changelog item.
+
+Engine source:
+
+- `researchboss.engine.project_log.add_context_change`
+
+## Future AI Routes
+
+AI routes are contract placeholders only and must remain disabled until explicit implementation and privacy-boundary tests exist.
+
+Future routes:
+
+- `POST /api/v1/ai/test`
+- `POST /api/v1/ai/review`
+- `POST /api/v1/ai/novelty`
+- `POST /api/v1/ai/rqs/assess`
+
+Rules:
+
+- Disabled by default.
+- Must require explicit AI enablement.
+- Must never log API keys.
+- Must never upload whole PDFs, CSVs, SQLite databases, or original documents unless the user has explicitly opted into that scope.
+- Must preserve the Zotero no-write boundary.
+
+## Forbidden Routes
+
+The following route classes must not be added:
+
+- Zotero write routes.
+- Routes that write into Zotero storage.
+- Routes that delete original source files.
+- Routes that require a remote database for MVP operation.
+- Routes that sync to Dropbox, Google Drive, OneDrive, SharePoint, AWS, Azure, Firebase, Supabase, or similar services for MVP operation.
+
+## Required Tests Before Implementation
+
+Before a route group is marked implemented, tests must prove that:
+
+- The route calls shared `researchboss.engine` behavior instead of duplicating business logic in the API layer.
+- Workspace writes are limited to ResearchBoss workspace files.
+- Original source files are not modified.
+- Local Zotero directories are never modified.
+- Zotero Web API routes use read-only operations only.
+- Missing or invalid API keys are handled without printing or logging secrets.
+- Future AI routes stay disabled until explicit AI implementation and privacy-boundary tests exist.

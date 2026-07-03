@@ -4,6 +4,8 @@ All notable changes to ResearchBoss will be documented in this file.
 
 ## Unreleased
 
+- Bumped project version to 0.4.1.
+- Added `docs/api/CONTRACT.md` with the planned local FastAPI boundary, endpoint groups, shared-engine expectations, read-only Zotero constraints, and disabled future AI route rules.
 - Bumped project version to 0.4.0.
 - Added optional read-only Zotero Web API support for credential testing, collection listing, and workspace collection selection.
 - Added `ZOTERO_API_KEY` and `ZOTERO_USER_ID` placeholders to `.env.example`.
