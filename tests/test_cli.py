@@ -444,6 +444,26 @@ def test_cli_report_generates_workspace_report(tmp_path: Path) -> None:
     assert (workspace / "outputs" / "reports" / "workspace-report.md").is_file()
 
 
+def test_cli_watch_writes_candidate_report(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    source_root = tmp_path / "sources"
+    source_root.mkdir()
+    (source_root / "new.txt").write_text("new", encoding="utf-8")
+    init_workspace(
+        workspace,
+        project_name="Test Project",
+        project_type="M.Phil",
+        topic="",
+        source_root=str(source_root),
+        source_mode="local_folder",
+    )
+
+    result = runner.invoke(app, ["watch", "--workspace", str(workspace), "--quiet"])
+
+    assert result.exit_code == 0, result.output
+    assert (workspace / "outputs" / "recommendations" / "watch-candidates.yaml").is_file()
+
+
 def test_cli_scan_uses_configured_zotero_provider_when_kind_is_omitted(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     storage_root = tmp_path / "Zotero" / "storage"

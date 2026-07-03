@@ -33,6 +33,7 @@ from researchboss.engine.sources import (
     set_source_status,
     source_counts,
 )
+from researchboss.engine.watch import write_watch_report
 from researchboss.engine.zotero import (
     attachment_health_report,
     duplicate_metadata_candidates,
@@ -676,6 +677,24 @@ def report(
     _finish(summary, summary_path)
     if not quiet:
         console.print(f"[green]Wrote[/green] {output_path}")
+
+
+@app.command()
+def watch(
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Detect unregistered files in the configured source folder."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["watch"], ws, log_level)
+    output_path = write_watch_report(ws)
+    report_data = read_yaml(output_path)
+    logger.info("Wrote watch candidate report", operation="watch", output_path=str(output_path))
+    _finish(summary, summary_path, next_action="Run `researchboss scan` to register new candidate files.")
+    if not quiet:
+        console.print(f"[green]Wrote[/green] {output_path}")
+        console.print(f"candidate_count={report_data.get('candidate_count', 0)}")
 
 
 @app.command()
