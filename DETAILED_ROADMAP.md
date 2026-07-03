@@ -1,6 +1,6 @@
 # ResearchBoss Detailed Roadmap
 
-Project version: 0.3.6
+Project version: 0.3.7
 
 Last updated: 2026-07-03
 
@@ -20,6 +20,7 @@ Implemented:
 - Read-only local Zotero storage scanning.
 - Read-only local Zotero SQLite metadata lookup.
 - Offline Zotero collection listing and selected-collection scan modes.
+- Offline Zotero notes, tags, relations, linked-item metadata, and richer BibTeX mapping.
 - Deterministic local Zotero search over filenames, `.zotero-ft-cache`, and local SQLite metadata.
 - Offline Zotero metadata reports, attachment health checks, full-text cache reports, metadata snapshots, duplicate checks, and BibTeX export.
 - Source hashing and duplicate detection.
@@ -149,7 +150,7 @@ Expected future folders:
 | Zotero SQLite metadata | Implemented | `researchboss/engine/zotero.py` | Uses read-only immutable SQLite connections. |
 | Zotero collection workflows | Implemented | `researchboss/cli.py`, `zotero.py` | Local collection listing, selection, and collection scans. |
 | Zotero storage search | Implemented | `researchboss/engine/zotero.py`, `cli.py` | Searches filenames, `.zotero-ft-cache`, and SQLite metadata. |
-| Zotero offline reports | Implemented | `researchboss/engine/zotero.py`, `cli.py` | Metadata, attachment, full-text, duplicates, snapshots, BibTeX. |
+| Zotero offline reports | Implemented | `researchboss/engine/zotero.py`, `cli.py` | Metadata, notes, tags, relations, attachment, full-text, duplicates, snapshots, BibTeX. |
 | Conversion | Implemented | `researchboss/engine/conversion.py`, `cli.py` | TXT, MD, DOCX, simple page-marked PDF, cache, failures. |
 | Citation metadata | Implemented | `researchboss/engine/metadata.py`, `cli.py` | DOI/year/title extraction without invented fields. |
 | Data profiling | Implemented | `researchboss/engine/data.py`, `cli.py` | CSV, SQLite, JSON profiles. |
@@ -179,6 +180,7 @@ Implemented:
 - Workspace discovery and default workspace memory.
 - Runtime checks through `doctor` and before `init`.
 - Local Zotero storage scan/search without AI or API use.
+- Read-only local Zotero SQLite notes, tags, relations, linked-item metadata, extra metadata fields, and richer BibTeX mapping.
 
 Remaining Phase 1 refinements:
 
@@ -608,14 +610,7 @@ Missing:
     - Complexity: low.
     - Phase: 1 refinement.
 
-14. Add richer local Zotero metadata coverage.
-    - Why: tags, notes, item links, and relations can improve offline review without AI/API.
-    - Likely files: `zotero.py`, tests, docs.
-    - Tests: SQLite fixture for notes/tags/relations.
-    - Complexity: medium.
-    - Phase: 1 refinement / Phase 2 support.
-
-15. Add richer PDF extraction using an optional local dependency.
+14. Add richer PDF extraction using an optional local dependency.
     - Why: current PDF support is intentionally conservative for simple uncompressed streams.
     - Likely files: conversion engine, docs, tests.
     - Tests: realistic PDF fixture.

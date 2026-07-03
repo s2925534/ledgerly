@@ -46,6 +46,11 @@ class ZoteroAttachmentMetadata:
     publication_title: Optional[str]
     abstract_note: Optional[str]
     collections: list[dict[str, str]]
+    tags: list[str]
+    notes: list[dict[str, str]]
+    relations: list[dict[str, str]]
+    linked_items: list[dict[str, str]]
+    extra_fields: dict[str, str]
 
     def as_source_fields(self) -> dict[str, Any]:
         return {
@@ -60,6 +65,11 @@ class ZoteroAttachmentMetadata:
             "zotero_publication_title": self.publication_title,
             "zotero_abstract_note": self.abstract_note,
             "zotero_collections": self.collections,
+            "zotero_tags": self.tags,
+            "zotero_notes": self.notes,
+            "zotero_relations": self.relations,
+            "zotero_linked_items": self.linked_items,
+            "zotero_extra_fields": self.extra_fields,
         }
 
 
@@ -184,6 +194,14 @@ def _connect_readonly(db_path: Path) -> sqlite3.Connection:
     conn = sqlite3.connect(uri, uri=True)
     conn.row_factory = sqlite3.Row
     return conn
+
+
+def _table_exists(conn: sqlite3.Connection, table_name: str) -> bool:
+    row = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+        (table_name,),
+    ).fetchone()
+    return row is not None
 
 
 def _row_value(row: sqlite3.Row | dict[str, Any], key: str) -> Any:
@@ -373,6 +391,111 @@ def _item_collections(conn: sqlite3.Connection, item_id: int) -> list[dict[str, 
     return result
 
 
+def _item_tags(conn: sqlite3.Connection, item_id: int) -> list[str]:
+    if not (_table_exists(conn, "itemTags") and _table_exists(conn, "tags")):
+        return []
+    rows = conn.execute(
+        """
+        SELECT tags.name
+        FROM itemTags
+        JOIN tags ON tags.tagID = itemTags.tagID
+        WHERE itemTags.itemID = ?
+        ORDER BY tags.name
+        """,
+        (item_id,),
+    ).fetchall()
+    return [str(row["name"]) for row in rows if row["name"]]
+
+
+def _strip_note_html(value: str) -> str:
+    text = re.sub(r"<[^>]+>", " ", value)
+    return " ".join(text.split())
+
+
+def _item_notes(conn: sqlite3.Connection, item_id: int) -> list[dict[str, str]]:
+    if not (_table_exists(conn, "itemNotes") and _table_exists(conn, "items")):
+        return []
+    rows = conn.execute(
+        """
+        SELECT items.key, itemNotes.title, itemNotes.note
+        FROM itemNotes
+        JOIN items ON items.itemID = itemNotes.itemID
+        WHERE itemNotes.parentItemID = ?
+        ORDER BY itemNotes.itemID
+        """,
+        (item_id,),
+    ).fetchall()
+    result = []
+    for row in rows:
+        result.append(
+            {
+                "key": str(row["key"] or ""),
+                "title": str(row["title"] or ""),
+                "text": _strip_note_html(str(row["note"] or "")),
+            }
+        )
+    return result
+
+
+def _item_relations(conn: sqlite3.Connection, item_key: str) -> list[dict[str, str]]:
+    if not _table_exists(conn, "itemRelations"):
+        return []
+    rows = conn.execute(
+        """
+        SELECT subject, predicate, object
+        FROM itemRelations
+        WHERE subject = ? OR object = ?
+        ORDER BY predicate, subject, object
+        """,
+        (item_key, item_key),
+    ).fetchall()
+    return [
+        {
+            "subject": str(row["subject"] or ""),
+            "predicate": str(row["predicate"] or ""),
+            "object": str(row["object"] or ""),
+        }
+        for row in rows
+    ]
+
+
+def _linked_items_from_relations(
+    conn: sqlite3.Connection,
+    item_key: str,
+    relations: list[dict[str, str]],
+) -> list[dict[str, str]]:
+    linked_keys = sorted(
+        {
+            relation["object"] if relation["subject"] == item_key else relation["subject"]
+            for relation in relations
+            if relation.get("subject") == item_key or relation.get("object") == item_key
+        }
+    )
+    result = []
+    for key in linked_keys:
+        row = conn.execute(
+            """
+            SELECT items.key, itemTypes.typeName
+            FROM items
+            LEFT JOIN itemTypes ON itemTypes.itemTypeID = items.itemTypeID
+            WHERE items.key = ?
+            """,
+            (key,),
+        ).fetchone()
+        if row:
+            fields = _item_fields(conn, int(conn.execute("SELECT itemID FROM items WHERE key = ?", (key,)).fetchone()["itemID"]))
+            result.append(
+                {
+                    "key": str(row["key"] or ""),
+                    "item_type": str(row["typeName"] or ""),
+                    "title": fields.get("title", ""),
+                }
+            )
+        else:
+            result.append({"key": key, "item_type": "", "title": ""})
+    return result
+
+
 def attachment_metadata_by_storage_key(
     zotero_root: Path,
     storage_key: str,
@@ -414,18 +537,38 @@ def attachment_metadata_by_storage_key(
         fields = _item_fields(conn, int(item["itemID"]))
         title = fields.get("title")
         date_value = fields.get("date")
+        item_id_int = int(item["itemID"])
+        item_key = str(item["key"] or "")
+        relations = _item_relations(conn, item_key)
         return ZoteroAttachmentMetadata(
             attachment_item_key=str(attachment["attachmentKey"]),
             parent_item_key=str(attachment["parentKey"]) if attachment["parentKey"] else None,
             item_type=str(item["typeName"]) if item["typeName"] else None,
             title=title,
-            creators=_item_creators(conn, int(item["itemID"])),
+            creators=_item_creators(conn, item_id_int),
             year=_year_from_date(date_value),
             doi=fields.get("DOI"),
             url=fields.get("url"),
             publication_title=fields.get("publicationTitle"),
             abstract_note=fields.get("abstractNote"),
-            collections=_item_collections(conn, int(item["itemID"])),
+            collections=_item_collections(conn, item_id_int),
+            tags=_item_tags(conn, item_id_int),
+            notes=_item_notes(conn, item_id_int),
+            relations=relations,
+            linked_items=_linked_items_from_relations(conn, item_key, relations),
+            extra_fields={
+                key: value
+                for key, value in fields.items()
+                if key
+                not in {
+                    "title",
+                    "date",
+                    "DOI",
+                    "url",
+                    "publicationTitle",
+                    "abstractNote",
+                }
+            },
         )
 
 
@@ -457,12 +600,18 @@ def metadata_quality_report(zotero_root: Path) -> dict[str, Any]:
     missing_year = [item.attachment_item_key for item in items if not item.year]
     missing_doi = [item.attachment_item_key for item in items if not item.doi]
     missing_creators = [item.attachment_item_key for item in items if not item.creators]
+    with_tags = [item.attachment_item_key for item in items if item.tags]
+    with_notes = [item.attachment_item_key for item in items if item.notes]
+    with_relations = [item.attachment_item_key for item in items if item.relations]
     return {
         "total_attachments": len(items),
         "missing_title": missing_title,
         "missing_year": missing_year,
         "missing_doi": missing_doi,
         "missing_creators": missing_creators,
+        "with_tags": with_tags,
+        "with_notes": with_notes,
+        "with_relations": with_relations,
     }
 
 
@@ -539,12 +688,20 @@ def _bibtex_key(item: ZoteroAttachmentMetadata) -> str:
 
 
 def _bibtex_entry_type(item_type: Optional[str]) -> str:
-    if item_type in {"journalArticle", "conferencePaper"}:
+    if item_type == "journalArticle":
         return "article"
+    if item_type == "conferencePaper":
+        return "inproceedings"
+    if item_type == "bookSection":
+        return "incollection"
     if item_type == "book":
         return "book"
     if item_type == "thesis":
         return "phdthesis"
+    if item_type == "webpage":
+        return "online"
+    if item_type in {"report", "document"}:
+        return "techreport"
     return "misc"
 
 
@@ -568,6 +725,17 @@ def export_bibtex_from_metadata(zotero_root: Path) -> str:
             "doi": item.doi,
             "url": item.url,
             "journal": item.publication_title,
+            "booktitle": item.extra_fields.get("proceedingsTitle") or item.extra_fields.get("bookTitle"),
+            "publisher": item.extra_fields.get("publisher"),
+            "address": item.extra_fields.get("place"),
+            "volume": item.extra_fields.get("volume"),
+            "number": item.extra_fields.get("issue"),
+            "pages": item.extra_fields.get("pages"),
+            "isbn": item.extra_fields.get("ISBN"),
+            "school": item.extra_fields.get("university"),
+            "institution": item.extra_fields.get("institution"),
+            "type": item.extra_fields.get("type"),
+            "note": "; ".join(item.tags) if item.tags else None,
         }
         lines = [f"@{_bibtex_entry_type(item.item_type)}{{{key},"]
         for field, value in fields.items():
@@ -610,6 +778,15 @@ def score_zotero_relevance(
         "abstract": metadata.abstract_note if metadata else None,
         "collections": " ".join(collection.get("path", "") for collection in metadata.collections) if metadata else None,
         "doi": metadata.doi if metadata else None,
+        "tags": " ".join(metadata.tags) if metadata else None,
+        "notes": " ".join(note.get("text", "") for note in metadata.notes) if metadata else None,
+        "relations": " ".join(
+            " ".join([relation.get("predicate", ""), relation.get("subject", ""), relation.get("object", "")])
+            for relation in metadata.relations
+        )
+        if metadata
+        else None,
+        "linked_items": " ".join(item.get("title", "") for item in metadata.linked_items) if metadata else None,
     }
     metadata_lower = {field: str(value).lower() for field, value in metadata_fields.items() if value}
 

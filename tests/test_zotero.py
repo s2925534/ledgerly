@@ -100,6 +100,10 @@ def make_zotero_sqlite(zotero_root: Path) -> Path:
         CREATE TABLE itemDataValues (valueID INTEGER PRIMARY KEY, value TEXT);
         CREATE TABLE creators (creatorID INTEGER PRIMARY KEY, firstName TEXT, lastName TEXT, fieldMode INTEGER);
         CREATE TABLE itemCreators (itemID INTEGER, creatorID INTEGER, creatorTypeID INTEGER, orderIndex INTEGER);
+        CREATE TABLE tags (tagID INTEGER PRIMARY KEY, name TEXT);
+        CREATE TABLE itemTags (itemID INTEGER, tagID INTEGER);
+        CREATE TABLE itemNotes (itemID INTEGER PRIMARY KEY, parentItemID INTEGER, title TEXT, note TEXT);
+        CREATE TABLE itemRelations (subject TEXT, predicate TEXT, object TEXT);
         CREATE TABLE collections (
             collectionID INTEGER PRIMARY KEY,
             collectionName TEXT,
@@ -111,12 +115,26 @@ def make_zotero_sqlite(zotero_root: Path) -> Path:
         """
     )
     conn.executemany("INSERT INTO itemTypes VALUES (?, ?)", [(1, "journalArticle"), (2, "attachment")])
-    conn.executemany("INSERT INTO items VALUES (?, ?, ?)", [(10, 1, "PARENT01"), (20, 2, "ABCD1234"), (30, 2, "WXYZ9876")])
+    conn.executemany(
+        "INSERT INTO items VALUES (?, ?, ?)",
+        [(10, 1, "PARENT01"), (20, 2, "ABCD1234"), (30, 2, "WXYZ9876"), (40, 1, "RELATED1"), (50, 2, "NOTE0001")],
+    )
     conn.executemany(
         "INSERT INTO itemAttachments VALUES (?, ?, ?, ?)",
         [(20, 10, "storage:Evidence Synthesis.pdf", "application/pdf"), (30, 10, "storage:Copy.pdf", "application/pdf")],
     )
-    fields = [(1, "title"), (2, "date"), (3, "DOI"), (4, "url"), (5, "publicationTitle"), (6, "abstractNote")]
+    fields = [
+        (1, "title"),
+        (2, "date"),
+        (3, "DOI"),
+        (4, "url"),
+        (5, "publicationTitle"),
+        (6, "abstractNote"),
+        (7, "volume"),
+        (8, "issue"),
+        (9, "pages"),
+        (10, "publisher"),
+    ]
     conn.executemany("INSERT INTO fields VALUES (?, ?)", fields)
     values = [
         (1, "Evidence Synthesis for Local Research"),
@@ -125,11 +143,26 @@ def make_zotero_sqlite(zotero_root: Path) -> Path:
         (4, "https://example.test/paper"),
         (5, "Journal of Local Tools"),
         (6, "An abstract about local evidence review."),
+        (7, "12"),
+        (8, "3"),
+        (9, "45-67"),
+        (10, "Local Press"),
     ]
     conn.executemany("INSERT INTO itemDataValues VALUES (?, ?)", values)
     conn.executemany("INSERT INTO itemData VALUES (?, ?, ?)", [(10, value_id, value_id) for value_id, _value in values])
+    conn.executemany(
+        "INSERT INTO itemData VALUES (?, ?, ?)",
+        [(40, 1, 1), (40, 2, 2)],
+    )
     conn.execute("INSERT INTO creators VALUES (?, ?, ?, ?)", (1, "Pedro", "Veloso", 0))
     conn.execute("INSERT INTO itemCreators VALUES (?, ?, ?, ?)", (10, 1, 1, 0))
+    conn.executemany("INSERT INTO tags VALUES (?, ?)", [(1, "methodology"), (2, "evidence")])
+    conn.executemany("INSERT INTO itemTags VALUES (?, ?)", [(10, 1), (10, 2)])
+    conn.execute(
+        "INSERT INTO itemNotes VALUES (?, ?, ?, ?)",
+        (50, 10, "Review note", "<p>Important note about deterministic evidence review.</p>"),
+    )
+    conn.execute("INSERT INTO itemRelations VALUES (?, ?, ?)", ("PARENT01", "dc:relation", "RELATED1"))
     conn.executemany(
         "INSERT INTO collections VALUES (?, ?, ?, ?, ?)",
         [(100, "Thesis", "COLLROOT", None, 1), (101, "Chapter One", "COLLCH1", 100, 1)],
@@ -153,6 +186,15 @@ def test_readonly_sqlite_metadata_and_collections(tmp_path: Path) -> None:
     assert metadata.year == "2024"
     assert metadata.doi == "10.1234/example"
     assert metadata.collections[0]["key"] == "COLLROOT"
+    assert metadata.tags == ["evidence", "methodology"]
+    assert metadata.notes == [
+        {"key": "NOTE0001", "title": "Review note", "text": "Important note about deterministic evidence review."}
+    ]
+    assert metadata.relations == [{"subject": "PARENT01", "predicate": "dc:relation", "object": "RELATED1"}]
+    assert metadata.linked_items == [
+        {"key": "RELATED1", "item_type": "journalArticle", "title": "Evidence Synthesis for Local Research"}
+    ]
+    assert metadata.extra_fields["pages"] == "45-67"
 
     collections = list_zotero_collections(zotero_root)
     assert [collection.key for collection in collections] == ["COLLROOT", "COLLCH1"]
@@ -173,6 +215,10 @@ def test_zotero_search_can_match_sqlite_metadata(tmp_path: Path) -> None:
     assert hit.matched_terms == ["veloso"]
     assert hit.matched_in == ["creators"]
 
+    note_hit = score_zotero_relevance(first, storage, ["deterministic"], zotero_root=zotero_root)
+    assert note_hit.score > 0
+    assert "notes" in note_hit.matched_in
+
 
 def test_zotero_reports_snapshot_duplicates_and_bibtex(tmp_path: Path) -> None:
     storage, first, second = make_storage(tmp_path)
@@ -182,6 +228,9 @@ def test_zotero_reports_snapshot_duplicates_and_bibtex(tmp_path: Path) -> None:
     quality = metadata_quality_report(zotero_root)
     assert quality["total_attachments"] == 2
     assert quality["missing_title"] == []
+    assert quality["with_tags"] == ["ABCD1234", "WXYZ9876"]
+    assert quality["with_notes"] == ["ABCD1234", "WXYZ9876"]
+    assert quality["with_relations"] == ["ABCD1234", "WXYZ9876"]
 
     health = attachment_health_report(zotero_root, storage, [first])
     assert health["sqlite_attachments"] == 2
@@ -198,10 +247,13 @@ def test_zotero_reports_snapshot_duplicates_and_bibtex(tmp_path: Path) -> None:
     snapshot = zotero_metadata_snapshot(zotero_root)
     assert len(snapshot["attachments"]) == 2
     assert len(snapshot["collections"]) == 2
+    assert snapshot["attachments"][0]["zotero_tags"] == ["evidence", "methodology"]
 
     bibtex = export_bibtex_from_metadata(zotero_root)
     assert "@article{veloso_evidence_2024," in bibtex
     assert "doi = {10.1234/example}" in bibtex
+    assert "pages = {45-67}" in bibtex
+    assert "note = {evidence; methodology}" in bibtex
 
 
 def test_zotero_readiness_report_checks_local_paths(tmp_path: Path) -> None:

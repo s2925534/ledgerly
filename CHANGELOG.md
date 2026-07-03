@@ -4,6 +4,9 @@ All notable changes to ResearchBoss will be documented in this file.
 
 ## Unreleased
 
+- Bumped project version to 0.3.7.
+- Added richer read-only local Zotero SQLite coverage for notes, tags, relations, linked items, and extra metadata fields.
+- Expanded deterministic Zotero search, snapshots, metadata-quality reports, and BibTeX export to use the richer offline metadata.
 - Bumped project version to 0.3.6.
 - Added offline deterministic roadmap/TODO items for DOI validation, citation consistency, duplicate metadata reports, source review reports, source notes/tags, claim validation, artefact review, evidence bundle export, project-log commands, workspace health, and backup restore dry-run.
 - Bumped project version to 0.3.5.

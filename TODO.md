@@ -48,8 +48,8 @@
 ## Future Zotero Work
 
 - [ ] Add future Zotero API collection listing and selection only if needed after offline workflows are stable.
-- [ ] Add richer local SQLite coverage for notes, tags, relations, and item links.
-- [ ] Add more complete BibTeX item-type and field mapping.
+- [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add richer local SQLite coverage for notes, tags, relations, and item links.
+- [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add more complete BibTeX item-type and field mapping.
 
 ## Phase 2: Conversion and Metadata
 
