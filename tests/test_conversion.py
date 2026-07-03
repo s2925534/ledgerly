@@ -132,3 +132,23 @@ def test_convert_sources_skips_unchanged_cached_output(tmp_path: Path) -> None:
     assert second.skipped == 1
     assert second.results[0].status == "skipped_unchanged"
     assert output_path.read_text(encoding="utf-8") == "manual marker"
+
+
+def test_convert_sources_records_failed_conversion(tmp_path: Path) -> None:
+    workspace = make_workspace(tmp_path)
+    source_root = tmp_path / "sources"
+    source_root.mkdir()
+    source_file = source_root / "broken.docx"
+    source_file.write_text("not a zip file", encoding="utf-8")
+    scan_sources(workspace, source_root)
+
+    result = convert_sources(workspace)
+
+    assert result.failed == 1
+    source = read_yaml(workspace / "source-register.yaml")["sources"][0]
+    assert source["conversion"]["status"] == "failed"
+    failed_path = Path(source["conversion"]["failed_path"])
+    assert failed_path.is_file()
+    failure = read_yaml(failed_path)
+    assert failure["source_id"] == source["source_id"]
+    assert failure["error"]

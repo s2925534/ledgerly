@@ -42,6 +42,10 @@ def _conversion_output_path(workspace: Path, source_id: str) -> Path:
     return workspace / "sources_text" / f"{source_id}.txt"
 
 
+def _conversion_failure_path(workspace: Path, source_id: str) -> Path:
+    return workspace / "sources_failed" / f"{source_id}.yaml"
+
+
 def _convert_txt(source_path: Path, output_path: Path) -> None:
     text = source_path.read_text(encoding="utf-8", errors="replace")
     normalized = text.replace("\r\n", "\n").replace("\r", "\n")
@@ -148,18 +152,39 @@ def convert_source_record(workspace: Path, source: dict[str, Any]) -> Conversion
         }
         return ConversionResult(source_id=source_id, status="skipped_unchanged", output_path=Path(str(previous["output_path"])))
 
-    if extension == ".txt":
-        _convert_txt(source_path, output_path)
-    elif extension == ".md":
-        _convert_md(source_path, output_path)
-    elif extension == ".docx":
-        _convert_docx(source_path, output_path)
-    elif extension == ".pdf":
-        _convert_pdf(source_path, output_path)
+    try:
+        if extension == ".txt":
+            _convert_txt(source_path, output_path)
+        elif extension == ".md":
+            _convert_md(source_path, output_path)
+        elif extension == ".docx":
+            _convert_docx(source_path, output_path)
+        elif extension == ".pdf":
+            _convert_pdf(source_path, output_path)
+    except Exception as exc:
+        failure_path = _conversion_failure_path(workspace, source_id)
+        failure = {
+            "version": 1,
+            "source_id": source_id,
+            "file_path": str(source_path),
+            "content_hash": content_hash,
+            "error": str(exc),
+        }
+        write_yaml(failure_path, failure)
+        source["conversion"] = {
+            "status": "failed",
+            "output_path": None,
+            "content_hash": content_hash,
+            "failed_path": str(failure_path),
+            "error": str(exc),
+        }
+        return ConversionResult(source_id=source_id, status="failed", output_path=None, error=str(exc))
+
     source["conversion"] = {
         "status": "converted",
         "output_path": str(output_path),
         "content_hash": content_hash,
+        "failed_path": None,
         "error": None,
     }
     return ConversionResult(source_id=source_id, status="converted", output_path=output_path)
