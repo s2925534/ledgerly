@@ -3,6 +3,8 @@ from pathlib import Path
 from researchboss.core.constants import WORKSPACE_DIRS, WORKSPACE_FILES
 from researchboss.core.yamlio import read_yaml
 from researchboss.engine.workspace import (
+    citation_style_choices,
+    citation_styles_from_zotero_styles_dir,
     default_documents_dir,
     find_default_zotero_storage,
     infer_source_mode,
@@ -133,7 +135,7 @@ def test_init_workspace_writes_setup_preferences(tmp_path: Path) -> None:
         project_type="Industry research",
         topic="",
         supervisors=["Dr Smith"],
-        citation_style="Custom",
+        citation_style="Custom Zotero/CSL style name",
         custom_citation_style="Vancouver-like custom style",
         primary_output_type="custom",
         custom_primary_output_type="policy brief",
@@ -147,7 +149,10 @@ def test_init_workspace_writes_setup_preferences(tmp_path: Path) -> None:
     settings = read_yaml(workspace / WORKSPACE_FILES.app_settings_local)
 
     assert context["project"]["supervisors_or_stakeholders"] == ["Dr Smith"]
-    assert context["citation"] == {"style": "Custom", "custom_style": "Vancouver-like custom style"}
+    assert context["citation"] == {
+        "style": "Custom Zotero/CSL style name",
+        "custom_style": "Vancouver-like custom style",
+    }
     assert context["artefacts"]["primary_output_type"] == "custom"
     assert context["artefacts"]["custom_primary_output_type"] == "policy brief"
     assert context["data"]["expects_csv_or_sqlite"] == "yes"
@@ -262,3 +267,23 @@ def test_infer_source_mode_from_answer() -> None:
     assert infer_source_mode("local_folder", zotero_storage) == "local_folder"
     assert infer_source_mode(str(zotero_storage), zotero_storage) == "zotero_storage"
     assert infer_source_mode("/Users/pedro/Documents/papers", zotero_storage) == "local_folder"
+
+
+def test_citation_style_choices_use_zotero_csl_titles(tmp_path: Path) -> None:
+    styles_dir = tmp_path / "styles"
+    styles_dir.mkdir()
+    (styles_dir / "apa.csl").write_text(
+        """<?xml version="1.0" encoding="utf-8"?>
+        <style xmlns="http://purl.org/net/xbiblio/csl">
+          <info><title>American Psychological Association 7th edition</title></info>
+        </style>
+        """,
+        encoding="utf-8",
+    )
+
+    assert citation_styles_from_zotero_styles_dir(styles_dir) == ["American Psychological Association 7th edition"]
+    assert citation_style_choices(styles_dir) == [
+        "American Psychological Association 7th edition",
+        "Custom Zotero/CSL style name",
+        "Not sure",
+    ]

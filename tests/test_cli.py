@@ -261,7 +261,10 @@ def test_cli_init_collects_setup_preferences(tmp_path: Path) -> None:
 
     assert context["project"]["type"] == "Industry research"
     assert context["project"]["supervisors_or_stakeholders"] == ["Dr Smith"]
-    assert context["citation"] == {"style": "Custom", "custom_style": "Vancouver-like custom style"}
+    assert context["citation"] == {
+        "style": "Custom Zotero/CSL style name",
+        "custom_style": "Vancouver-like custom style",
+    }
     assert context["artefacts"]["primary_output_type"] == "custom"
     assert context["artefacts"]["custom_primary_output_type"] == "policy brief"
     assert context["data"]["expects_csv_or_sqlite"] == "yes"

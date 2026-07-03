@@ -3,6 +3,7 @@ from __future__ import annotations
 import platform
 from pathlib import Path
 from typing import Any, Optional
+from xml.etree import ElementTree
 
 from researchboss.core.constants import WORKSPACE_FILES, ensure_workspace_dirs
 from researchboss.core.yamlio import write_yaml
@@ -11,7 +12,20 @@ from researchboss.engine.zotero import zotero_root_from_storage, zotero_sqlite_p
 
 PROJECT_TYPES = ["M.Phil", "PhD", "Other academic research", "Industry research", "Custom"]
 SOURCE_MODES = {"local_folder", "zotero_storage", "configure_later"}
-CITATION_STYLES = ["APA", "Harvard", "Chicago", "MLA", "IEEE", "Custom", "Not sure"]
+ZOTERO_COMMON_CITATION_STYLES = [
+    "American Psychological Association 7th edition",
+    "American Psychological Association 6th edition",
+    "Chicago Manual of Style 17th edition (author-date)",
+    "Chicago Manual of Style 17th edition (full note)",
+    "Modern Language Association 9th edition",
+    "Custom Zotero/CSL style name",
+    "IEEE",
+    "Vancouver",
+    "American Medical Association 11th edition",
+    "American Chemical Society",
+    "Not sure",
+]
+CITATION_STYLES = ZOTERO_COMMON_CITATION_STYLES
 PRIMARY_OUTPUT_TYPES = ["thesis", "paper", "report", "presentation", "notes", "custom"]
 DATA_FILE_EXPECTATIONS = ["yes", "no", "not sure"]
 AI_PREFERENCES = ["no", "ask me later", "yes but disabled for now"]
@@ -68,6 +82,42 @@ def find_default_zotero_storage(home: Optional[Path] = None, system: Optional[st
         if candidate.is_dir():
             return candidate
     return None
+
+
+def read_csl_style_title(path: Path) -> Optional[str]:
+    try:
+        root = ElementTree.parse(path).getroot()
+    except (ElementTree.ParseError, OSError):
+        return None
+
+    namespace = {"csl": "http://purl.org/net/xbiblio/csl"}
+    title = root.find("./csl:info/csl:title", namespace)
+    if title is None or not title.text:
+        title = root.find("./info/title")
+    return title.text.strip() if title is not None and title.text else None
+
+
+def citation_styles_from_zotero_styles_dir(styles_dir: Path) -> list[str]:
+    if not styles_dir.is_dir():
+        return []
+
+    titles = []
+    seen = set()
+    for path in sorted(styles_dir.glob("*.csl")):
+        title = read_csl_style_title(path)
+        if title and title not in seen:
+            seen.add(title)
+            titles.append(title)
+    return titles
+
+
+def citation_style_choices(styles_dir: Optional[Path] = None) -> list[str]:
+    local_styles = citation_styles_from_zotero_styles_dir(styles_dir) if styles_dir else []
+    choices = local_styles or list(ZOTERO_COMMON_CITATION_STYLES)
+    for required in ("Custom Zotero/CSL style name", "Not sure"):
+        if required not in choices:
+            choices.append(required)
+    return choices
 
 
 def infer_source_mode(source_answer: str, zotero_storage: Optional[Path] = None) -> str:

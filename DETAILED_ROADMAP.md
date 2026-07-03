@@ -1,6 +1,6 @@
 # ResearchBoss Detailed Roadmap
 
-Project version: 0.3.0
+Project version: 0.3.1
 
 Last updated: 2026-07-03
 
@@ -35,6 +35,7 @@ Implemented:
 - One-shot watch reports for unregistered source files.
 - Local workspace backups.
 - Config migration and workspace schema versioning.
+- Zotero-style citation style wording, including explicit `American Psychological Association 7th edition`.
 - Source review statuses: `pending_review`, `accepted`, `maybe`, `ignored`.
 - Workspace discovery, selection, and local default workspace memory.
 - JSONL logs and YAML run summaries.
@@ -356,6 +357,7 @@ Implemented:
 - Export conservative BibTeX from local metadata.
 - Avoid modifying Zotero files.
 - Avoid writing into Zotero storage.
+- Enforce the hard project rule that no CLI workflow, development workflow, or future AI feature may modify anything inside the local Zotero directory.
 
 Missing:
 
@@ -444,6 +446,7 @@ Current privacy posture:
 - No AI document upload behavior exists.
 - Source files are read-only inputs.
 - Zotero storage is read-only.
+- The local Zotero directory is a hard no-write boundary for current and future non-AI or AI workflows.
 - `.env` is ignored.
 
 Known follow-up:

@@ -53,11 +53,11 @@ from researchboss.engine.zotero import (
 from researchboss import __version__
 from researchboss.engine.workspace import (
     AI_PREFERENCES,
-    CITATION_STYLES,
     DATA_FILE_EXPECTATIONS,
     PRIMARY_OUTPUT_TYPES,
     PROJECT_TYPES,
     SOURCE_REVIEW_DEFAULTS,
+    citation_style_choices,
     default_documents_dir,
     find_default_zotero_storage,
     infer_source_mode,
@@ -302,10 +302,15 @@ def _prompt_setup_preferences() -> dict[str, object]:
         "Record supervisor or stakeholder names for local context?",
         "Supervisor or stakeholder name",
     )
-    citation_style = _prompt_numbered_choice("Preferred citation style", CITATION_STYLES, default_index=7)
+    citation_styles = citation_style_choices()
+    citation_style = _prompt_numbered_choice(
+        "Preferred citation style",
+        citation_styles,
+        default_index=citation_styles.index("Not sure") + 1 if "Not sure" in citation_styles else len(citation_styles),
+    )
     custom_citation_style = None
-    if citation_style == "Custom":
-        custom_citation_style = typer.prompt("Custom citation style", default="").strip() or None
+    if citation_style == "Custom Zotero/CSL style name":
+        custom_citation_style = typer.prompt("Custom Zotero/CSL style name", default="").strip() or None
 
     primary_output_type = _prompt_numbered_choice("Primary output type", PRIMARY_OUTPUT_TYPES, default_index=1)
     custom_primary_output_type = None

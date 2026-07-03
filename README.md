@@ -1,6 +1,6 @@
 # ResearchBoss
 
-Current version: 0.3.0
+Current version: 0.3.1
 
 ResearchBoss is a local-first, evidence-first research workspace for managing research context, source files, review state, and project memory without requiring cloud services for the MVP.
 
@@ -45,6 +45,7 @@ Phase 1 complete:
 - Manual claim ledger and citation gap reports
 - Artefact registry records with linked sources, linked research questions, and review flags
 - Local Markdown report generation, one-shot source watch reports, workspace backups, and config migration
+- Zotero-style citation wording during init, including explicit `American Psychological Association 7th edition`
 - SHA-256 file hashing
 - Duplicate detection by content hash
 - Source register records with `pending_review`
@@ -256,6 +257,8 @@ researchboss zotero search "local first" --workspace <workspace> --storage /User
 ```
 
 These Zotero commands only read supported source files, Zotero `.zotero-ft-cache` text, and `zotero.sqlite` through a read-only immutable SQLite connection. They do not modify Zotero files, write into Zotero storage, call the Zotero local API, or send content to AI services.
+
+ResearchBoss has a hard Zotero safety rule: no development workflow, CLI command, or future AI feature may modify anything inside the local Zotero directory. Derived reports, snapshots, BibTeX files, metadata, and converted text must be written only inside the ResearchBoss workspace.
 
 The init wizard also prompts for optional local context:
 

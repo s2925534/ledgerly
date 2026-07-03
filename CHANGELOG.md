@@ -4,6 +4,10 @@ All notable changes to ResearchBoss will be documented in this file.
 
 ## Unreleased
 
+- Bumped project version to 0.3.1.
+- Changed init citation style wording to Zotero-style titles, including explicit `American Psychological Association 7th edition`.
+- Added read-only CSL style title parsing for local Zotero/CSL style files.
+- Documented the hard rule that ResearchBoss and any future AI feature must never modify the local Zotero directory.
 - Bumped project version to 0.3.0.
 - Added deterministic conversion for TXT, MD, DOCX, and simple page-marked PDF text extraction.
 - Added conversion cache keyed by source hash and failed conversion records under `sources_failed/`.
