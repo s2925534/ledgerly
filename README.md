@@ -1,5 +1,7 @@
 # ResearchBoss
 
+Current version: 0.1.1
+
 ResearchBoss is a local-first, evidence-first research workspace for managing research context, source files, review state, and project memory without requiring cloud services for the MVP.
 
 Phase 1 engine and CLI foundation are complete. The core engine and CLI are importable, tested, and usable for local workspace setup, local source scanning, and source review.
@@ -45,6 +47,7 @@ Phase 1 complete:
 - Workspace discovery and selection when `--workspace` is omitted
 - Local default workspace selection stored in ignored local YAML under `workspaces/`
 - Concrete next-step command examples after successful init
+- Detailed implementation roadmap in `DETAILED_ROADMAP.md`
 
 Known gaps:
 
@@ -241,6 +244,8 @@ python -m pytest
 ```
 
 ## Roadmap
+
+The detailed living roadmap is maintained in `DETAILED_ROADMAP.md`. Update that file, this README version line, and the changelog whenever development changes project behavior.
 
 1. Phase 1 engine and CLI foundation complete.
 2. Add conversion and citation metadata extraction.

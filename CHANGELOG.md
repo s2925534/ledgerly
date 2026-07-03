@@ -4,6 +4,9 @@ All notable changes to ResearchBoss will be documented in this file.
 
 ## Unreleased
 
+- Bumped project version to 0.1.1.
+- Added `DETAILED_ROADMAP.md` as the living 17-section implementation roadmap.
+- Added an explicit current version line to the README.
 - Added read-only local Zotero storage search over filenames and `.zotero-ft-cache` text without AI or Zotero API use.
 - Added Zotero storage metadata to scanned source records: storage key, relative path, and full-text-cache presence.
 - Updated `researchboss scan` to inherit `zotero_storage` provider mode from workspace config when `--kind` is omitted.
