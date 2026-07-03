@@ -97,6 +97,21 @@ def zotero_sqlite_exists(zotero_root: Path) -> bool:
     return zotero_sqlite_path(zotero_root).is_file()
 
 
+def path_is_within(path: Path, root: Path) -> bool:
+    try:
+        path.expanduser().resolve().relative_to(root.expanduser().resolve())
+        return True
+    except ValueError:
+        return False
+
+
+def ensure_path_not_in_zotero(path: Path, zotero_root: Optional[Path]) -> None:
+    if zotero_root and path_is_within(path, zotero_root):
+        raise ValueError(
+            "Blocked write inside local Zotero directory. ResearchBoss is strict one-way from Zotero to workspace."
+        )
+
+
 def zotero_readiness_report(zotero_root: Optional[Path], storage_root: Path, source_paths: Iterable[Path]) -> dict[str, Any]:
     paths = list(source_paths)
     sqlite_path = zotero_sqlite_path(zotero_root) if zotero_root else None

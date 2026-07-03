@@ -27,6 +27,7 @@ Do not start FastAPI, UI, packaging, or OpenAI-heavy features until their engine
 - Do not send whole PDFs, CSV files, SQLite databases, or original documents to AI providers.
 - Never modify anything inside the user's local Zotero directory. This applies to current CLI workflows, development workflows, tests, and any future AI implementation.
 - Zotero-derived files such as reports, snapshots, BibTeX exports, metadata, and converted text must be written only inside the ResearchBoss workspace.
+- Future AI modes that read whole files, directories, or full papers must be explicit opt-in settings and must still preserve the Zotero no-write boundary.
 - Do not print or log API keys.
 - Keep `.env` ignored.
 

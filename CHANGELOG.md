@@ -4,6 +4,9 @@ All notable changes to ResearchBoss will be documented in this file.
 
 ## Unreleased
 
+- Bumped project version to 0.3.2.
+- Added strict one-way Zotero-to-ResearchBoss config flags and guards that block writes inside the local Zotero directory.
+- Added roadmap notes for future explicit AI options to read whole files or directories for full-paper reasoning and artefact cross-reference workflows.
 - Bumped project version to 0.3.1.
 - Changed init citation style wording to Zotero-style titles, including explicit `American Psychological Association 7th edition`.
 - Added read-only CSL style title parsing for local Zotero/CSL style files.

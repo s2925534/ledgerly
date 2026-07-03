@@ -93,3 +93,12 @@ AI behavior is not implemented. Init records only local AI preference metadata a
 Local Zotero support intentionally avoids the Zotero API for now. The engine can scan the `storage/` folder, register supported source files, store the Zotero storage item key, detect `.zotero-ft-cache`, read `zotero.sqlite` through immutable read-only SQLite connections, list and filter collections, enrich source records with metadata, generate local reports, snapshot metadata, detect duplicate candidates, export conservative BibTeX, and search filename/cache/metadata text deterministically. ResearchBoss must not write into Zotero storage or modify Zotero-owned files.
 
 The entire local Zotero directory is a hard no-write boundary. No current command, development workflow, or future AI feature may modify anything inside Zotero's local directory. All derived outputs must be written inside the ResearchBoss workspace.
+
+Workspace Zotero config includes strict one-way flags:
+
+```yaml
+strict_one_way_from_zotero_to_researchboss: true
+block_writes_to_zotero_directory: true
+```
+
+Future AI whole-file, whole-directory, full-paper reasoning, and artefact cross-reference modes may be added only as explicit opt-in options. They must remain disabled by default, write outputs only inside the ResearchBoss workspace, and preserve the Zotero no-write boundary.

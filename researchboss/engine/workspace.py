@@ -7,7 +7,7 @@ from xml.etree import ElementTree
 
 from researchboss.core.constants import WORKSPACE_FILES, ensure_workspace_dirs
 from researchboss.core.yamlio import write_yaml
-from researchboss.engine.zotero import zotero_root_from_storage, zotero_sqlite_path
+from researchboss.engine.zotero import ensure_path_not_in_zotero, zotero_root_from_storage, zotero_sqlite_path
 
 
 PROJECT_TYPES = ["M.Phil", "PhD", "Other academic research", "Industry research", "Custom"]
@@ -144,6 +144,8 @@ def zotero_config_for_source(source_root: Optional[str], source_mode: str) -> di
             "selected_collections": [],
             "include_subcollections": True,
             "metadata_source": "local_sqlite",
+            "strict_one_way_from_zotero_to_researchboss": True,
+            "block_writes_to_zotero_directory": True,
         }
 
     storage = Path(source_root).expanduser()
@@ -156,6 +158,8 @@ def zotero_config_for_source(source_root: Optional[str], source_mode: str) -> di
         "selected_collections": [],
         "include_subcollections": True,
         "metadata_source": "local_sqlite",
+        "strict_one_way_from_zotero_to_researchboss": True,
+        "block_writes_to_zotero_directory": True,
     }
 
 
@@ -218,6 +222,10 @@ def init_workspace(
     prevent_full_document_uploads: bool = True,
     ai_preference: str = "no",
 ) -> None:
+    zotero_config = zotero_config_for_source(source_root, source_mode)
+    if zotero_config.get("block_writes_to_zotero_directory") and zotero_config.get("root"):
+        ensure_path_not_in_zotero(workspace, Path(str(zotero_config["root"])))
+
     workspace.mkdir(parents=True, exist_ok=True)
     ensure_workspace_dirs(workspace)
 
@@ -239,7 +247,7 @@ def init_workspace(
                 "new_source_status": source_review_default,
                 "requires_manual_review": source_review_default == "pending_review",
             },
-            "zotero": zotero_config_for_source(source_root, source_mode),
+            "zotero": zotero_config,
             "artefacts": {
                 "root": artefact_root,
                 "primary_output_type": primary_output_type,

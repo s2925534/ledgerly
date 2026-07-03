@@ -1,10 +1,13 @@
 from pathlib import Path
 import sqlite3
 
+import pytest
+
 from researchboss.engine.zotero import (
     attachment_health_report,
     attachment_metadata_by_storage_key,
     duplicate_metadata_candidates,
+    ensure_path_not_in_zotero,
     export_bibtex_from_metadata,
     fulltext_availability_report,
     has_zotero_fulltext_cache,
@@ -48,6 +51,16 @@ def test_zotero_storage_paths_and_cache_detection(tmp_path: Path) -> None:
     assert zotero_relative_path(first, storage) == "ABCD1234/Evidence Synthesis.pdf"
     assert has_zotero_fulltext_cache(first, storage) is True
     assert zotero_storage_key(tmp_path / "outside.pdf", storage) is None
+
+
+def test_ensure_path_not_in_zotero_blocks_writes(tmp_path: Path) -> None:
+    zotero_root = tmp_path / "Zotero"
+    zotero_root.mkdir()
+
+    with pytest.raises(ValueError, match="Blocked write inside local Zotero directory"):
+        ensure_path_not_in_zotero(zotero_root / "blocked.yaml", zotero_root)
+
+    ensure_path_not_in_zotero(tmp_path / "workspace" / "allowed.yaml", zotero_root)
 
 
 def test_keyword_terms_are_normalized_and_deduplicated() -> None:

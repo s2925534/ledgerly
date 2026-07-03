@@ -553,6 +553,30 @@ def test_cli_zotero_test_reports_local_readiness(tmp_path: Path) -> None:
     assert "sqlite_readable" in result.output
 
 
+def test_cli_zotero_snapshot_blocks_output_inside_zotero_directory(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    storage_root = tmp_path / "Zotero" / "storage"
+    storage_root.mkdir(parents=True)
+    init_workspace(
+        workspace,
+        project_name="Test Project",
+        project_type="M.Phil",
+        topic="",
+        source_root=str(storage_root),
+        source_mode="zotero_storage",
+    )
+    blocked_output = storage_root.parent / "blocked-snapshot.yaml"
+
+    result = runner.invoke(
+        app,
+        ["zotero", "snapshot", "--workspace", str(workspace), "--output", str(blocked_output), "--quiet"],
+    )
+
+    assert result.exit_code != 0
+    assert not blocked_output.exists()
+    assert "Blocked write inside local Zotero directory" in str(result.exception)
+
+
 def test_cli_commands_prompt_for_workspace_and_remember_default(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     source_root = tmp_path / "source-files"

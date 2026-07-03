@@ -6,7 +6,7 @@ from researchboss.core.yamlio import read_yaml, write_yaml
 from researchboss.engine.workspace import research_stage_template, zotero_config_for_source
 
 
-CURRENT_WORKSPACE_SCHEMA_VERSION = 2
+CURRENT_WORKSPACE_SCHEMA_VERSION = 3
 
 
 def migrate_workspace(workspace: Path) -> list[str]:
@@ -24,6 +24,13 @@ def migrate_workspace(workspace: Path) -> list[str]:
     if "zotero" not in context:
         context["zotero"] = zotero_config_for_source(sources.get("root"), sources.get("mode", "configure_later"))
         changes.append("zotero")
+    else:
+        zotero = context["zotero"] if isinstance(context["zotero"], dict) else {}
+        for key in ("strict_one_way_from_zotero_to_researchboss", "block_writes_to_zotero_directory"):
+            if key not in zotero:
+                zotero[key] = True
+                changes.append(f"zotero.{key}")
+        context["zotero"] = zotero
     write_yaml(context_path, context)
 
     stages_path = workspace / "research-stages.yaml"

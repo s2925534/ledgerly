@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from researchboss.core.constants import WORKSPACE_DIRS, WORKSPACE_FILES
 from researchboss.core.yamlio import read_yaml
 from researchboss.engine.workspace import (
@@ -74,6 +76,8 @@ def test_init_workspace_creates_expected_files_and_dirs(tmp_path: Path) -> None:
         "selected_collections": [],
         "include_subcollections": True,
         "metadata_source": "local_sqlite",
+        "strict_one_way_from_zotero_to_researchboss": True,
+        "block_writes_to_zotero_directory": True,
     }
     assert context["artefacts"] == {
         "root": None,
@@ -257,7 +261,24 @@ def test_init_workspace_configures_zotero_root_from_storage(tmp_path: Path) -> N
         "selected_collections": [],
         "include_subcollections": True,
         "metadata_source": "local_sqlite",
+        "strict_one_way_from_zotero_to_researchboss": True,
+        "block_writes_to_zotero_directory": True,
     }
+
+
+def test_init_workspace_blocks_workspace_inside_zotero_root(tmp_path: Path) -> None:
+    storage = tmp_path / "Zotero" / "storage"
+    storage.mkdir(parents=True)
+
+    with pytest.raises(ValueError, match="Blocked write inside local Zotero directory"):
+        init_workspace(
+            storage.parent / "ResearchBossWorkspace",
+            project_name="Test Project",
+            project_type="M.Phil",
+            topic="",
+            source_root=str(storage),
+            source_mode="zotero_storage",
+        )
 
 
 def test_infer_source_mode_from_answer() -> None:

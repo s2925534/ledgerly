@@ -1,6 +1,6 @@
 # ResearchBoss Detailed Roadmap
 
-Project version: 0.3.1
+Project version: 0.3.2
 
 Last updated: 2026-07-03
 
@@ -36,6 +36,7 @@ Implemented:
 - Local workspace backups.
 - Config migration and workspace schema versioning.
 - Zotero-style citation style wording, including explicit `American Psychological Association 7th edition`.
+- Strict one-way Zotero-to-ResearchBoss blocker config that prevents writes inside the local Zotero directory.
 - Source review statuses: `pending_review`, `accepted`, `maybe`, `ignored`.
 - Workspace discovery, selection, and local default workspace memory.
 - JSONL logs and YAML run summaries.
@@ -358,6 +359,7 @@ Implemented:
 - Avoid modifying Zotero files.
 - Avoid writing into Zotero storage.
 - Enforce the hard project rule that no CLI workflow, development workflow, or future AI feature may modify anything inside the local Zotero directory.
+- Workspace config stores `strict_one_way_from_zotero_to_researchboss: true` and `block_writes_to_zotero_directory: true`.
 
 Missing:
 
@@ -411,6 +413,14 @@ Missing:
 - Corpus summary behavior.
 - Privacy-boundary tests.
 
+Planned AI options:
+
+- Explicit user-controlled options to allow AI to read an entire file when the user approves that level of context.
+- Explicit user-controlled options to allow AI to read a directory of files when the user approves that level of context.
+- Optional full-paper reasoning mode for consuming entire papers.
+- Optional cross-reference mode where AI can compare full papers against in-progress artefacts.
+- These modes must be disabled by default, must never modify Zotero, and must keep outputs inside the ResearchBoss workspace.
+
 ## 12. Tests Audit
 
 Framework: pytest.
@@ -447,6 +457,7 @@ Current privacy posture:
 - Source files are read-only inputs.
 - Zotero storage is read-only.
 - The local Zotero directory is a hard no-write boundary for current and future non-AI or AI workflows.
+- Future AI whole-file, whole-directory, full-paper, and artefact cross-reference modes must be explicit opt-in settings and must preserve the Zotero no-write boundary.
 - `.env` is ignored.
 
 Known follow-up:

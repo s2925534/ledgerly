@@ -41,6 +41,7 @@ from researchboss.engine.zotero import (
     duplicate_metadata_candidates,
     export_bibtex_from_metadata,
     fulltext_availability_report,
+    ensure_path_not_in_zotero,
     keyword_terms,
     list_zotero_collections,
     metadata_quality_report,
@@ -1438,6 +1439,7 @@ def zotero_snapshot(
         raise typer.Exit(code=2)
 
     output_path = output or (ws / "sources_metadata" / "zotero-snapshot.yaml")
+    ensure_path_not_in_zotero(output_path, zotero_root)
     write_yaml(output_path, zotero_metadata_snapshot(zotero_root))
     logger.info("Wrote Zotero metadata snapshot", operation="zotero_snapshot", output_path=str(output_path))
     _finish(summary, summary_path)
@@ -1463,6 +1465,7 @@ def zotero_export_bibtex(
         raise typer.Exit(code=2)
 
     output_path = output or (ws / "outputs" / "reports" / "zotero-references.bib")
+    ensure_path_not_in_zotero(output_path, zotero_root)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     content = export_bibtex_from_metadata(zotero_root)
     output_path.write_text(content, encoding="utf-8")
