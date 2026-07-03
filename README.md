@@ -4,6 +4,12 @@ ResearchBoss is a local-first, evidence-first research workspace for managing re
 
 The project is currently in Phase 1. The core engine and CLI foundation are importable, tested, and usable for local workspace setup, local source scanning, and source review.
 
+## Author
+
+Pedro Veloso
+
+Email: pedro@veloso.dev
+
 ## Project Goals
 
 - Create reproducible local research workspaces.
@@ -206,3 +212,11 @@ python -m pytest
 ## Repository Hygiene
 
 Editor settings and local environments are intentionally ignored. `.idea/`, `.venv/`, `.env`, Python caches, pytest caches, and build outputs should stay out of source control.
+
+## License
+
+ResearchBoss is released under the MIT License.
+
+Copyright (c) 2026 Pedro Veloso
+
+This software is provided free of charge and without warranty of any kind. See `LICENSE` for the full license text.
