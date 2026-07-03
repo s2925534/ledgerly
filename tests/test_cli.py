@@ -61,6 +61,26 @@ def test_cli_validate_writes_document_validation_report(tmp_path: Path) -> None:
     assert report["summary"]["sources_with_overlap"] == 1
 
 
+def test_cli_guidelines_add_and_list(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    guideline = tmp_path / "guideline.md"
+    guideline.write_text("# Rules\n\nUse APA7.\n", encoding="utf-8")
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+
+    add_result = runner.invoke(
+        app,
+        ["guidelines", "add", str(guideline), "--title", "Style Rules", "--workspace", str(workspace), "--quiet"],
+    )
+    list_result = runner.invoke(app, ["guidelines", "list", "--workspace", str(workspace), "--quiet"])
+
+    assert add_result.exit_code == 0, add_result.output
+    assert list_result.exit_code == 0, list_result.output
+    registry = read_yaml(workspace / "guidelines" / "guidelines.yaml")
+    assert registry["guidelines"][0]["title"] == "Style Rules"
+    assert Path(registry["guidelines"][0]["snapshot_path"]).is_file()
+    assert Path(registry["guidelines"][0]["text_path"]).is_file()
+
+
 def test_cli_ai_test_missing_key_does_not_print_secret(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.chdir(tmp_path)

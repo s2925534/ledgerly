@@ -62,6 +62,9 @@ WORKSPACE_DIRS: list[str] = [
     "outputs/data-profiles",
     "outputs/logs",
     "outputs/logs/run-summaries",
+    "guidelines",
+    "guidelines/snapshots",
+    "guidelines/text",
     "context_versions",
 ]
 

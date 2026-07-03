@@ -59,6 +59,7 @@ from researchboss.engine.external_search import (
     scopus_search,
     write_high_signal_candidate_report,
 )
+from researchboss.engine.guidelines import list_guidelines, register_guideline
 from researchboss.engine.health import workspace_health_report
 from researchboss.engine.metadata import extract_citation_metadata
 from researchboss.engine.metadata_quality import build_keyword_index, citation_consistency_report, duplicate_metadata_report
@@ -142,6 +143,7 @@ feedback_app = typer.Typer(help="Supervisor/stakeholder feedback commands.")
 context_app = typer.Typer(help="Context changelog commands.")
 ai_app = typer.Typer(help="Optional OpenAI commands.")
 search_app = typer.Typer(help="Explicit opt-in external search commands.")
+guidelines_app = typer.Typer(help="Local guideline registration commands.")
 
 app.add_typer(sources_app, name="sources")
 app.add_typer(config_app, name="config")
@@ -157,6 +159,7 @@ app.add_typer(feedback_app, name="feedback")
 app.add_typer(context_app, name="context")
 app.add_typer(ai_app, name="ai")
 app.add_typer(search_app, name="search")
+app.add_typer(guidelines_app, name="guidelines")
 
 console = Console()
 DEFAULT_WORKSPACES_DIR = "workspaces"
@@ -726,6 +729,72 @@ def config_migrate(
     _finish(summary, summary_path)
     if not quiet:
         console.print(f"[green]Migration complete[/green] changes={len(changes)}")
+
+
+@guidelines_app.command("add")
+def guidelines_add(
+    source: str = typer.Argument(..., help="Local guideline file path or http(s) URL."),
+    title: Optional[str] = typer.Option(None, "--title", help="Optional guideline title."),
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path."),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Register a guideline source by snapshotting and extracting text inside the workspace."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["guidelines", "add"], ws, log_level)
+
+    try:
+        result = register_guideline(ws, source, title=title)
+        logger.info(
+            "Registered guideline",
+            operation="guidelines_add",
+            guideline_id=result.record["id"],
+            source=source,
+            snapshot_path=str(result.snapshot_path),
+            text_path=str(result.text_path),
+        )
+        _finish(summary, summary_path, next_action="Use `researchboss guidelines list` to review registered guidelines.")
+    except Exception as e:
+        logger.error("Guideline registration failed", operation="guidelines_add", source=source, error=str(e))
+        summary.errors += 1
+        _finish(summary, summary_path)
+        raise
+
+    if not quiet:
+        console.print(f"[green]Guideline registered:[/green] {result.record['id']}")
+        console.print(f"Snapshot: {result.snapshot_path}")
+        console.print(f"Text: {result.text_path}")
+
+
+@guidelines_app.command("list")
+def guidelines_list(
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path."),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """List registered guidelines."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["guidelines", "list"], ws, log_level)
+    rows = list_guidelines(ws)
+    logger.info("Listed guidelines", operation="guidelines_list", count=len(rows))
+    _finish(summary, summary_path)
+
+    if quiet:
+        return
+
+    table = Table(title="Guidelines")
+    table.add_column("id")
+    table.add_column("title")
+    table.add_column("kind")
+    table.add_column("text_path")
+    for row in rows:
+        table.add_row(
+            str(row.get("id")),
+            str(row.get("title")),
+            str(row.get("source_kind")),
+            str(row.get("text_path")),
+        )
+    console.print(table)
 
 
 @ai_app.command("test")
