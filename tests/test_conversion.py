@@ -1,4 +1,5 @@
 from pathlib import Path
+import zipfile
 
 from researchboss.core.yamlio import read_yaml
 from researchboss.engine.conversion import convert_sources
@@ -54,3 +55,28 @@ def test_convert_sources_converts_md_to_plain_text(tmp_path: Path) -> None:
     assert "code term" in output
     assert "**" not in output
     assert "https://example.test" not in output
+
+
+def test_convert_sources_converts_docx_to_plain_text(tmp_path: Path) -> None:
+    workspace = make_workspace(tmp_path)
+    source_root = tmp_path / "sources"
+    source_root.mkdir()
+    source_file = source_root / "paper.docx"
+    document_xml = """<?xml version="1.0" encoding="UTF-8"?>
+    <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+      <w:body>
+        <w:p><w:r><w:t>First paragraph.</w:t></w:r></w:p>
+        <w:p><w:r><w:t>Second </w:t></w:r><w:r><w:t>paragraph.</w:t></w:r></w:p>
+      </w:body>
+    </w:document>
+    """
+    with zipfile.ZipFile(source_file, "w") as docx:
+        docx.writestr("word/document.xml", document_xml)
+    scan_sources(workspace, source_root)
+
+    result = convert_sources(workspace)
+
+    assert result.converted == 1
+    source_id = read_yaml(workspace / "source-register.yaml")["sources"][0]["source_id"]
+    output = (workspace / "sources_text" / f"{source_id}.txt").read_text(encoding="utf-8")
+    assert output == "First paragraph.\nSecond paragraph.\n"

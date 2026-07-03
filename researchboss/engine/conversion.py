@@ -1,14 +1,16 @@
 from __future__ import annotations
 
+import re
+import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
-import re
+from xml.etree import ElementTree
 
 from researchboss.core.yamlio import read_yaml, write_yaml
 
 
-CONVERTIBLE_EXTENSIONS = {".txt", ".md"}
+CONVERTIBLE_EXTENSIONS = {".txt", ".md", ".docx"}
 
 
 @dataclass(frozen=True)
@@ -67,6 +69,23 @@ def _convert_md(source_path: Path, output_path: Path) -> None:
     output_path.write_text(_markdown_to_text(text), encoding="utf-8")
 
 
+def _convert_docx(source_path: Path, output_path: Path) -> None:
+    with zipfile.ZipFile(source_path) as docx:
+        xml_bytes = docx.read("word/document.xml")
+    root = ElementTree.fromstring(xml_bytes)
+    namespace = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
+    paragraphs = []
+    for paragraph in root.findall(".//w:p", namespace):
+        parts = []
+        for text_node in paragraph.findall(".//w:t", namespace):
+            if text_node.text:
+                parts.append(text_node.text)
+        if parts:
+            paragraphs.append("".join(parts))
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text("\n".join(paragraphs) + ("\n" if paragraphs else ""), encoding="utf-8")
+
+
 def convert_source_record(workspace: Path, source: dict[str, Any]) -> ConversionResult:
     source_id = str(source.get("source_id") or "")
     source_path = Path(str(source.get("file_path") or ""))
@@ -84,6 +103,8 @@ def convert_source_record(workspace: Path, source: dict[str, Any]) -> Conversion
         _convert_txt(source_path, output_path)
     elif extension == ".md":
         _convert_md(source_path, output_path)
+    elif extension == ".docx":
+        _convert_docx(source_path, output_path)
     source["conversion"] = {
         "status": "converted",
         "output_path": str(output_path),
