@@ -97,6 +97,38 @@ def zotero_sqlite_exists(zotero_root: Path) -> bool:
     return zotero_sqlite_path(zotero_root).is_file()
 
 
+def zotero_readiness_report(zotero_root: Optional[Path], storage_root: Path, source_paths: Iterable[Path]) -> dict[str, Any]:
+    paths = list(source_paths)
+    sqlite_path = zotero_sqlite_path(zotero_root) if zotero_root else None
+    sqlite_readable = False
+    collection_count = 0
+    attachment_count = 0
+    if sqlite_path and sqlite_path.is_file():
+        try:
+            with _connect_readonly(sqlite_path) as conn:
+                collection_count = int(conn.execute("SELECT COUNT(*) AS count FROM collections").fetchone()["count"])
+                attachment_count = int(conn.execute("SELECT COUNT(*) AS count FROM itemAttachments").fetchone()["count"])
+                sqlite_readable = True
+        except sqlite3.Error:
+            sqlite_readable = False
+
+    fulltext = fulltext_availability_report(storage_root, paths)
+    return {
+        "version": 1,
+        "zotero_root": str(zotero_root) if zotero_root else None,
+        "storage_root": str(storage_root),
+        "storage_exists": storage_root.is_dir(),
+        "sqlite_path": str(sqlite_path) if sqlite_path else None,
+        "sqlite_exists": bool(sqlite_path and sqlite_path.is_file()),
+        "sqlite_readable": sqlite_readable,
+        "collection_count": collection_count,
+        "sqlite_attachment_count": attachment_count,
+        "source_file_count": len(paths),
+        "with_fulltext_cache": fulltext["with_fulltext_cache"],
+        "without_fulltext_cache": fulltext["without_fulltext_cache"],
+    }
+
+
 def zotero_fulltext_cache_path(path: Path, storage_root: Path) -> Optional[Path]:
     key = zotero_storage_key(path, storage_root)
     if not key:

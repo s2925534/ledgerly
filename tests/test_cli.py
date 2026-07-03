@@ -357,6 +357,31 @@ def test_cli_zotero_search_reads_filename_and_fulltext_cache(tmp_path: Path) -> 
     assert "ABCD1234" in result.output
 
 
+def test_cli_zotero_test_reports_local_readiness(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    storage_root = tmp_path / "Zotero" / "storage"
+    item_dir = storage_root / "ABCD1234"
+    item_dir.mkdir(parents=True)
+    (item_dir / "Evidence Synthesis.pdf").write_text("pdf-ish", encoding="utf-8")
+    (item_dir / ".zotero-ft-cache").write_text("indexed text", encoding="utf-8")
+    (storage_root.parent / "zotero.sqlite").write_bytes(b"not sqlite")
+    init_workspace(
+        workspace,
+        project_name="Test Project",
+        project_type="M.Phil",
+        topic="",
+        source_root=str(storage_root),
+        source_mode="zotero_storage",
+    )
+
+    result = runner.invoke(app, ["zotero", "test", "--workspace", str(workspace)])
+
+    assert result.exit_code == 0, result.output
+    assert "storage_exists" in result.output
+    assert "source_file_count" in result.output
+    assert "sqlite_readable" in result.output
+
+
 def test_cli_commands_prompt_for_workspace_and_remember_default(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     source_root = tmp_path / "source-files"

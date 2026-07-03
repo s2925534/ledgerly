@@ -15,6 +15,7 @@ from researchboss.engine.zotero import (
     search_zotero_storage,
     storage_keys_for_collections,
     zotero_metadata_snapshot,
+    zotero_readiness_report,
     zotero_relative_path,
     zotero_root_from_storage,
     zotero_storage_key,
@@ -188,3 +189,19 @@ def test_zotero_reports_snapshot_duplicates_and_bibtex(tmp_path: Path) -> None:
     bibtex = export_bibtex_from_metadata(zotero_root)
     assert "@article{veloso_evidence_2024," in bibtex
     assert "doi = {10.1234/example}" in bibtex
+
+
+def test_zotero_readiness_report_checks_local_paths(tmp_path: Path) -> None:
+    storage, first, second = make_storage(tmp_path)
+    zotero_root = storage.parent
+    make_zotero_sqlite(zotero_root)
+
+    report = zotero_readiness_report(zotero_root, storage, [first, second])
+
+    assert report["storage_exists"] is True
+    assert report["sqlite_exists"] is True
+    assert report["sqlite_readable"] is True
+    assert report["collection_count"] == 2
+    assert report["sqlite_attachment_count"] == 2
+    assert report["source_file_count"] == 2
+    assert report["with_fulltext_cache"] == 1

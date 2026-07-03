@@ -32,6 +32,7 @@ from researchboss.engine.zotero import (
     search_zotero_storage,
     storage_keys_for_collections,
     zotero_metadata_snapshot,
+    zotero_readiness_report,
     zotero_root_from_storage,
 )
 from researchboss import __version__
@@ -667,6 +668,38 @@ def zotero_collections(
     table.add_column("items", justify="right")
     for collection in collections:
         table.add_row(collection.key, collection.path, str(collection.item_count))
+    console.print(table)
+
+
+@zotero_app.command("test")
+def zotero_test(
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
+    storage: Optional[Path] = typer.Option(None, "--storage", help="Zotero storage folder override."),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Validate local Zotero storage and SQLite readability without using the Zotero API."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["zotero", "test"], ws, log_level)
+    storage_root, zotero_root, _zotero_config = _resolve_zotero_paths(ws, storage=storage)
+    if not storage_root.exists():
+        logger.error("Zotero storage root does not exist", operation="zotero_test", storage_root=str(storage_root))
+        summary.errors += 1
+        _finish(summary, summary_path)
+        raise typer.Exit(code=2)
+
+    paths = list(iter_source_files(storage_root))
+    report = zotero_readiness_report(zotero_root, storage_root, paths)
+    logger.info("Tested local Zotero configuration", operation="zotero_test", report=report)
+    _finish(summary, summary_path)
+
+    if quiet:
+        return
+    table = Table(title="Zotero local test")
+    table.add_column("Check")
+    table.add_column("Value")
+    for key, value in report.items():
+        table.add_row(key, str(value))
     console.print(table)
 
 
