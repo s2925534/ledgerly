@@ -4,14 +4,18 @@ from urllib.request import Request
 
 import pytest
 
+from researchboss.core.yamlio import read_yaml
 from researchboss.engine.ai import (
     OpenAiCredentials,
     OpenAiError,
+    build_safe_context,
     load_dotenv_values,
     openai_credentials,
     openai_readiness,
     require_ai_flag,
 )
+from researchboss.engine.conversion import convert_sources
+from researchboss.engine.sources import scan_sources, set_source_status
 from researchboss.engine.workspace import init_workspace
 
 
@@ -102,3 +106,51 @@ def test_openai_readiness_live_check_uses_bearer_token_without_exposing_key(tmp_
     assert report["api_reachable"] is True
     assert report["model_count"] == 2
     assert "sk-secret" not in str(report)
+
+
+def test_build_safe_context_uses_accepted_metadata_and_bounded_converted_excerpt(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    source_root = tmp_path / "sources"
+    source_root.mkdir()
+    source_file = source_root / "paper.txt"
+    source_file.write_text("A" * 2000, encoding="utf-8")
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    scan_sources(workspace, source_root)
+    register_source_id = read_yaml(workspace / "source-register.yaml")["sources"][0]["source_id"]
+    set_source_status(workspace, source_id=register_source_id, new_status="accepted")
+    convert_sources(workspace, status="accepted")
+
+    context = build_safe_context(workspace, max_sources=1, max_excerpt_chars=50)
+    source_context = context["sources"][0]
+
+    assert context["policy"]["original_files_excluded"] is True
+    assert source_context["metadata"]["source_id"] == register_source_id
+    assert "file_path" not in source_context["metadata"]
+    assert source_context["original_file_excluded"] is True
+    assert source_context["full_document_excluded"] is True
+    assert source_context["excerpt"] == "A" * 50
+    assert source_context["excerpt_truncated"] is True
+    assert str(source_file) not in str(context)
+
+
+def test_build_safe_context_does_not_include_whole_csv_or_sqlite_files(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    source_root = tmp_path / "sources"
+    source_root.mkdir()
+    csv_file = source_root / "data.csv"
+    db_file = source_root / "database.sqlite"
+    csv_file.write_text("name,value\nsecret,1\n", encoding="utf-8")
+    db_file.write_bytes(b"SQLite format 3\x00not a real database")
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    scan_sources(workspace, source_root)
+
+    for source in read_yaml(workspace / "source-register.yaml")["sources"]:
+        set_source_status(workspace, source_id=source["source_id"], new_status="accepted")
+
+    context = build_safe_context(workspace, max_sources=10, max_excerpt_chars=500)
+
+    assert context["policy"]["whole_csv_excluded"] is True
+    assert context["policy"]["whole_sqlite_excluded"] is True
+    assert "secret,1" not in str(context)
+    assert "not a real database" not in str(context)
+    assert all(source["excerpt"] is None for source in context["sources"])

@@ -8,6 +8,7 @@ import researchboss.cli as cli
 from researchboss import __version__
 from researchboss.cli import app
 from researchboss.core.yamlio import read_yaml, write_yaml
+from researchboss.engine.sources import scan_sources, set_source_status
 from researchboss.engine.workspace import init_workspace
 
 
@@ -55,6 +56,33 @@ def test_cli_ai_test_local_check_writes_report_without_live_request(tmp_path: Pa
     assert report["key_loaded"] is True
     assert report["live_request_performed"] is False
     assert "sk-secret" not in str(report)
+
+
+def test_cli_ai_context_preview_requires_ai_flag(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+
+    result = runner.invoke(app, ["ai", "context-preview", "--workspace", str(workspace), "--quiet"])
+
+    assert result.exit_code == 2, result.output
+
+
+def test_cli_ai_context_preview_writes_local_context_without_network(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    source_root = tmp_path / "sources"
+    source_root.mkdir()
+    (source_root / "paper.txt").write_text("excerpt text", encoding="utf-8")
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    scan_sources(workspace, source_root)
+    source_id = read_yaml(workspace / "source-register.yaml")["sources"][0]["source_id"]
+    set_source_status(workspace, source_id=source_id, new_status="accepted")
+
+    result = runner.invoke(app, ["ai", "context-preview", "--ai", "--workspace", str(workspace), "--quiet"])
+
+    assert result.exit_code == 0, result.output
+    context = read_yaml(workspace / "outputs" / "validation" / "openai-safe-context.yaml")
+    assert context["policy"]["original_files_excluded"] is True
+    assert context["sources"][0]["metadata"]["source_id"] == source_id
 
 
 def test_python_module_entrypoint_help() -> None:

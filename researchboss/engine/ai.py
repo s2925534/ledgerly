@@ -118,3 +118,90 @@ def openai_readiness(
         report["model_count"] = len(models) if isinstance(models, list) else 0
 
     return report
+
+
+def _safe_source_metadata(source: dict[str, Any]) -> dict[str, Any]:
+    allowed_fields = [
+        "source_id",
+        "provider",
+        "file_name",
+        "file_ext",
+        "status",
+        "content_hash",
+        "title",
+        "creators",
+        "year",
+        "doi",
+        "item_type",
+        "publication_title",
+        "tags",
+        "notes",
+        "zotero_item_key",
+        "zotero_storage_key",
+        "has_zotero_fulltext_cache",
+    ]
+    return {field: source.get(field) for field in allowed_fields if field in source}
+
+
+def _read_excerpt(path: Path, max_chars: int) -> tuple[str, bool]:
+    text = path.read_text(encoding="utf-8", errors="replace")
+    if len(text) <= max_chars:
+        return text, False
+    return text[:max_chars], True
+
+
+def build_safe_context(
+    workspace: Path,
+    *,
+    source_status: str = "accepted",
+    max_sources: int = 10,
+    max_excerpt_chars: int = 1200,
+) -> dict[str, Any]:
+    if max_sources < 1:
+        raise OpenAiError("max_sources must be at least 1")
+    if max_excerpt_chars < 0:
+        raise OpenAiError("max_excerpt_chars cannot be negative")
+
+    register = read_yaml(workspace / "source-register.yaml")
+    sources = [source for source in register.get("sources", []) if isinstance(source, dict)]
+    selected = [source for source in sources if source.get("status") == source_status][:max_sources]
+
+    entries = []
+    for source in selected:
+        entry: dict[str, Any] = {
+            "metadata": _safe_source_metadata(source),
+            "original_file_excluded": True,
+            "full_document_excluded": True,
+            "excerpt_source": None,
+            "excerpt": None,
+            "excerpt_truncated": False,
+        }
+        conversion = source.get("conversion") if isinstance(source.get("conversion"), dict) else {}
+        output_path = conversion.get("output_path")
+        if conversion.get("status") in {"converted", "skipped_unchanged"} and output_path and max_excerpt_chars > 0:
+            converted_path = Path(str(output_path))
+            if converted_path.is_file() and converted_path.resolve().is_relative_to(workspace.resolve()):
+                excerpt, truncated = _read_excerpt(converted_path, max_excerpt_chars)
+                entry["excerpt_source"] = str(converted_path.relative_to(workspace))
+                entry["excerpt"] = excerpt
+                entry["excerpt_truncated"] = truncated
+        entries.append(entry)
+
+    return {
+        "version": 1,
+        "purpose": "safe_ai_context_preview",
+        "policy": {
+            "requires_explicit_ai_flag": True,
+            "original_files_excluded": True,
+            "full_documents_excluded": True,
+            "whole_csv_excluded": True,
+            "whole_sqlite_excluded": True,
+            "zotero_directory_no_write_boundary": True,
+        },
+        "limits": {
+            "source_status": source_status,
+            "max_sources": max_sources,
+            "max_excerpt_chars": max_excerpt_chars,
+        },
+        "sources": entries,
+    }

@@ -13,7 +13,13 @@ from rich.table import Table
 
 from researchboss.core.runlog import JsonlLogger, RunSummary, make_run_paths, write_run_summary
 from researchboss.core.yamlio import read_yaml, write_yaml
-from researchboss.engine.ai import OpenAiError, openai_credentials, openai_readiness
+from researchboss.engine.ai import (
+    OpenAiError,
+    build_safe_context,
+    openai_credentials,
+    openai_readiness,
+    require_ai_flag,
+)
 from researchboss.engine.artefact_creation import SUPPORTED_ARTEFACT_TYPES, create_deterministic_artefact
 from researchboss.engine.artefacts import artefact_dependency_report, list_artefacts, register_artefact, set_artefact_review_status
 from researchboss.engine.backup import create_workspace_backup, inspect_backup
@@ -681,6 +687,43 @@ def ai_test(
         console.print(f"[green]Wrote[/green] {output_path}")
         if not ai:
             console.print("No live OpenAI request was made. Pass --ai to explicitly allow a live credential check.")
+
+
+@ai_app.command("context-preview")
+def ai_context_preview(
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
+    ai: bool = typer.Option(False, "--ai", help="Required explicit opt-in for AI-context preparation."),
+    max_sources: int = typer.Option(10, "--max-sources", help="Maximum accepted sources to include."),
+    max_excerpt_chars: int = typer.Option(1200, "--max-excerpt-chars", help="Maximum converted-text excerpt characters per source."),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Write a safe AI context preview without uploading anything."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["ai", "context_preview"], ws, log_level)
+    try:
+        require_ai_flag(ai)
+        context = build_safe_context(ws, max_sources=max_sources, max_excerpt_chars=max_excerpt_chars)
+    except OpenAiError as e:
+        logger.error("AI context preview failed", operation="ai_context_preview", error=str(e))
+        summary.errors += 1
+        _finish(summary, summary_path)
+        if not quiet:
+            console.print(f"[red]{e}[/red]")
+        raise typer.Exit(code=2)
+
+    output_path = ws / "outputs" / "validation" / "openai-safe-context.yaml"
+    write_yaml(output_path, context)
+    logger.info(
+        "Built safe AI context preview",
+        operation="ai_context_preview",
+        source_count=len(context["sources"]),
+        max_excerpt_chars=max_excerpt_chars,
+    )
+    _finish(summary, summary_path)
+    if not quiet:
+        console.print(f"[green]Wrote[/green] {output_path}")
+        console.print("No OpenAI request was made.")
 
 
 @app.command()
