@@ -161,7 +161,7 @@
 - [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add import of legacy params files so curated query groups like RQ1/RQ2/RQ3 can seed `researchboss search plan`.
 - [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add query strategy modes: broad, balanced, and strict, with deterministic term expansion and saved strategy metadata.
 - [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add query group labels and RQ links so each external search query can be tied to one or more approved research questions.
-- [ ] <span style="color: #1565c0; font-weight: 600;">Add</span> batch search run summaries that aggregate processed, candidate, filtered, skipped, duplicate, no-result, and low-result counts across many queries.
+- [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add batch search run summaries that aggregate processed, candidate, filtered, skipped, duplicate, no-result, and low-result counts across many queries.
 - [ ] <span style="color: #1565c0; font-weight: 600;">Add</span> deterministic auto-refine planning that produces broader follow-up queries only as a saved plan, requiring explicit user approval before execution.
 - [ ] <span style="color: #1565c0; font-weight: 600;">Add</span> query exhaustion protection that stops refinement after configured query, page, result, and time budgets.
 - [ ] <span style="color: #1565c0; font-weight: 600;">Add</span> filtered-candidate logs that record exactly why a paper failed thresholds, such as year, citation count, document type, source type, missing DOI, or duplicate EID.

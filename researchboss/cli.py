@@ -1046,6 +1046,7 @@ def search_scopus(
         console.print(f"[green]Wrote[/green] {report['snapshot_path']}")
         console.print(f"[green]Wrote[/green] {report['metrics']['candidate_register_path']}")
         console.print(f"[green]Wrote[/green] {report['metrics']['query_validation_path']}")
+        console.print(f"[green]Wrote[/green] {report['metrics']['batch_summary_path']}")
 
 
 @app.command("assess-novelty")

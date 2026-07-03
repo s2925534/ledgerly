@@ -188,6 +188,74 @@ def test_scopus_search_writes_snapshot_and_history(tmp_path: Path) -> None:
     assert register["candidates"][0]["metadata_only"] is True
     validation = read_yaml(workspace / "outputs" / "validation" / "external-search-query-validation.yaml")
     assert validation["validation"]["threshold_pass_rate"] == 1.0
+    assert Path(report["metrics"]["batch_summary_path"]).is_file()
+
+
+def test_scopus_search_updates_batch_summary_across_queries(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    payloads = [
+        {
+            "search-results": {
+                "entry": [
+                    {
+                        "dc:title": "Strong evidence paper",
+                        "citedby-count": "20",
+                        "prism:coverDate": "2024-01-01",
+                        "eid": "2-s2.0-strong",
+                    },
+                    {
+                        "dc:title": "Strong evidence paper",
+                        "citedby-count": "20",
+                        "prism:coverDate": "2024-01-01",
+                        "eid": "2-s2.0-strong",
+                    },
+                    {
+                        "dc:title": "Filtered evidence paper",
+                        "citedby-count": "1",
+                        "prism:coverDate": "2024-01-01",
+                        "eid": "2-s2.0-filtered",
+                    },
+                    "malformed result",
+                ]
+            }
+        },
+        {"search-results": {"entry": []}},
+    ]
+
+    def opener(_request: Request):
+        return FakeResponse(payloads.pop(0))
+
+    thresholds = SearchThresholds.from_options(min_citations=10, low_result_threshold=4)
+    scopus_search(
+        workspace,
+        ScopusCredentials(api_key="scopus-secret"),
+        query='"evidence"',
+        count=4,
+        thresholds=thresholds,
+        opener=opener,
+    )
+    second = scopus_search(
+        workspace,
+        ScopusCredentials(api_key="scopus-secret"),
+        query='"missing"',
+        count=4,
+        thresholds=thresholds,
+        opener=opener,
+    )
+
+    summary = read_yaml(Path(second["metrics"]["batch_summary_path"]))
+    assert summary["totals"] == {
+        "query_count": 2,
+        "processed_count": 4,
+        "candidate_count": 2,
+        "filtered_count": 1,
+        "skipped_count": 1,
+        "duplicate_count": 1,
+        "no_result_count": 1,
+        "low_result_count": 1,
+    }
+    assert [run["query"] for run in summary["runs"]] == ['"evidence"', '"missing"']
 
 
 def test_score_scopus_entry_uses_only_returned_metadata() -> None:

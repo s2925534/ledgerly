@@ -388,6 +388,10 @@ def query_validation_path(workspace: Path) -> Path:
     return workspace / "outputs" / "validation" / "external-search-query-validation.yaml"
 
 
+def batch_search_summary_path(workspace: Path) -> Path:
+    return workspace / "outputs" / "external-search" / "scopus-batch-run-summary.yaml"
+
+
 def _safe_int(value: Any, default: int = 0) -> int:
     try:
         return int(str(value).strip())
@@ -578,15 +582,20 @@ def query_validation_report(
     thresholds: SearchThresholds,
 ) -> dict[str, Any]:
     processed = len(entries)
+    scored_entries = [entry for entry in entries if isinstance(entry, dict)]
     accepted = len(accepted_candidates)
-    duplicate_ids = processed - len({external_candidate_id(entry) for entry in entries if isinstance(entry, dict)})
+    duplicate_ids = len(scored_entries) - len({external_candidate_id(entry) for entry in scored_entries})
+    skipped_results = processed - len(scored_entries)
     no_results = processed == 0
     low_results = processed <= thresholds.low_result_threshold
     return {
         "query": normalize_query_line(query),
         "processed": processed,
         "accepted_candidates": accepted,
+        "filtered_candidates": len(skipped_candidates),
         "skipped_candidates": len(skipped_candidates),
+        "skipped_results": skipped_results,
+        "duplicate_count": duplicate_ids,
         "duplicate_rate": round(duplicate_ids / processed, 3) if processed else 0,
         "threshold_pass_rate": round(accepted / processed, 3) if processed else 0,
         "keyword_coverage": _keyword_coverage(query, accepted_candidates),
@@ -648,6 +657,52 @@ def update_external_candidate_register(
     )
     write_yaml(path, register)
     return register
+
+
+def update_batch_search_run_summary(
+    workspace: Path,
+    *,
+    provider: str,
+    metrics: dict[str, Any],
+    validation: dict[str, Any],
+) -> dict[str, Any]:
+    path = batch_search_summary_path(workspace)
+    summary = read_yaml(path) if path.exists() else {"version": 1, "provider": provider, "runs": []}
+    now = datetime.now(timezone.utc).isoformat()
+    no_results = bool(metrics.get("no_results"))
+    low_results = bool(metrics.get("low_results")) and not no_results
+    run = {
+        "query": normalize_query_line(str(metrics.get("query") or "")),
+        "created_at": now,
+        "processed_count": int(metrics.get("processed") or 0),
+        "candidate_count": int(metrics.get("candidate_count") or 0),
+        "filtered_count": int(metrics.get("filtered_count") or validation.get("filtered_candidates") or 0),
+        "skipped_count": int(metrics.get("skipped_count") or validation.get("skipped_results") or 0),
+        "duplicate_count": int(metrics.get("duplicate_count") or validation.get("duplicate_count") or 0),
+        "no_result_count": 1 if no_results else 0,
+        "low_result_count": 1 if low_results else 0,
+        "snapshot_path": metrics.get("snapshot_path"),
+        "query_validation_path": metrics.get("query_validation_path"),
+    }
+    summary["provider"] = provider
+    summary["updated_at"] = now
+    summary.setdefault("runs", []).append(run)
+    count_keys = [
+        "processed_count",
+        "candidate_count",
+        "filtered_count",
+        "skipped_count",
+        "duplicate_count",
+        "no_result_count",
+        "low_result_count",
+    ]
+    runs = [item for item in summary.get("runs", []) if isinstance(item, dict)]
+    summary["totals"] = {
+        "query_count": len(runs),
+        **{key: sum(int(item.get(key) or 0) for item in runs) for key in count_keys},
+    }
+    write_yaml(path, summary)
+    return summary
 
 
 def scopus_get(
@@ -738,13 +793,17 @@ def scopus_search(
         "query": normalized_query,
         "processed": len(entries),
         "candidate_count": len(accepted_candidates),
-        "skipped_count": len(skipped_candidates),
+        "filtered_count": len(skipped_candidates),
+        "skipped_count": validation["skipped_results"],
+        "duplicate_count": validation["duplicate_count"],
         "no_results": validation["no_results"],
         "low_results": validation["low_results"],
         "snapshot_path": str(snapshot_path),
         "candidate_register_path": str(external_candidate_register_path(workspace)),
         "query_validation_path": str(query_validation_path(workspace)),
     }
+    summary = update_batch_search_run_summary(workspace, provider="scopus", metrics=metrics, validation=validation)
+    metrics["batch_summary_path"] = str(batch_search_summary_path(workspace))
     if metrics["no_results"]:
         no_results_path = output_dir / "scopus-no-results.yaml"
         current = read_yaml(no_results_path) if no_results_path.exists() else {"version": 1, "queries": []}
@@ -775,5 +834,6 @@ def scopus_search(
         "metrics": metrics,
         "snapshot_path": str(snapshot_path),
         "validation": validation,
+        "batch_summary": summary,
         "candidate_count_total": len(register.get("candidates", [])),
     }
