@@ -51,6 +51,17 @@ def test_validate_document_compares_target_to_accepted_and_explicit_sources(tmp_
     assert report["ai_used"] is False
     assert report["summary"]["source_count"] == 2
     assert report["summary"]["sources_with_overlap"] == 2
+    assert report["strengths"]
+    assert report["weaknesses"] == []
+    assert report["unsupported_claims"] == []
+    assert report["weakly_supported_claims"] == []
+    assert report["possible_contradictions"][0]["kind"] == "not_assessed"
+    assert report["missing_citations"]
+    assert report["candidate_supporting_sources"][0]["source_id"] == "source-001"
+    assert report["human_review_checklist"]
     assert [source["source_id"] for source in report["sources"]] == ["source-001", "explicit-source-001"]
     assert report["sources"][0]["provider"] == "zotero_storage"
-    assert "pending" not in result.markdown_path.read_text(encoding="utf-8")
+    markdown = result.markdown_path.read_text(encoding="utf-8")
+    assert "## Strengths" in markdown
+    assert "## Human Review Checklist" in markdown
+    assert "pending" not in markdown

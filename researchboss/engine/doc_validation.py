@@ -66,6 +66,7 @@ def validate_document(
     target_terms = _top_terms(target_text)
     source_entries = _validation_sources(workspace, source_paths=source_paths or [])
     comparisons = [_compare_source(target_terms, source) for source in source_entries]
+    sentence_checks = _sentence_checks(target_text, comparisons)
 
     report = {
         "version": 1,
@@ -73,7 +74,16 @@ def validate_document(
         "ai_used": False,
         "target": _target_record(resolved_target, target_text, target_terms),
         "summary": _summary(comparisons),
+        "strengths": _strengths(comparisons, sentence_checks),
+        "weaknesses": _weaknesses(comparisons, sentence_checks),
+        "unsupported_claims": [item for item in sentence_checks if item["support_status"] == "unsupported"],
+        "weakly_supported_claims": [item for item in sentence_checks if item["support_status"] == "weak"],
+        "possible_contradictions": _possible_contradictions(),
+        "missing_citations": _missing_citations(sentence_checks),
+        "candidate_supporting_sources": _candidate_supporting_sources(comparisons),
+        "human_review_checklist": _human_review_checklist(),
         "sources": comparisons,
+        "sentence_checks": sentence_checks,
         "limitations": [
             "This deterministic report compares vocabulary overlap only.",
             "It does not prove claim support, contradiction, novelty, or citation correctness.",
@@ -135,6 +145,7 @@ def _compare_source(target_terms: list[str], source: dict[str, Any]) -> dict[str
     record["text_available"] = False
     record["overlap_score"] = 0.0
     record["matched_terms"] = []
+    record["source_terms"] = []
     record["missing_text_reason"] = None
 
     try:
@@ -143,12 +154,180 @@ def _compare_source(target_terms: list[str], source: dict[str, Any]) -> dict[str
         record["missing_text_reason"] = str(exc)
         return record
 
-    source_terms = set(_top_terms(source_text, limit=100))
+    source_terms = _top_terms(source_text, limit=100)
     matched_terms = [term for term in target_terms if term in source_terms]
     record["text_available"] = True
     record["overlap_score"] = round(len(matched_terms) / max(len(target_terms), 1), 4)
     record["matched_terms"] = matched_terms[:25]
+    record["source_terms"] = source_terms
     return record
+
+
+def _sentence_checks(target_text: str, sources: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    checks = []
+    for index, sentence in enumerate(_sentences(target_text), start=1):
+        terms = _top_terms(sentence, limit=20)
+        if not terms:
+            continue
+        matches = [_sentence_source_match(terms, source) for source in sources if source.get("text_available")]
+        matches = sorted(matches, key=lambda item: item["overlap_score"], reverse=True)
+        best = matches[0] if matches else None
+        best_score = float(best["overlap_score"]) if best else 0.0
+        if best_score >= 0.35 and len(best.get("matched_terms", [])) >= 3:
+            status = "strong"
+        elif best_score > 0:
+            status = "weak"
+        else:
+            status = "unsupported"
+        checks.append(
+            {
+                "sentence_index": index,
+                "text": sentence,
+                "terms": terms,
+                "support_status": status,
+                "best_source_id": best.get("source_id") if best else None,
+                "best_overlap_score": best_score,
+                "matched_terms": best.get("matched_terms", []) if best else [],
+                "has_inline_citation": _has_inline_citation(sentence),
+            }
+        )
+    return checks
+
+
+def _sentence_source_match(terms: list[str], source: dict[str, Any]) -> dict[str, Any]:
+    source_terms = set(source.get("source_terms") or [])
+    matched_terms = [term for term in terms if term in source_terms]
+    return {
+        "source_id": source.get("source_id"),
+        "overlap_score": round(len(matched_terms) / max(len(terms), 1), 4),
+        "matched_terms": matched_terms,
+    }
+
+
+def _sentences(text: str) -> list[str]:
+    normalized = " ".join(text.replace("\n", " ").split())
+    return [part.strip() for part in re.split(r"(?<=[.!?])\s+", normalized) if part.strip()]
+
+
+def _has_inline_citation(sentence: str) -> bool:
+    return bool(
+        re.search(r"\([A-Z][A-Za-z'-]+(?: et al\.)?,\s*\d{4}[a-z]?\)", sentence)
+        or re.search(r"\[[0-9,\s-]+\]", sentence)
+    )
+
+
+def _strengths(comparisons: list[dict[str, Any]], sentence_checks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    strengths = []
+    strong_sources = [
+        item
+        for item in comparisons
+        if item.get("text_available") and float(item.get("overlap_score") or 0) >= 0.25
+    ]
+    if strong_sources:
+        strengths.append(
+            {
+                "kind": "source_overlap",
+                "message": "Accepted or supplied sources share high-signal terms with the target document.",
+                "source_ids": [str(item.get("source_id")) for item in strong_sources],
+            }
+        )
+    strong_sentences = [item for item in sentence_checks if item["support_status"] == "strong"]
+    if strong_sentences:
+        strengths.append(
+            {
+                "kind": "sentence_overlap",
+                "message": "Some target sentences have deterministic overlap with available source text.",
+                "sentence_indexes": [item["sentence_index"] for item in strong_sentences],
+            }
+        )
+    if not strengths:
+        strengths.append(
+            {
+                "kind": "no_deterministic_strengths",
+                "message": "No deterministic strengths were found from term overlap alone.",
+            }
+        )
+    return strengths
+
+
+def _weaknesses(comparisons: list[dict[str, Any]], sentence_checks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    weaknesses = []
+    missing_text = [item for item in comparisons if not item.get("text_available")]
+    if missing_text:
+        weaknesses.append(
+            {
+                "kind": "source_text_missing",
+                "message": "Some sources could not be compared because deterministic text was unavailable.",
+                "source_ids": [str(item.get("source_id")) for item in missing_text],
+            }
+        )
+    unsupported = [item for item in sentence_checks if item["support_status"] == "unsupported"]
+    if unsupported:
+        weaknesses.append(
+            {
+                "kind": "unsupported_sentence_terms",
+                "message": "Some target sentences had no deterministic term overlap with available source text.",
+                "sentence_indexes": [item["sentence_index"] for item in unsupported],
+            }
+        )
+    weak = [item for item in sentence_checks if item["support_status"] == "weak"]
+    if weak:
+        weaknesses.append(
+            {
+                "kind": "weak_sentence_terms",
+                "message": "Some target sentences had only weak deterministic overlap with available source text.",
+                "sentence_indexes": [item["sentence_index"] for item in weak],
+            }
+        )
+    return weaknesses
+
+
+def _possible_contradictions() -> list[dict[str, Any]]:
+    return [
+        {
+            "kind": "not_assessed",
+            "message": "Deterministic term overlap does not assess contradictions. Human or explicit AI review is required.",
+        }
+    ]
+
+
+def _missing_citations(sentence_checks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        {
+            "sentence_index": item["sentence_index"],
+            "text": item["text"],
+            "best_source_id": item["best_source_id"],
+            "support_status": item["support_status"],
+        }
+        for item in sentence_checks
+        if item["support_status"] in {"strong", "weak"} and not item["has_inline_citation"]
+    ]
+
+
+def _candidate_supporting_sources(comparisons: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    candidates = [
+        {
+            "source_id": item.get("source_id"),
+            "source_kind": item.get("source_kind"),
+            "status": item.get("status"),
+            "title": item.get("title"),
+            "overlap_score": item.get("overlap_score"),
+            "matched_terms": item.get("matched_terms"),
+        }
+        for item in comparisons
+        if item.get("text_available") and float(item.get("overlap_score") or 0) > 0
+    ]
+    return sorted(candidates, key=lambda item: float(item.get("overlap_score") or 0), reverse=True)
+
+
+def _human_review_checklist() -> list[str]:
+    return [
+        "Review unsupported and weakly supported sentences before relying on this report.",
+        "Confirm whether matched terms actually support each claim in context.",
+        "Check possible contradictions manually; deterministic validation does not assess contradiction.",
+        "Add or correct inline citations where citation gaps are listed.",
+        "Verify that all source metadata marked Unknown is completed only from reliable records.",
+    ]
 
 
 def _read_supported_text(path: Path) -> str:
@@ -217,11 +396,115 @@ def _markdown_report(report: dict[str, Any]) -> str:
         f"- Sources with overlap: {summary['sources_with_overlap']}",
         f"- Average overlap score: {summary['average_overlap_score']}",
         "",
+        "## Strengths",
+        "",
+    ]
+    for strength in report["strengths"]:
+        lines.append(f"- {strength['message']}")
+    lines.extend(
+        [
+            "",
+            "## Weaknesses",
+            "",
+        ]
+    )
+    if report["weaknesses"]:
+        for weakness in report["weaknesses"]:
+            lines.append(f"- {weakness['message']}")
+    else:
+        lines.append("- No deterministic weaknesses were found from term overlap alone.")
+    lines.extend(
+        [
+            "",
+            "## Unsupported Claims",
+            "",
+        ]
+    )
+    if report["unsupported_claims"]:
+        for item in report["unsupported_claims"]:
+            lines.append(f"- Sentence {item['sentence_index']}: {item['text']}")
+    else:
+        lines.append("- None detected by deterministic term overlap.")
+    lines.extend(
+        [
+            "",
+            "## Weakly Supported Claims",
+            "",
+        ]
+    )
+    if report["weakly_supported_claims"]:
+        for item in report["weakly_supported_claims"]:
+            lines.append(
+                f"- Sentence {item['sentence_index']}: best source {item['best_source_id'] or 'Unknown'} "
+                f"(score {item['best_overlap_score']})"
+            )
+    else:
+        lines.append("- None detected by deterministic term overlap.")
+    lines.extend(
+        [
+            "",
+            "## Possible Contradictions",
+            "",
+        ]
+    )
+    for item in report["possible_contradictions"]:
+        lines.append(f"- {item['message']}")
+    lines.extend(
+        [
+            "",
+            "## Missing Citations",
+            "",
+        ]
+    )
+    if report["missing_citations"]:
+        for item in report["missing_citations"]:
+            lines.append(
+                f"- Sentence {item['sentence_index']}: add or verify citation for "
+                f"{item['best_source_id'] or 'matched source'}."
+            )
+    else:
+        lines.append("- None detected by simple citation-pattern checks.")
+    lines.extend(
+        [
+            "",
+            "## Candidate Supporting Sources",
+            "",
+            "| Source ID | Status | Title | Overlap score | Matched terms |",
+            "| --- | --- | --- | --- | --- |",
+        ]
+    )
+    for source in report["candidate_supporting_sources"]:
+        lines.append(
+            "| "
+            + " | ".join(
+                [
+                    str(source.get("source_id") or "Unknown"),
+                    str(source.get("status") or "Unknown"),
+                    _escape_table(str(source.get("title") or "Unknown")),
+                    str(source.get("overlap_score") or 0),
+                    ", ".join(source.get("matched_terms") or []) or "None",
+                ]
+            )
+            + " |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Human Review Checklist",
+            "",
+        ]
+    )
+    for item in report["human_review_checklist"]:
+        lines.append(f"- [ ] {item}")
+    lines.extend(
+        [
+            "",
         "## Source Matches",
         "",
         "| Source ID | Provider | Title | Text available | Overlap score | Matched terms |",
         "| --- | --- | --- | --- | --- | --- |",
-    ]
+        ]
+    )
     for source in report["sources"]:
         lines.append(
             "| "
