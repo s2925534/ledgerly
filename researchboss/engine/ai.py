@@ -8,7 +8,7 @@ from typing import Any, Callable
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-from researchboss.core.yamlio import read_yaml
+from researchboss.core.yamlio import read_yaml, write_yaml
 
 
 OPENAI_API_BASE_URL = "https://api.openai.com/v1"
@@ -313,3 +313,82 @@ def ai_assisted_review(
         "response_id": response.get("id") if isinstance(response, dict) else None,
         "review": review_text,
     }
+
+
+def _novelty_prompt(context: dict[str, Any], research_questions: dict[str, Any]) -> str:
+    return (
+        "You are assisting with an AI-assisted novelty assessment for a local research workspace.\n"
+        "Use only the safe context and research questions below. Do not claim that novelty is proven. "
+        "Identify possible novelty signals, likely overlaps, missing evidence, and follow-up checks. "
+        "Return concise markdown with sections: Assessment Boundary, Possible Novelty Signals, "
+        "Likely Overlaps, Missing Evidence, Follow-up Checks, Human Review Required.\n\n"
+        f"Research questions JSON:\n{json.dumps(research_questions, ensure_ascii=False, indent=2)}\n\n"
+        f"Safe context JSON:\n{json.dumps(context, ensure_ascii=False, indent=2)}"
+    )
+
+
+def _append_novelty_assessment(workspace: Path, record: dict[str, Any]) -> None:
+    ledger_path = workspace / "novelty-ledger.yaml"
+    ledger = read_yaml(ledger_path)
+    assessments = list(ledger.get("assessments", []))
+    record = {"id": f"novelty-{len(assessments) + 1:03d}", **record}
+    assessments.append(record)
+    ledger["version"] = ledger.get("version", 1)
+    ledger["assessments"] = assessments
+    write_yaml(ledger_path, ledger)
+
+
+def ai_novelty_assessment(
+    workspace: Path,
+    credentials: OpenAiCredentials,
+    *,
+    max_sources: int = 10,
+    max_excerpt_chars: int = 1200,
+    opener: Callable[[Request], Any] | None = None,
+) -> dict[str, Any]:
+    context = build_safe_context(workspace, max_sources=max_sources, max_excerpt_chars=max_excerpt_chars)
+    research_questions = {
+        "approved": read_yaml(workspace / "research-questions.yaml").get("research_questions", []),
+        "candidates": read_yaml(workspace / "research-question-candidates.yaml").get("candidates", []),
+    }
+    model = default_openai_model(workspace)
+    response = openai_post(
+        "responses",
+        credentials,
+        {
+            "model": model,
+            "input": _novelty_prompt(context, research_questions),
+        },
+        opener=opener,
+    )
+    assessment_text = extract_response_text(response)
+    report = {
+        "version": 1,
+        "kind": "ai_assisted_novelty_assessment",
+        "provider": "openai",
+        "model": model,
+        "ai_used": True,
+        "requires_user_review": True,
+        "novelty_not_proven": True,
+        "safe_context_policy": context["policy"],
+        "limits": context["limits"],
+        "source_count": len(context["sources"]),
+        "research_question_count": len(research_questions["approved"]) + len(research_questions["candidates"]),
+        "response_id": response.get("id") if isinstance(response, dict) else None,
+        "assessment": assessment_text,
+    }
+    _append_novelty_assessment(
+        workspace,
+        {
+            "kind": report["kind"],
+            "provider": report["provider"],
+            "model": report["model"],
+            "response_id": report["response_id"],
+            "requires_user_review": True,
+            "novelty_not_proven": True,
+            "source_count": report["source_count"],
+            "research_question_count": report["research_question_count"],
+            "assessment": assessment_text,
+        },
+    )
+    return report

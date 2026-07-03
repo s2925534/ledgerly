@@ -9,6 +9,7 @@ from researchboss.engine.ai import (
     OpenAiCredentials,
     OpenAiError,
     ai_assisted_review,
+    ai_novelty_assessment,
     build_safe_context,
     extract_response_text,
     load_dotenv_values,
@@ -216,4 +217,47 @@ def test_ai_assisted_review_uses_safe_context_and_requires_human_review(tmp_path
     assert report["ai_used"] is True
     assert report["requires_user_review"] is True
     assert report["review"] == "Review result"
+    assert "sk-secret" not in str(report)
+
+
+def test_ai_novelty_assessment_writes_ledger_without_claiming_proof(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    source_root = tmp_path / "sources"
+    source_root.mkdir()
+    source_file = source_root / "paper.txt"
+    source_file.write_text("bounded novelty context", encoding="utf-8")
+    init_workspace(
+        workspace,
+        project_name="Test",
+        project_type="M.Phil",
+        topic="Topic",
+        research_questions=[{"question": "How does local evidence tracking affect review quality?", "status": "approved"}],
+    )
+    scan_sources(workspace, source_root)
+    source_id = read_yaml(workspace / "source-register.yaml")["sources"][0]["source_id"]
+    set_source_status(workspace, source_id=source_id, new_status="accepted")
+    convert_sources(workspace, status="accepted")
+
+    def opener(request: Request):
+        body = json.loads(request.data.decode("utf-8"))
+        assert "How does local evidence tracking affect review quality?" in body["input"]
+        assert "bounded novelty context" in body["input"]
+        assert str(source_file) not in body["input"]
+        return FakeResponse({"id": "resp_novelty", "output_text": "Novelty assessment"})
+
+    report = ai_novelty_assessment(
+        workspace,
+        OpenAiCredentials(api_key="sk-secret"),
+        max_sources=1,
+        max_excerpt_chars=100,
+        opener=opener,
+    )
+
+    ledger = read_yaml(workspace / "novelty-ledger.yaml")
+    assert report["kind"] == "ai_assisted_novelty_assessment"
+    assert report["requires_user_review"] is True
+    assert report["novelty_not_proven"] is True
+    assert report["assessment"] == "Novelty assessment"
+    assert ledger["assessments"][0]["id"] == "novelty-001"
+    assert ledger["assessments"][0]["novelty_not_proven"] is True
     assert "sk-secret" not in str(report)

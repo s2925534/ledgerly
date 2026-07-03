@@ -16,6 +16,7 @@ from researchboss.core.yamlio import read_yaml, write_yaml
 from researchboss.engine.ai import (
     OpenAiError,
     ai_assisted_review,
+    ai_novelty_assessment,
     build_safe_context,
     openai_credentials,
     openai_readiness,
@@ -768,6 +769,50 @@ def ai_review(
     if not quiet:
         console.print(f"[green]Wrote[/green] {output_path}")
         console.print("[yellow]Human review is required before using this output.[/yellow]")
+
+
+@app.command("assess-novelty")
+def assess_novelty(
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
+    ai: bool = typer.Option(False, "--ai", help="Required explicit opt-in for OpenAI novelty assessment."),
+    max_sources: int = typer.Option(10, "--max-sources", help="Maximum accepted sources to include."),
+    max_excerpt_chars: int = typer.Option(1200, "--max-excerpt-chars", help="Maximum converted-text excerpt characters per source."),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Run AI-assisted novelty assessment from safe context only."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["assess_novelty"], ws, log_level)
+    try:
+        require_ai_flag(ai)
+        credentials = openai_credentials(ws)
+        report = ai_novelty_assessment(
+            ws,
+            credentials,
+            max_sources=max_sources,
+            max_excerpt_chars=max_excerpt_chars,
+        )
+    except OpenAiError as e:
+        logger.error("AI novelty assessment failed", operation="assess_novelty", error=str(e))
+        summary.errors += 1
+        _finish(summary, summary_path)
+        if not quiet:
+            console.print(f"[red]{e}[/red]")
+        raise typer.Exit(code=2)
+
+    output_path = ws / "outputs" / "novelty" / "openai-novelty-assessment.yaml"
+    write_yaml(output_path, report)
+    logger.info(
+        "Wrote AI-assisted novelty assessment",
+        operation="assess_novelty",
+        source_count=report["source_count"],
+        research_question_count=report["research_question_count"],
+        model=report["model"],
+    )
+    _finish(summary, summary_path)
+    if not quiet:
+        console.print(f"[green]Wrote[/green] {output_path}")
+        console.print("[yellow]Novelty is not proven. Human review and field-specific checks are required.[/yellow]")
 
 
 @app.command()
