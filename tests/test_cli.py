@@ -384,6 +384,41 @@ def test_cli_rqs_workflow_commands(tmp_path: Path) -> None:
     assert read_yaml(workspace / "research-questions.yaml")["research_questions"][0]["id"] == "rq-001"
 
 
+def test_cli_artefacts_register_and_list(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test Project", project_type="M.Phil", topic="")
+    artefact_path = workspace / "artefacts" / "reports" / "summary.md"
+    artefact_path.write_text("# Summary", encoding="utf-8")
+
+    register_result = runner.invoke(
+        app,
+        [
+            "artefacts",
+            "register",
+            "Summary",
+            "--type",
+            "report",
+            "--path",
+            str(artefact_path),
+            "--source",
+            "source-001",
+            "--rq",
+            "rq-001",
+            "--workspace",
+            str(workspace),
+            "--quiet",
+        ],
+    )
+    list_result = runner.invoke(app, ["artefacts", "list", "--workspace", str(workspace), "--quiet"])
+
+    assert register_result.exit_code == 0, register_result.output
+    assert list_result.exit_code == 0, list_result.output
+    artefact = read_yaml(workspace / "artefact-registry.yaml")["artefacts"][0]
+    assert artefact["title"] == "Summary"
+    assert artefact["linked_sources"] == ["source-001"]
+    assert artefact["linked_research_questions"] == ["rq-001"]
+
+
 def test_cli_scan_uses_configured_zotero_provider_when_kind_is_omitted(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     storage_root = tmp_path / "Zotero" / "storage"

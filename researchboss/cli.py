@@ -13,6 +13,7 @@ from rich.table import Table
 
 from researchboss.core.runlog import JsonlLogger, RunSummary, make_run_paths, write_run_summary
 from researchboss.core.yamlio import read_yaml, write_yaml
+from researchboss.engine.artefacts import list_artefacts, register_artefact
 from researchboss.engine.conversion import convert_sources
 from researchboss.engine.data import data_source_counts, list_data_sources, profile_data_sources
 from researchboss.engine.metadata import extract_citation_metadata
@@ -65,6 +66,7 @@ zotero_app = typer.Typer(help="Read-only local Zotero storage commands.")
 metadata_app = typer.Typer(help="Deterministic metadata commands.")
 data_app = typer.Typer(help="Local data source commands.")
 rqs_app = typer.Typer(help="Research question workflow commands.")
+artefacts_app = typer.Typer(help="Artefact registry commands.")
 
 app.add_typer(sources_app, name="sources")
 app.add_typer(config_app, name="config")
@@ -72,6 +74,7 @@ app.add_typer(zotero_app, name="zotero")
 app.add_typer(metadata_app, name="metadata")
 app.add_typer(data_app, name="data")
 app.add_typer(rqs_app, name="rqs")
+app.add_typer(artefacts_app, name="artefacts")
 
 console = Console()
 DEFAULT_WORKSPACES_DIR = "workspaces"
@@ -867,6 +870,60 @@ def rqs_archive(
     _finish(summary, summary_path)
     if not quiet:
         console.print(f"[yellow]Archived[/yellow] {rq_id}")
+
+
+@artefacts_app.command("register")
+def artefacts_register(
+    title: str = typer.Argument(...),
+    artefact_type: str = typer.Option("report", "--type", help="Artefact type, e.g. thesis, paper, diagram, table."),
+    path: Path = typer.Option(..., "--path", help="Local artefact path."),
+    linked_source: Optional[list[str]] = typer.Option(None, "--source", help="Linked source ID. Repeatable."),
+    linked_rq: Optional[list[str]] = typer.Option(None, "--rq", help="Linked research question ID. Repeatable."),
+    requires_review: bool = typer.Option(True, "--requires-review/--no-review"),
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Register a local artefact in the workspace registry."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["artefacts", "register"], ws, log_level)
+    record = register_artefact(
+        ws,
+        title=title,
+        artefact_type=artefact_type,
+        path=path,
+        linked_sources=linked_source or [],
+        linked_research_questions=linked_rq or [],
+        requires_user_review=requires_review,
+    )
+    logger.info("Registered artefact", operation="artefacts_register", artefact_id=record["id"])
+    _finish(summary, summary_path)
+    if not quiet:
+        console.print(f"[green]Registered[/green] {record['id']}")
+
+
+@artefacts_app.command("list")
+def artefacts_list(
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """List registered artefacts."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["artefacts", "list"], ws, log_level)
+    rows = list_artefacts(ws)
+    logger.info("Listed artefacts", operation="artefacts_list", count=len(rows))
+    _finish(summary, summary_path)
+    if quiet:
+        return
+    table = Table(title="Artefacts")
+    table.add_column("id")
+    table.add_column("type")
+    table.add_column("review")
+    table.add_column("title")
+    for row in rows:
+        table.add_row(str(row.get("id")), str(row.get("type")), str(row.get("review_status")), str(row.get("title")))
+    console.print(table)
 
 
 @zotero_app.command("collections")
