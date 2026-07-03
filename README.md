@@ -72,6 +72,7 @@ researchboss/
   __main__.py         # python -m researchboss entry point
 
 README.md
+CHANGELOG.md
 TODO.md
 AGENTS.md
 docs/ARCHITECTURE.md
