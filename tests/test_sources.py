@@ -82,6 +82,25 @@ def test_scan_sources_can_start_new_files_as_maybe(tmp_path: Path) -> None:
     assert read_yaml(workspace / "maybe-sources.yaml")["source_ids"] == [source["source_id"]]
 
 
+def test_scan_sources_adds_zotero_storage_metadata(tmp_path: Path) -> None:
+    workspace = make_workspace(tmp_path)
+    storage_root = tmp_path / "Zotero" / "storage"
+    item_dir = storage_root / "ABCD1234"
+    item_dir.mkdir(parents=True)
+    source_file = item_dir / "Paper.pdf"
+    source_file.write_text("pdf-ish", encoding="utf-8")
+    (item_dir / ".zotero-ft-cache").write_text("indexed full text", encoding="utf-8")
+
+    result = scan_sources(workspace, storage_root, provider="zotero_storage")
+
+    assert result.added == 1
+    source = read_yaml(workspace / "source-register.yaml")["sources"][0]
+    assert source["provider"] == "zotero_storage"
+    assert source["zotero_storage_key"] == "ABCD1234"
+    assert source["zotero_relative_path"] == "ABCD1234/Paper.pdf"
+    assert source["has_zotero_fulltext_cache"] is True
+
+
 def test_scan_sources_rejects_invalid_initial_status(tmp_path: Path) -> None:
     workspace = make_workspace(tmp_path)
     source_root = tmp_path / "sources"

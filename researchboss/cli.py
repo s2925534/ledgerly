@@ -21,6 +21,7 @@ from researchboss.engine.sources import (
     set_source_status,
     source_counts,
 )
+from researchboss.engine.zotero import keyword_terms, search_zotero_storage
 from researchboss import __version__
 from researchboss.engine.workspace import (
     AI_PREFERENCES,
@@ -38,9 +39,11 @@ from researchboss.engine.workspace import (
 app = typer.Typer(add_completion=False, help="ResearchBoss (Phase 1 foundation).")
 sources_app = typer.Typer(help="Source inbox + register commands.")
 config_app = typer.Typer(help="Config commands.")
+zotero_app = typer.Typer(help="Read-only local Zotero storage commands.")
 
 app.add_typer(sources_app, name="sources")
 app.add_typer(config_app, name="config")
+app.add_typer(zotero_app, name="zotero")
 
 console = Console()
 DEFAULT_WORKSPACES_DIR = "workspaces"
@@ -313,6 +316,14 @@ def _finish(summary: RunSummary, summary_path: Path, *, next_action: Optional[st
     write_run_summary(summary_path, summary)
 
 
+def _configured_source_root(workspace: Path) -> tuple[Optional[Path], str, dict]:
+    ctx = read_yaml(workspace / "research-context.yaml")
+    source_config = ctx.get("sources") or {}
+    cfg_root = source_config.get("root")
+    source_mode = source_config.get("mode") or "local_folder"
+    return (Path(cfg_root) if cfg_root else None), source_mode, source_config
+
+
 def _print_init_next_steps(workspace: Path, source_root: Optional[str]) -> None:
     console.print(f"[green]Workspace created:[/green] {workspace}")
     console.print("\n[bold]Useful next commands[/bold]")
@@ -496,7 +507,7 @@ def config_validate(
 def scan(
     workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
     source: Optional[Path] = typer.Option(None, "--source", "-s", help="Source root to scan (overrides config)"),
-    kind: str = typer.Option("local_folder", "--kind", help="local_folder | zotero_storage"),
+    kind: Optional[str] = typer.Option(None, "--kind", help="local_folder | zotero_storage"),
     log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
     quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
 ):
@@ -504,11 +515,10 @@ def scan(
     ws = _resolve_workspace(workspace)
     _slug, logger, summary, summary_path, _log_path = _run_ctx(["scan"], ws, log_level)
 
-    ctx = read_yaml(ws / "research-context.yaml")
-    source_config = ctx.get("sources") or {}
-    cfg_root = source_config.get("root")
+    cfg_root, source_mode, source_config = _configured_source_root(ws)
     initial_status = source_config.get("new_source_status", "pending_review")
-    scan_root = source or (Path(cfg_root) if cfg_root else None)
+    provider = kind or source_mode
+    scan_root = source or cfg_root
     if not scan_root:
         logger.error("No source root configured or provided", operation="scan")
         summary.errors += 1
@@ -525,7 +535,7 @@ def scan(
     total = max(1, len(candidates))  # safe zero handling
 
     if not quiet:
-        console.print(f"Scanning: {scan_root}  (kind={kind})")
+        console.print(f"Scanning: {scan_root}  (kind={provider})")
         console.print(f"Candidate files: {len(candidates)}")
 
     progress = Progress(
@@ -548,7 +558,7 @@ def scan(
         result: ScanResult = scan_sources(
             ws,
             scan_root,
-            provider=kind,
+            provider=provider,
             logger=logger,
             file_paths=candidates,
             initial_status=initial_status,
@@ -565,6 +575,78 @@ def scan(
             f"[green]Scan complete[/green] processed={result.processed} added={result.added} "
             f"duplicates={result.duplicates} skipped={result.skipped}"
         )
+
+
+@zotero_app.command("search")
+def zotero_search(
+    query: str = typer.Argument(..., help="Keyword query to match against filenames and Zotero full-text cache."),
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
+    storage: Optional[Path] = typer.Option(None, "--storage", help="Zotero storage folder override."),
+    limit: int = typer.Option(10, "--limit", min=1, help="Maximum matches to show."),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Search local Zotero storage filenames and .zotero-ft-cache text without using AI or the Zotero API."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["zotero", "search"], ws, log_level)
+
+    cfg_root, source_mode, _source_config = _configured_source_root(ws)
+    storage_root = storage or cfg_root
+    if not storage_root:
+        logger.error("No Zotero storage root configured or provided", operation="zotero_search")
+        summary.errors += 1
+        _finish(summary, summary_path, next_action="Pass --storage or configure sources.root during init.")
+        raise typer.Exit(code=2)
+
+    if not storage_root.exists():
+        logger.error("Zotero storage root does not exist", storage_root=str(storage_root))
+        summary.errors += 1
+        _finish(summary, summary_path, next_action="Fix the Zotero storage path and rerun search.")
+        raise typer.Exit(code=2)
+
+    terms = keyword_terms(query)
+    if not terms:
+        logger.error("Empty Zotero search query", operation="zotero_search")
+        summary.errors += 1
+        _finish(summary, summary_path, next_action="Rerun search with at least one keyword.")
+        raise typer.Exit(code=2)
+
+    candidates = list(iter_source_files(storage_root))
+    hits = search_zotero_storage(storage_root, terms, candidates, limit=limit)
+
+    summary.files_processed = len(candidates)
+    summary.files_succeeded = len(hits)
+    logger.info(
+        "Searched Zotero storage",
+        operation="zotero_search",
+        source_mode=source_mode,
+        storage_root=str(storage_root),
+        terms=terms,
+        candidates=len(candidates),
+        hits=len(hits),
+    )
+    _finish(summary, summary_path, next_action="Run `researchboss scan --kind zotero_storage` to register useful files.")
+
+    if quiet:
+        return
+
+    table = Table(title="Zotero storage search")
+    table.add_column("score", justify="right")
+    table.add_column("key")
+    table.add_column("cache")
+    table.add_column("matched")
+    table.add_column("file_name")
+    for hit in hits:
+        table.add_row(
+            str(hit.score),
+            str(hit.storage_key or ""),
+            "yes" if hit.has_fulltext_cache else "no",
+            ", ".join(hit.matched_terms),
+            hit.file_path.name,
+        )
+    console.print(table)
+    if not hits:
+        console.print("[yellow]No matches found.[/yellow]")
 
 
 @sources_app.command("list")

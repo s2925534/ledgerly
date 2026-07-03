@@ -30,6 +30,8 @@ Phase 1 complete:
 - Default YAML and Markdown workspace files
 - Source folder constants
 - Source scanning engine for selected file extensions
+- Read-only Zotero storage scanning with Zotero storage-key metadata
+- Deterministic Zotero storage keyword search over filenames and `.zotero-ft-cache` text
 - SHA-256 file hashing
 - Duplicate detection by content hash
 - Source register records with `pending_review`
@@ -47,7 +49,7 @@ Phase 1 complete:
 Known gaps:
 
 - Conversion, metadata extraction, data profiling, research stage workflows, OpenAI behavior, FastAPI, UI, and packaging are planned but not implemented yet.
-- Zotero support is currently storage-folder scanning only; Zotero API collection selection is not implemented yet.
+- Zotero support is local storage-folder based only; Zotero API collection selection is not implemented yet.
 - The source review workflow is implemented for local workspace state, but no downstream research tasks consume accepted sources yet.
 - AI is not implemented. Init stores AI preference metadata only and keeps AI disabled.
 
@@ -67,6 +69,7 @@ researchboss/
     yamlio.py         # YAML read/write helpers
   engine/
     sources.py        # source scanning, hashing, status updates
+    zotero.py         # read-only Zotero storage helpers and keyword search
     workspace.py      # workspace initialization
   cli.py              # Typer CLI command layer
   __main__.py         # python -m researchboss entry point
@@ -165,6 +168,7 @@ researchboss init
 researchboss status [--workspace <path>]
 researchboss config validate [--workspace <path>]
 researchboss scan [--workspace <path>] [--source <source-folder>]
+researchboss zotero search "keyword terms" [--workspace <path>] [--storage <zotero-storage-folder>]
 researchboss sources list [--workspace <path>]
 researchboss sources status [--workspace <path>]
 researchboss sources review [--workspace <path>]
@@ -188,6 +192,17 @@ Where are your source files? [configure_later]:
 ```
 
 The destination artefact root defaults to the current user's `Documents` directory.
+
+For Zotero storage projects, `researchboss scan` records the provider as `zotero_storage` from workspace config when `--kind` is omitted. Registered Zotero sources include the storage item key, relative path inside `storage/`, and whether Zotero's `.zotero-ft-cache` full-text cache exists.
+
+You can search local Zotero storage without AI or the Zotero API:
+
+```bash
+researchboss zotero search "evidence synthesis" --workspace <workspace>
+researchboss zotero search "local first" --workspace <workspace> --storage /Users/<user>/Zotero/storage
+```
+
+This command only reads supported source files and Zotero `.zotero-ft-cache` text. It does not modify Zotero files, write into Zotero storage, call the Zotero local API, or send content to AI services.
 
 The init wizard also prompts for optional local context:
 
@@ -221,7 +236,7 @@ The source review commands only update local workspace YAML files. Later phases 
 Run these checks before committing:
 
 ```bash
-python -m py_compile researchboss/cli.py researchboss/engine/sources.py researchboss/engine/workspace.py researchboss/core/runlog.py researchboss/core/yamlio.py researchboss/core/constants.py
+python -m py_compile researchboss/cli.py researchboss/engine/sources.py researchboss/engine/zotero.py researchboss/engine/workspace.py researchboss/core/runlog.py researchboss/core/yamlio.py researchboss/core/constants.py
 python -m pytest
 ```
 

@@ -4,6 +4,9 @@ All notable changes to ResearchBoss will be documented in this file.
 
 ## Unreleased
 
+- Added read-only local Zotero storage search over filenames and `.zotero-ft-cache` text without AI or Zotero API use.
+- Added Zotero storage metadata to scanned source records: storage key, relative path, and full-text-cache presence.
+- Updated `researchboss scan` to inherit `zotero_storage` provider mode from workspace config when `--kind` is omitted.
 - Phase 2 work is planned next: TXT/MD conversion, conversion caching, and citation metadata extraction.
 
 ## 0.1.0 - 2026-07-03

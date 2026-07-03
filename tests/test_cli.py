@@ -309,6 +309,54 @@ def test_cli_scan_list_status_and_source_transitions(tmp_path: Path) -> None:
     ]
 
 
+def test_cli_scan_uses_configured_zotero_provider_when_kind_is_omitted(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    storage_root = tmp_path / "Zotero" / "storage"
+    item_dir = storage_root / "ABCD1234"
+    item_dir.mkdir(parents=True)
+    (item_dir / "Paper.pdf").write_text("pdf-ish", encoding="utf-8")
+    (item_dir / ".zotero-ft-cache").write_text("indexed text", encoding="utf-8")
+    init_workspace(
+        workspace,
+        project_name="Test Project",
+        project_type="M.Phil",
+        topic="",
+        source_root=str(storage_root),
+        source_mode="zotero_storage",
+    )
+
+    scan_result = runner.invoke(app, ["scan", "--workspace", str(workspace), "--quiet"])
+
+    assert scan_result.exit_code == 0, scan_result.output
+    source = read_yaml(workspace / "source-register.yaml")["sources"][0]
+    assert source["provider"] == "zotero_storage"
+    assert source["zotero_storage_key"] == "ABCD1234"
+    assert source["has_zotero_fulltext_cache"] is True
+
+
+def test_cli_zotero_search_reads_filename_and_fulltext_cache(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    storage_root = tmp_path / "Zotero" / "storage"
+    item_dir = storage_root / "ABCD1234"
+    item_dir.mkdir(parents=True)
+    (item_dir / "Evidence Synthesis.pdf").write_text("pdf-ish", encoding="utf-8")
+    (item_dir / ".zotero-ft-cache").write_text("local first research workspace", encoding="utf-8")
+    init_workspace(
+        workspace,
+        project_name="Test Project",
+        project_type="M.Phil",
+        topic="",
+        source_root=str(storage_root),
+        source_mode="zotero_storage",
+    )
+
+    result = runner.invoke(app, ["zotero", "search", "workspace", "--workspace", str(workspace), "--limit", "5"])
+
+    assert result.exit_code == 0, result.output
+    assert "Evidence Synthesis.pdf" in result.output
+    assert "ABCD1234" in result.output
+
+
 def test_cli_commands_prompt_for_workspace_and_remember_default(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     source_root = tmp_path / "source-files"

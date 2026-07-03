@@ -7,6 +7,11 @@ from pathlib import Path
 from typing import Any, Iterable, Optional
 
 from researchboss.core.yamlio import read_yaml, write_yaml
+from researchboss.engine.zotero import (
+    has_zotero_fulltext_cache,
+    zotero_relative_path,
+    zotero_storage_key,
+)
 
 
 ALLOWED_EXTENSIONS = {".pdf", ".docx", ".txt", ".md", ".csv", ".sqlite", ".db"}
@@ -120,6 +125,14 @@ def scan_sources(
             "discovered_at": None,  # fill later with timestamps in Phase 2+ if desired
             "notes": None,
         }
+        if provider == "zotero_storage":
+            record.update(
+                {
+                    "zotero_storage_key": zotero_storage_key(p, source_root),
+                    "zotero_relative_path": zotero_relative_path(p, source_root),
+                    "has_zotero_fulltext_cache": has_zotero_fulltext_cache(p, source_root),
+                }
+            )
         reg["sources"].append(record)
         if initial_status == "maybe":
             maybe["source_ids"].append(source_id)

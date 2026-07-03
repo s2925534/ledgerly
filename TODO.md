@@ -24,6 +24,15 @@
 - [x] Add `researchboss doctor` runtime checks and run the same preflight before `researchboss init`.
 - [x] Add coverage for `python -m researchboss`.
 - [x] Mark Phase 1 complete in README roadmap and add a Quick Start.
+- [x] Record `zotero_storage` as the scan provider from workspace config when `--kind` is omitted.
+- [x] Capture Zotero storage item keys and `.zotero-ft-cache` presence during storage scans.
+- [x] Add read-only deterministic Zotero storage keyword search without AI or Zotero API use.
+
+## Future Zotero Work
+
+- [ ] Add optional read-only `zotero.sqlite` metadata lookup using immutable SQLite connections.
+- [ ] Add future Zotero API collection listing and selection.
+- [ ] Add collection/subcollection filtering once API or local metadata contracts are designed.
 
 ## Phase 2: Conversion and Metadata
 

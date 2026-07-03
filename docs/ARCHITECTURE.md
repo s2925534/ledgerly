@@ -36,6 +36,8 @@ local workspace files
 - duplicate detection
 - source register updates
 - source review status transitions
+- read-only Zotero storage metadata extraction from local paths
+- deterministic Zotero storage keyword search over filenames and `.zotero-ft-cache` text
 - init-time research question capture into approved and draft YAML files
 - init-time setup preferences such as citation style, expected data files, source review defaults, AI preference metadata, and privacy preference
 
@@ -76,3 +78,5 @@ The future desktop/web/mobile UI should consume the local API contract. UI state
 ResearchBoss should treat original source files as read-only inputs. MVP operation should not require cloud services, remote databases, or external academic search. Optional AI features must use a safe context builder and must not upload whole documents or datasets.
 
 AI behavior is not implemented in Phase 1. Init records only local AI preference metadata and writes `ai.enabled: false` in workspace settings.
+
+Local Zotero support intentionally avoids the Zotero API for now. The engine can scan the `storage/` folder, register supported source files, store the Zotero storage item key, detect `.zotero-ft-cache`, and search filename/cache text deterministically. ResearchBoss must not write into Zotero storage or modify Zotero-owned files.
