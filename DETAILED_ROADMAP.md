@@ -212,9 +212,24 @@ Implemented:
 - Duplicate reports by filename, title, and DOI in addition to content hashes.
 - Local keyword index over converted text in `sources_text/`.
 
+Useful future enhancements learned from `../pdf-merge`:
+
+- Add optional PyMuPDF/PyPDF2 PDF extraction for better page text coverage than the current conservative parser.
+- Add local OCR readiness checks and optional OCR fallback for scanned PDFs.
+- Add CSL JSON, BibTeX, and RIS sidecar metadata parsing.
+- Add abstract, keyword, publication-title, author, and year detection from sidecar files and PDF metadata.
+- Add deterministic source filename normalization helpers without renaming original files.
+
 ### Phase 3: Data and Artefacts
 
 Status: implemented for deterministic local MVP paths.
+
+Useful future enhancements learned from `../pdf-merge`:
+
+- Add accepted-source text corpus exports with per-source headers, source IDs, titles, authors, and separators.
+- Add optional PDF merge artefacts for accepted source PDFs.
+- Add library-wide and batch merge modes as artefacts, never as source mutations.
+- Add merge manifests and CSV reports recording included, skipped, failed, and batched source IDs.
 
 Implemented:
 
@@ -475,6 +490,7 @@ Planned AI options:
 
 Future AI work that makes sense to implement next:
 
+- AI-assisted abstract screening for locally imported abstracts, writing recommendations only.
 - AI corpus summary reports from safe context only.
 - AI claim-checking assistance against accepted sources and `claims-ledger.yaml`.
 - AI citation gap recommendations using accepted sources, claims, and research questions.
@@ -570,6 +586,27 @@ Phase 1 through Phase 4 offline deterministic work is complete for the current r
    - Tests: key handling, context limits, no key logging, no default uploads.
    - Complexity: medium.
    - Phase: 5.
+
+## 15a. Useful Ideas Learned From `../pdf-merge`
+
+The old project is useful as a reference for ResearchBoss, but its cloud-sync and external-search assumptions should not be copied into the MVP. Useful patterns to port or redesign:
+
+- A richer local document-processing layer with optional PyMuPDF/PyPDF2 extraction and local OCR fallback.
+- Sidecar metadata readers for CSL JSON, BibTeX, and RIS.
+- Abstract and keyword extraction from sidecar files and early PDF pages.
+- Accepted-source text corpus export with strong source headers and separators.
+- PDF merge artefacts for accepted sources, including batch and library-wide outputs.
+- Merge manifests, index files, and CSV reports for reproducible generated artefacts.
+- Deterministic title/author/year filename normalization for generated outputs only.
+- Local abstract import/screening workflows for already collected abstracts.
+- Query-plan and query-history utilities for a later post-MVP external search phase.
+
+Not suitable for MVP right now:
+
+- Google Drive sync.
+- External Scopus search.
+- Any workflow that moves, renames, or modifies original source files.
+- Any workflow that writes inside Zotero storage.
 
 ## 16. Recommended Resume Point
 

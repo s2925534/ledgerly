@@ -66,6 +66,19 @@
 - [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Build a local keyword index over converted text in `sources_text/`.
 - [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add tests for all conversion paths.
 
+
+## Future PDF/Text Processing Learned From `../pdf-merge`
+
+- [ ] <span style="color: #2e7d32; font-weight: 600;">Add</span> optional PyMuPDF/PyPDF2-backed PDF extraction for more reliable page text than the current conservative parser.
+- [ ] <span style="color: #2e7d32; font-weight: 600;">Add</span> OCR readiness checks and optional OCR fallback for scanned PDFs, keeping OCR local and opt-in.
+- [ ] <span style="color: #2e7d32; font-weight: 600;">Add</span> deterministic sidecar metadata parsing for CSL JSON, BibTeX, and RIS files.
+- [ ] <span style="color: #2e7d32; font-weight: 600;">Add</span> deterministic abstract, keyword, publication-title, year, and author extraction from sidecar files and PDF metadata.
+- [ ] <span style="color: #2e7d32; font-weight: 600;">Add</span> accepted-source text corpus export with per-source headers, source IDs, titles, authors, and separators.
+- [ ] <span style="color: #2e7d32; font-weight: 600;">Add</span> optional PDF merge artefacts for accepted source PDFs, with library-wide and batch merge modes.
+- [ ] <span style="color: #2e7d32; font-weight: 600;">Add</span> merge manifests and CSV reports that record which source IDs were included, skipped, failed, or batched.
+- [ ] <span style="color: #2e7d32; font-weight: 600;">Add</span> deterministic filename normalization helpers based on title, author token, year, and source ID without renaming original files.
+- [ ] <span style="color: #2e7d32; font-weight: 600;">Add</span> local abstract-folder import and screening workflow for pre-collected abstracts.
+
 ## Phase 3: Data and Artefacts
 
 - [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - Add CSV profiling: rows, columns, missing values, and inferred types.
@@ -119,6 +132,14 @@
 - [ ] <span style="color: #ef6c00; font-weight: 600;">Add</span> explicit per-run full-file AI opt-in flags with warning output and tests.
 - [ ] <span style="color: #ef6c00; font-weight: 600;">Add</span> explicit per-run directory AI opt-in flags with warning output and tests.
 - [ ] <span style="color: #ef6c00; font-weight: 600;">Add</span> AI source relevance recommendations that cite source IDs and never modify source statuses automatically.
+- [ ] <span style="color: #ef6c00; font-weight: 600;">Add</span> AI-assisted abstract screening for locally imported abstracts, writing recommendations only.
+
+## Future External Search Work After MVP
+
+- [ ] <span style="color: #1565c0; font-weight: 600;">Add</span> deterministic search query plan generation from research context and approved RQs.
+- [ ] <span style="color: #1565c0; font-weight: 600;">Add</span> search query history so repeated query combinations can be skipped or intentionally rerun.
+- [ ] <span style="color: #1565c0; font-weight: 600;">Add</span> external Scopus or academic search integration only after MVP boundaries are complete and the user explicitly enables it.
+- [ ] <span style="color: #1565c0; font-weight: 600;">Add</span> API response snapshots and no-results logs for external search reproducibility.
 
 ## Phase 6: FastAPI Local Backend
 
