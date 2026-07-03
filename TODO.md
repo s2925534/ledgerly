@@ -27,12 +27,26 @@
 - [x] Record `zotero_storage` as the scan provider from workspace config when `--kind` is omitted.
 - [x] Capture Zotero storage item keys and `.zotero-ft-cache` presence during storage scans.
 - [x] Add read-only deterministic Zotero storage keyword search without AI or Zotero API use.
+- [x] Store the Zotero parent root automatically when `storage/` is selected.
+- [x] Add read-only `zotero.sqlite` metadata lookup using immutable SQLite connections.
+- [x] Link Zotero storage files to parent Zotero items.
+- [x] Add offline collection listing from local SQLite.
+- [x] Add selected-collections and entire-library scan modes.
+- [x] Add include/exclude subcollections support.
+- [x] Add local metadata quality checks.
+- [x] Add attachment health checks.
+- [x] Add local full-text cache availability report.
+- [x] Score deterministic Zotero search against local metadata.
+- [x] Add local Zotero metadata snapshots.
+- [x] Enrich source-register entries with Zotero metadata.
+- [x] Add duplicate detection across Zotero metadata.
+- [x] Add conservative offline BibTeX export from local metadata.
 
 ## Future Zotero Work
 
-- [ ] Add optional read-only `zotero.sqlite` metadata lookup using immutable SQLite connections.
-- [ ] Add future Zotero API collection listing and selection.
-- [ ] Add collection/subcollection filtering once API or local metadata contracts are designed.
+- [ ] Add future Zotero API collection listing and selection only if needed after offline workflows are stable.
+- [ ] Add richer local SQLite coverage for notes, tags, relations, and item links.
+- [ ] Add more complete BibTeX item-type and field mapping.
 
 ## Phase 2: Conversion and Metadata
 

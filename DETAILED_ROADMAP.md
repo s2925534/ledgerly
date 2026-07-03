@@ -1,6 +1,6 @@
 # ResearchBoss Detailed Roadmap
 
-Project version: 0.1.1
+Project version: 0.2.0
 
 Last updated: 2026-07-03
 
@@ -18,7 +18,10 @@ Implemented:
 - Local YAML and Markdown workspace state files.
 - Source folder scanning.
 - Read-only local Zotero storage scanning.
-- Deterministic local Zotero storage keyword search over filenames and `.zotero-ft-cache`.
+- Read-only local Zotero SQLite metadata lookup.
+- Offline Zotero collection listing and selected-collection scan modes.
+- Deterministic local Zotero search over filenames, `.zotero-ft-cache`, and local SQLite metadata.
+- Offline Zotero metadata reports, attachment health checks, full-text cache reports, metadata snapshots, duplicate checks, and BibTeX export.
 - Source hashing and duplicate detection.
 - Source review statuses: `pending_review`, `accepted`, `maybe`, `ignored`.
 - Workspace discovery, selection, and local default workspace memory.
@@ -27,7 +30,7 @@ Implemented:
 
 Partially implemented:
 
-- Zotero support: local storage-folder support exists; Zotero API, collection selection, and local `zotero.sqlite` metadata lookup are not implemented.
+- Zotero support: local storage-folder and read-only SQLite support exist; Zotero API integration is not implemented.
 - Research questions: init-time capture exists; full workflow commands are not implemented.
 - AI setup: local preference metadata exists; AI behavior is not implemented.
 
@@ -106,7 +109,10 @@ Expected future folders:
 | Workspace files | Implemented | `researchboss/core/constants.py`, `workspace.py` | YAML and Markdown state files are created. |
 | Local scan | Implemented | `researchboss/engine/sources.py` | Scans supported source files. |
 | Zotero storage scan | Implemented | `sources.py`, `zotero.py` | Reads local `storage/`; no API use. |
-| Zotero storage search | Implemented | `researchboss/engine/zotero.py`, `cli.py` | Searches filenames and `.zotero-ft-cache`. |
+| Zotero SQLite metadata | Implemented | `researchboss/engine/zotero.py` | Uses read-only immutable SQLite connections. |
+| Zotero collection workflows | Implemented | `researchboss/cli.py`, `zotero.py` | Local collection listing, selection, and collection scans. |
+| Zotero storage search | Implemented | `researchboss/engine/zotero.py`, `cli.py` | Searches filenames, `.zotero-ft-cache`, and SQLite metadata. |
+| Zotero offline reports | Implemented | `researchboss/engine/zotero.py`, `cli.py` | Metadata, attachment, full-text, duplicates, snapshots, BibTeX. |
 | Hashing | Implemented | `sha256_file` in `sources.py` | SHA-256 content hash. |
 | Duplicate detection | Implemented | `scan_sources` in `sources.py` | Duplicate by content hash. |
 | Source statuses | Implemented | `SOURCE_STATUSES` in `sources.py` | Pending, accepted, maybe, ignored. |
@@ -131,7 +137,6 @@ Implemented:
 
 Remaining Phase 1 refinements:
 
-- Store Zotero parent root automatically when `storage/` is selected.
 - Consider validating `--kind` values instead of accepting arbitrary provider strings.
 
 ### Phase 2: Conversion and Metadata
@@ -235,9 +240,17 @@ Next work:
 | `researchboss sources ignore` | Implemented | Marks source ignored with reason. |
 | `researchboss sources maybe` | Implemented | Marks source maybe. |
 | `researchboss sources status` | Implemented | Shows source status counts. |
-| `researchboss zotero search` | Implemented | Local storage keyword search; no AI/API. |
-| `researchboss zotero collections` | Missing | Future API/local metadata work. |
-| `researchboss zotero select-collections` | Missing | Future API/local metadata work. |
+| `researchboss zotero search` | Implemented | Local storage and metadata keyword search; no AI/API. |
+| `researchboss zotero collections` | Implemented | Lists collections from local SQLite. |
+| `researchboss zotero select-collections` | Implemented | Stores selected collection config locally. |
+| `researchboss zotero use-entire-library` | Implemented | Restores entire-library mode. |
+| `researchboss zotero scan-collection` | Implemented | One-off scan of a local collection. |
+| `researchboss zotero metadata-report` | Implemented | Writes metadata quality report. |
+| `researchboss zotero attachment-health` | Implemented | Writes attachment/storage health report. |
+| `researchboss zotero fulltext-report` | Implemented | Writes `.zotero-ft-cache` availability report. |
+| `researchboss zotero duplicates` | Implemented | Writes DOI/title-year duplicate candidates. |
+| `researchboss zotero snapshot` | Implemented | Writes local metadata snapshot. |
+| `researchboss zotero export-bibtex` | Implemented | Writes conservative BibTeX from local metadata. |
 | `researchboss zotero test` | Missing | Future validation command. |
 | `researchboss convert` | Missing | Phase 2. |
 | `researchboss data profile` | Missing | Phase 3. |
@@ -258,9 +271,7 @@ Next work:
 
 Workspace creation currently generates the Phase 1 file and folder skeleton, including research context/state files, source registers, review lists, ledgers, terminology, feedback, memory files, artefact registry, app settings, `.gitignore`, source folders, artefact folders, output folders, logs, run summaries, and context versions.
 
-Known config improvement:
-
-- When `sources.mode` is `zotero_storage`, also store the Zotero parent directory, not only `sources.root` pointing at `storage/`.
+Zotero config now stores both the selected `storage/` path and the parent Zotero directory when `sources.mode` is `zotero_storage`.
 
 ## 7. Source Workflow Audit
 
@@ -287,20 +298,29 @@ Implemented:
 
 - Detect default Zotero `storage/` path on macOS and Windows.
 - Scan local Zotero storage folders.
+- Store Zotero parent root automatically.
 - Record Zotero storage key and relative storage path.
 - Detect `.zotero-ft-cache`.
-- Search filenames and `.zotero-ft-cache` text deterministically.
+- Read local `zotero.sqlite` through immutable read-only SQLite connections.
+- Link storage files to parent Zotero items.
+- List local collections.
+- Select one or more local collections for future scans.
+- Include or exclude subcollections.
+- Switch between entire-library and selected-collections mode.
+- Search filenames, `.zotero-ft-cache`, title, creators, abstract, DOI, and collection paths deterministically.
+- Generate metadata quality, attachment health, and full-text availability reports.
+- Create local metadata snapshots.
+- Enrich source-register entries with local Zotero metadata.
+- Detect possible metadata duplicates by DOI or title/year.
+- Export conservative BibTeX from local metadata.
 - Avoid modifying Zotero files.
 - Avoid writing into Zotero storage.
 
 Missing:
 
-- Store Zotero parent directory automatically.
-- Read-only local `zotero.sqlite` metadata lookup.
 - Zotero local API.
-- Collection listing and selection.
-- Include subcollections setting.
-- Entire library vs selected collection mode.
+- Richer local metadata coverage for tags, notes, relations, and item links.
+- More complete BibTeX item-type mapping.
 
 ## 9. Data Source Audit
 
@@ -362,7 +382,7 @@ Current tested areas:
 - Source scanning and review.
 - Workspace selection.
 - Runtime checks.
-- Local Zotero storage helpers and CLI search.
+- Local Zotero storage helpers, SQLite metadata, collection filtering, reports, snapshots, duplicate checks, BibTeX export, and CLI search.
 
 Current expected validation:
 
@@ -415,79 +435,79 @@ Missing:
 
 ## 15. Immediate Next Steps
 
-1. Store Zotero parent root automatically.
-   - Why: local `zotero.sqlite` metadata support needs `/Zotero`, not only `/Zotero/storage`.
-   - Likely files: `workspace.py`, `cli.py`, tests, README.
-   - Tests: workspace init and CLI init with Zotero storage.
-   - Complexity: low.
-   - Phase: 1 refinement.
-
-2. Validate scan provider values.
+1. Validate scan provider values.
    - Why: prevent accidental unknown provider strings in source records.
    - Likely files: `sources.py`, `cli.py`, tests.
    - Tests: invalid `--kind`.
    - Complexity: low.
    - Phase: 1 refinement.
 
-3. Add read-only Zotero SQLite metadata lookup.
-   - Why: enables useful title/author/year metadata without Zotero API or AI.
-   - Likely files: new `engine/zotero_metadata.py`, CLI/tests/docs.
-   - Tests: temp SQLite fixture.
-   - Complexity: medium.
-   - Phase: 1 refinement / Phase 2 support.
-
-4. Add TXT conversion.
+2. Add TXT conversion.
    - Why: first conversion path with low risk.
    - Likely files: new conversion engine, CLI/tests/docs.
    - Tests: TXT source to `sources_text`.
    - Complexity: low.
    - Phase: 2.
 
-5. Add MD conversion.
+3. Add MD conversion.
    - Why: quick second text conversion path.
    - Likely files: conversion engine/tests.
    - Tests: MD source to text output.
    - Complexity: low.
    - Phase: 2.
 
-6. Add conversion cache keyed by hash.
+4. Add conversion cache keyed by hash.
    - Why: avoids repeated conversion and supports reproducibility.
    - Likely files: conversion engine, source register updates.
    - Tests: repeated conversion no-op.
    - Complexity: medium.
    - Phase: 2.
 
-7. Add failed conversion handling.
+5. Add failed conversion handling.
    - Why: failures must be visible and recoverable.
    - Likely files: conversion engine, `sources_failed`, source status fields.
    - Tests: unsupported/broken file path.
    - Complexity: medium.
    - Phase: 2.
 
-8. Add PDF conversion with page markers.
+6. Add PDF conversion with page markers.
    - Why: core evidence workflow needs page-specific text.
    - Likely files: conversion engine, dependency selection, tests.
    - Tests: sample PDF fixture.
    - Complexity: high.
    - Phase: 2.
 
-9. Add DOI detection.
+7. Add DOI detection.
    - Why: citation metadata should start with deterministic extraction.
    - Likely files: metadata engine, tests.
    - Tests: DOI patterns and no invented metadata.
    - Complexity: medium.
    - Phase: 2.
 
-10. Add CSV profiling.
+8. Add CSV profiling.
     - Why: begins data source support.
     - Likely files: data engine, CLI, tests.
     - Tests: row/column/missing/type profile.
     - Complexity: medium.
     - Phase: 3.
 
+9. Add `researchboss zotero test`.
+   - Why: gives users a direct local validation command for storage path, parent root, SQLite readability, and cache availability.
+   - Likely files: `cli.py`, `zotero.py`, tests.
+   - Tests: fake storage and SQLite fixture.
+   - Complexity: low.
+   - Phase: 1 refinement.
+
+10. Add richer local Zotero metadata coverage.
+    - Why: tags, notes, item links, and relations can improve offline review without AI/API.
+    - Likely files: `zotero.py`, tests, docs.
+    - Tests: SQLite fixture for notes/tags/relations.
+    - Complexity: medium.
+    - Phase: 1 refinement / Phase 2 support.
+
 ## 16. Recommended Resume Point
 
-Resume with a Phase 1 refinement: automatically store the Zotero parent root when a Zotero `storage/` folder is selected or detected. After that, move to Phase 2 conversion, starting with TXT and MD conversion tests.
+Resume with one small Phase 1 refinement, `researchboss zotero test`, then move to Phase 2 conversion, starting with TXT and MD conversion tests.
 
 ## 17. Maintenance Rule
 

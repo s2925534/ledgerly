@@ -4,6 +4,13 @@ All notable changes to ResearchBoss will be documented in this file.
 
 ## Unreleased
 
+- Bumped project version to 0.2.0.
+- Added offline Zotero SQLite metadata support through read-only immutable local database connections.
+- Added Zotero parent-root config when a `storage/` folder is selected.
+- Added local Zotero collection listing, selected-collection configuration, one-off collection scans, and entire-library mode.
+- Added local Zotero metadata quality, attachment health, full-text cache, duplicate candidate, metadata snapshot, and BibTeX export commands.
+- Enriched Zotero source records with local metadata when available.
+- Extended deterministic Zotero search to score title, creators, abstract, collection paths, and DOI from local SQLite metadata.
 - Bumped project version to 0.1.1.
 - Added `DETAILED_ROADMAP.md` as the living 17-section implementation roadmap.
 - Added an explicit current version line to the README.

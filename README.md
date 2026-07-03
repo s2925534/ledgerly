@@ -1,6 +1,6 @@
 # ResearchBoss
 
-Current version: 0.1.1
+Current version: 0.2.0
 
 ResearchBoss is a local-first, evidence-first research workspace for managing research context, source files, review state, and project memory without requiring cloud services for the MVP.
 
@@ -34,6 +34,8 @@ Phase 1 complete:
 - Source scanning engine for selected file extensions
 - Read-only Zotero storage scanning with Zotero storage-key metadata
 - Deterministic Zotero storage keyword search over filenames and `.zotero-ft-cache` text
+- Read-only local Zotero SQLite metadata lookup without Zotero API use
+- Offline Zotero collection listing, selected-collection mode, metadata reports, health reports, snapshots, duplicate checks, and BibTeX export
 - SHA-256 file hashing
 - Duplicate detection by content hash
 - Source register records with `pending_review`
@@ -52,7 +54,7 @@ Phase 1 complete:
 Known gaps:
 
 - Conversion, metadata extraction, data profiling, research stage workflows, OpenAI behavior, FastAPI, UI, and packaging are planned but not implemented yet.
-- Zotero support is local storage-folder based only; Zotero API collection selection is not implemented yet.
+- Zotero support is local filesystem and read-only SQLite based only; Zotero API integration is not implemented yet.
 - The source review workflow is implemented for local workspace state, but no downstream research tasks consume accepted sources yet.
 - AI is not implemented. Init stores AI preference metadata only and keeps AI disabled.
 
@@ -72,7 +74,7 @@ researchboss/
     yamlio.py         # YAML read/write helpers
   engine/
     sources.py        # source scanning, hashing, status updates
-    zotero.py         # read-only Zotero storage helpers and keyword search
+    zotero.py         # read-only Zotero storage, SQLite metadata, reports, and keyword search
     workspace.py      # workspace initialization
   cli.py              # Typer CLI command layer
   __main__.py         # python -m researchboss entry point
@@ -172,6 +174,16 @@ researchboss status [--workspace <path>]
 researchboss config validate [--workspace <path>]
 researchboss scan [--workspace <path>] [--source <source-folder>]
 researchboss zotero search "keyword terms" [--workspace <path>] [--storage <zotero-storage-folder>]
+researchboss zotero collections [--workspace <path>]
+researchboss zotero select-collections <collection-key>... [--workspace <path>]
+researchboss zotero use-entire-library [--workspace <path>]
+researchboss zotero scan-collection <collection-key> [--workspace <path>]
+researchboss zotero metadata-report [--workspace <path>]
+researchboss zotero attachment-health [--workspace <path>]
+researchboss zotero fulltext-report [--workspace <path>]
+researchboss zotero duplicates [--workspace <path>]
+researchboss zotero snapshot [--workspace <path>]
+researchboss zotero export-bibtex [--workspace <path>]
 researchboss sources list [--workspace <path>]
 researchboss sources status [--workspace <path>]
 researchboss sources review [--workspace <path>]
@@ -196,7 +208,7 @@ Where are your source files? [configure_later]:
 
 The destination artefact root defaults to the current user's `Documents` directory.
 
-For Zotero storage projects, `researchboss scan` records the provider as `zotero_storage` from workspace config when `--kind` is omitted. Registered Zotero sources include the storage item key, relative path inside `storage/`, and whether Zotero's `.zotero-ft-cache` full-text cache exists.
+For Zotero storage projects, `researchboss init` stores both the selected `storage/` folder and the parent Zotero directory. `researchboss scan` records the provider as `zotero_storage` from workspace config when `--kind` is omitted. Registered Zotero sources include the storage item key, relative path inside `storage/`, whether Zotero's `.zotero-ft-cache` full-text cache exists, and read-only SQLite metadata when available.
 
 You can search local Zotero storage without AI or the Zotero API:
 
@@ -205,7 +217,7 @@ researchboss zotero search "evidence synthesis" --workspace <workspace>
 researchboss zotero search "local first" --workspace <workspace> --storage /Users/<user>/Zotero/storage
 ```
 
-This command only reads supported source files and Zotero `.zotero-ft-cache` text. It does not modify Zotero files, write into Zotero storage, call the Zotero local API, or send content to AI services.
+These Zotero commands only read supported source files, Zotero `.zotero-ft-cache` text, and `zotero.sqlite` through a read-only immutable SQLite connection. They do not modify Zotero files, write into Zotero storage, call the Zotero local API, or send content to AI services.
 
 The init wizard also prompts for optional local context:
 
