@@ -29,6 +29,34 @@ def test_cli_doctor_command() -> None:
     assert "is ready" in result.output
 
 
+def test_cli_ai_test_missing_key_does_not_print_secret(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.chdir(tmp_path)
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+
+    result = runner.invoke(app, ["ai", "test", "--workspace", str(workspace)])
+
+    assert result.exit_code == 2, result.output
+    assert "Missing OPENAI_API_KEY" in result.output
+    assert "sk-" not in result.output
+
+
+def test_cli_ai_test_local_check_writes_report_without_live_request(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    (workspace / ".env").write_text("OPENAI_API_KEY=sk-secret\n", encoding="utf-8")
+
+    result = runner.invoke(app, ["ai", "test", "--workspace", str(workspace), "--quiet"])
+
+    assert result.exit_code == 0, result.output
+    report = read_yaml(workspace / "outputs" / "validation" / "openai-test.yaml")
+    assert report["key_loaded"] is True
+    assert report["live_request_performed"] is False
+    assert "sk-secret" not in str(report)
+
+
 def test_python_module_entrypoint_help() -> None:
     result = subprocess.run(
         [sys.executable, "-m", "researchboss", "--help"],

@@ -13,6 +13,7 @@ from rich.table import Table
 
 from researchboss.core.runlog import JsonlLogger, RunSummary, make_run_paths, write_run_summary
 from researchboss.core.yamlio import read_yaml, write_yaml
+from researchboss.engine.ai import OpenAiError, openai_credentials, openai_readiness
 from researchboss.engine.artefact_creation import SUPPORTED_ARTEFACT_TYPES, create_deterministic_artefact
 from researchboss.engine.artefacts import artefact_dependency_report, list_artefacts, register_artefact, set_artefact_review_status
 from researchboss.engine.backup import create_workspace_backup, inspect_backup
@@ -106,6 +107,7 @@ decisions_app = typer.Typer(help="Decision log commands.")
 terminology_app = typer.Typer(help="Terminology glossary commands.")
 feedback_app = typer.Typer(help="Supervisor/stakeholder feedback commands.")
 context_app = typer.Typer(help="Context changelog commands.")
+ai_app = typer.Typer(help="Optional OpenAI commands.")
 
 app.add_typer(sources_app, name="sources")
 app.add_typer(config_app, name="config")
@@ -119,6 +121,7 @@ app.add_typer(decisions_app, name="decisions")
 app.add_typer(terminology_app, name="terminology")
 app.add_typer(feedback_app, name="feedback")
 app.add_typer(context_app, name="context")
+app.add_typer(ai_app, name="ai")
 
 console = Console()
 DEFAULT_WORKSPACES_DIR = "workspaces"
@@ -641,6 +644,43 @@ def config_migrate(
     _finish(summary, summary_path)
     if not quiet:
         console.print(f"[green]Migration complete[/green] changes={len(changes)}")
+
+
+@ai_app.command("test")
+def ai_test(
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
+    ai: bool = typer.Option(False, "--ai", help="Allow a live OpenAI credential check for this command."),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Check OpenAI readiness without printing the API key."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["ai", "test"], ws, log_level)
+    try:
+        credentials = openai_credentials(ws)
+        report = openai_readiness(ws, credentials, live=ai)
+    except OpenAiError as e:
+        logger.error("OpenAI readiness check failed", operation="ai_test", error=str(e))
+        summary.errors += 1
+        _finish(summary, summary_path)
+        if not quiet:
+            console.print(f"[red]{e}[/red]")
+        raise typer.Exit(code=2)
+
+    output_path = ws / "outputs" / "validation" / "openai-test.yaml"
+    write_yaml(output_path, report)
+    logger.info(
+        "Checked OpenAI readiness",
+        operation="ai_test",
+        key_loaded=report["key_loaded"],
+        live_request_performed=report["live_request_performed"],
+        workspace_ai_enabled=report["workspace_ai_enabled"],
+    )
+    _finish(summary, summary_path)
+    if not quiet:
+        console.print(f"[green]Wrote[/green] {output_path}")
+        if not ai:
+            console.print("No live OpenAI request was made. Pass --ai to explicitly allow a live credential check.")
 
 
 @app.command()
