@@ -1,6 +1,6 @@
 # ResearchBoss
 
-Current version: 0.3.9
+Current version: 0.4.0
 
 ResearchBoss is a local-first, evidence-first research workspace for managing research context, source files, review state, and project memory without requiring cloud services for the MVP.
 
@@ -36,6 +36,7 @@ Phase 1 complete:
 - Deterministic Zotero storage keyword search over filenames and `.zotero-ft-cache` text
 - Read-only local Zotero SQLite metadata lookup without Zotero API use
 - Offline Zotero collection listing, selected-collection mode, notes/tags/relations metadata, metadata reports, health reports, snapshots, duplicate checks, and BibTeX export
+- Optional read-only Zotero Web API credential test, collection listing, and collection selection
 - TXT, MD, DOCX, and page-marked PDF conversion into `sources_text/`
 - Conversion cache keyed by source hash and failed conversion records under `sources_failed/`
 - Deterministic citation metadata extraction without inventing missing fields
@@ -72,7 +73,7 @@ Phase 1 complete:
 Known gaps:
 
 - OpenAI behavior, FastAPI, UI, and packaging are planned but not implemented yet.
-- Zotero support is local filesystem and read-only SQLite based only; Zotero API integration is not implemented yet.
+- Zotero support defaults to local filesystem and read-only SQLite. Optional read-only Zotero Web API collection listing and selection are implemented.
 - The source review workflow is implemented for local workspace state. Deterministic artefact creation can consume accepted sources, but AI-assisted research tasks are not implemented yet.
 - AI is not implemented. Init stores AI preference metadata only and keeps AI disabled.
 
@@ -80,7 +81,7 @@ Known gaps:
 
 ResearchBoss should not require Dropbox, Google Drive, OneDrive, SharePoint, AWS, Azure, Firebase, Supabase, or any remote database for the MVP.
 
-The MVP should also avoid external academic search. Source discovery should begin with local folders and Zotero storage folders. Future Zotero API support may add collection selection while still preserving local-first behavior.
+The MVP should also avoid external academic search. Source discovery should begin with local folders and Zotero storage folders. Optional Zotero Web API support is limited to read-only collection listing and selection.
 
 ## Repository Layout
 
@@ -218,6 +219,9 @@ researchboss export-evidence [--workspace <path>]
 researchboss zotero search "keyword terms" [--workspace <path>] [--storage <zotero-storage-folder>]
 researchboss zotero collections [--workspace <path>]
 researchboss zotero test [--workspace <path>]
+researchboss zotero api-test [--workspace <path>]
+researchboss zotero api-collections [--workspace <path>]
+researchboss zotero api-select-collections <collection-key>... [--workspace <path>]
 researchboss zotero select-collections <collection-key>... [--workspace <path>]
 researchboss zotero use-entire-library [--workspace <path>]
 researchboss zotero scan-collection <collection-key> [--workspace <path>]
@@ -296,6 +300,8 @@ researchboss zotero search "local first" --workspace <workspace> --storage /User
 These Zotero commands only read supported source files, Zotero `.zotero-ft-cache` text, and `zotero.sqlite` through a read-only immutable SQLite connection. They do not modify Zotero files, write into Zotero storage, call the Zotero local API, or send content to AI services.
 
 ResearchBoss has a hard Zotero safety rule: no development workflow, CLI command, or future AI feature may modify anything inside the local Zotero directory. Derived reports, snapshots, BibTeX files, metadata, and converted text must be written only inside the ResearchBoss workspace.
+
+Optional Zotero Web API support uses `ZOTERO_API_KEY` and `ZOTERO_USER_ID` from `.env` or the process environment. Use a Zotero key with library/notes read access only; do not enable Zotero write access for ResearchBoss.
 
 When Zotero storage is configured, the workspace config includes:
 

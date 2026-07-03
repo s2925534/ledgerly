@@ -1,6 +1,6 @@
 # ResearchBoss Detailed Roadmap
 
-Project version: 0.3.9
+Project version: 0.4.0
 
 Last updated: 2026-07-03
 
@@ -20,6 +20,7 @@ Implemented:
 - Read-only local Zotero storage scanning.
 - Read-only local Zotero SQLite metadata lookup.
 - Offline Zotero collection listing and selected-collection scan modes.
+- Optional read-only Zotero Web API credential test, collection listing, and selected-collection configuration.
 - Offline Zotero notes, tags, relations, linked-item metadata, and richer BibTeX mapping.
 - Deterministic local Zotero search over filenames, `.zotero-ft-cache`, and local SQLite metadata.
 - Offline Zotero metadata reports, attachment health checks, full-text cache reports, metadata snapshots, duplicate checks, and BibTeX export.
@@ -51,7 +52,7 @@ Implemented:
 
 Partially implemented:
 
-- Zotero support: local storage-folder and read-only SQLite support exist; Zotero API integration is not implemented.
+- Zotero support: local storage-folder, read-only SQLite support, and read-only Zotero Web API collection listing/selection exist.
 - AI setup: local preference metadata exists; AI behavior is not implemented.
 
 Not implemented:

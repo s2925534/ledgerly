@@ -73,6 +73,12 @@ from researchboss.engine.zotero import (
     zotero_readiness_report,
     zotero_root_from_storage,
 )
+from researchboss.engine.zotero_api import (
+    ZoteroApiError,
+    zotero_api_collections,
+    zotero_api_credentials,
+    zotero_api_readiness,
+)
 from researchboss import __version__
 from researchboss.engine.workspace import (
     AI_PREFERENCES,
@@ -1548,6 +1554,105 @@ def zotero_use_entire_library(
     _finish(summary, summary_path)
     if not quiet:
         console.print("[green]Configured[/green] Zotero entire-library mode.")
+
+
+@zotero_app.command("api-test")
+def zotero_api_test(
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Test read-only Zotero Web API credentials without printing the key."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["zotero", "api_test"], ws, log_level)
+    try:
+        credentials = zotero_api_credentials(ws)
+        report = zotero_api_readiness(credentials)
+    except ZoteroApiError as e:
+        logger.error("Zotero API test failed", operation="zotero_api_test", error=str(e))
+        summary.errors += 1
+        _finish(summary, summary_path)
+        if not quiet:
+            console.print(f"[red]{e}[/red]")
+        raise typer.Exit(code=2)
+    output_path = ws / "outputs" / "validation" / "zotero-api-test.yaml"
+    write_yaml(output_path, report)
+    logger.info(
+        "Tested Zotero Web API credentials",
+        operation="zotero_api_test",
+        user_id=report["user_id"],
+        key_has_write_access=report["key_has_write_access"],
+    )
+    _finish(summary, summary_path)
+    if not quiet:
+        console.print(f"[green]Wrote[/green] {output_path}")
+        if report["key_has_write_access"]:
+            console.print("[yellow]Warning: Zotero API key has write access. Use a read-only key for ResearchBoss.[/yellow]")
+
+
+@zotero_app.command("api-collections")
+def zotero_api_collections_cmd(
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """List Zotero Web API collections using read-only credentials."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["zotero", "api_collections"], ws, log_level)
+    try:
+        credentials = zotero_api_credentials(ws)
+        collections = zotero_api_collections(credentials)
+    except ZoteroApiError as e:
+        logger.error("Zotero API collection listing failed", operation="zotero_api_collections", error=str(e))
+        summary.errors += 1
+        _finish(summary, summary_path)
+        if not quiet:
+            console.print(f"[red]{e}[/red]")
+        raise typer.Exit(code=2)
+    output_path = ws / "outputs" / "validation" / "zotero-api-collections.yaml"
+    write_yaml(output_path, {"version": 1, "collections": collections})
+    logger.info("Listed Zotero Web API collections", operation="zotero_api_collections", count=len(collections))
+    _finish(summary, summary_path)
+    if quiet:
+        return
+    table = Table(title="Zotero Web API collections")
+    table.add_column("key")
+    table.add_column("name")
+    table.add_column("parent")
+    for collection in collections:
+        table.add_row(str(collection.get("key")), str(collection.get("name")), str(collection.get("parent_key") or ""))
+    console.print(table)
+
+
+@zotero_app.command("api-select-collections")
+def zotero_api_select_collections(
+    collection_keys: list[str] = typer.Argument(..., help="Collection keys to select for future Zotero API workflows."),
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
+    include_subcollections: bool = typer.Option(True, "--include-subcollections/--no-subcollections"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Save read-only Zotero Web API collection selection in workspace config."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["zotero", "api_select_collections"], ws, log_level)
+    _write_zotero_config(
+        ws,
+        {
+            "api_mode": "selected_collections",
+            "api_selected_collections": [{"key": key} for key in collection_keys],
+            "api_include_subcollections": include_subcollections,
+            "api_access": "read_only",
+        },
+    )
+    logger.info(
+        "Configured Zotero Web API selected collections",
+        operation="zotero_api_select_collections",
+        collection_keys=collection_keys,
+        include_subcollections=include_subcollections,
+    )
+    _finish(summary, summary_path)
+    if not quiet:
+        console.print(f"[green]Configured[/green] {len(collection_keys)} Zotero API collection(s).")
 
 
 @zotero_app.command("scan-collection")

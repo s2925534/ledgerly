@@ -4,6 +4,9 @@ All notable changes to ResearchBoss will be documented in this file.
 
 ## Unreleased
 
+- Bumped project version to 0.4.0.
+- Added optional read-only Zotero Web API support for credential testing, collection listing, and workspace collection selection.
+- Added `ZOTERO_API_KEY` and `ZOTERO_USER_ID` placeholders to `.env.example`.
 - Bumped project version to 0.3.9.
 - Completed current Phase 4 offline deterministic TODO items that do not require AI or API implementation.
 - Added research question templates for all project types, warning thresholds, source notes/tags, source review reports, claim status workflow, claim-source validation, structured decisions, terminology, feedback, context changelog, and local timeline reports.

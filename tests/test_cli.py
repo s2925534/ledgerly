@@ -537,6 +537,32 @@ def test_cli_artefact_review_dependencies_health_export_and_backup_inspect(tmp_p
     assert (workspace / "outputs" / "validation" / "backup-inspect.yaml").is_file()
 
 
+def test_cli_zotero_api_select_collections_updates_config(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test Project", project_type="M.Phil", topic="")
+
+    result = runner.invoke(
+        app,
+        [
+            "zotero",
+            "api-select-collections",
+            "ABC",
+            "DEF",
+            "--no-subcollections",
+            "--workspace",
+            str(workspace),
+            "--quiet",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    zotero_config = read_yaml(workspace / "research-context.yaml")["zotero"]
+    assert zotero_config["api_mode"] == "selected_collections"
+    assert zotero_config["api_access"] == "read_only"
+    assert zotero_config["api_selected_collections"] == [{"key": "ABC"}, {"key": "DEF"}]
+    assert zotero_config["api_include_subcollections"] is False
+
+
 def test_cli_claims_add_list_and_gaps(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     init_workspace(workspace, project_name="Test Project", project_type="M.Phil", topic="")
