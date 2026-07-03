@@ -366,6 +366,24 @@ def test_cli_data_profile_profiles_registered_data_sources(tmp_path: Path) -> No
     assert Path(source["data_profile"]["output_path"]).is_file()
 
 
+def test_cli_rqs_workflow_commands(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(
+        workspace,
+        project_name="Test Project",
+        project_type="PhD",
+        topic="",
+        research_questions=[{"question": "Draft?", "status": "draft", "subquestions": []}],
+    )
+
+    list_result = runner.invoke(app, ["rqs", "list", "--workspace", str(workspace), "--quiet"])
+    approve_result = runner.invoke(app, ["rqs", "approve", "rq-001", "--workspace", str(workspace), "--quiet"])
+
+    assert list_result.exit_code == 0, list_result.output
+    assert approve_result.exit_code == 0, approve_result.output
+    assert read_yaml(workspace / "research-questions.yaml")["research_questions"][0]["id"] == "rq-001"
+
+
 def test_cli_scan_uses_configured_zotero_provider_when_kind_is_omitted(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     storage_root = tmp_path / "Zotero" / "storage"

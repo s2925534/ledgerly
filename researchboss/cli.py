@@ -16,6 +16,12 @@ from researchboss.core.yamlio import read_yaml, write_yaml
 from researchboss.engine.conversion import convert_sources
 from researchboss.engine.data import data_source_counts, list_data_sources, profile_data_sources
 from researchboss.engine.metadata import extract_citation_metadata
+from researchboss.engine.research_questions import (
+    approve_research_question,
+    archive_research_question,
+    list_research_questions,
+    reject_research_question,
+)
 from researchboss.engine.sources import (
     ScanResult,
     iter_source_files,
@@ -58,12 +64,14 @@ config_app = typer.Typer(help="Config commands.")
 zotero_app = typer.Typer(help="Read-only local Zotero storage commands.")
 metadata_app = typer.Typer(help="Deterministic metadata commands.")
 data_app = typer.Typer(help="Local data source commands.")
+rqs_app = typer.Typer(help="Research question workflow commands.")
 
 app.add_typer(sources_app, name="sources")
 app.add_typer(config_app, name="config")
 app.add_typer(zotero_app, name="zotero")
 app.add_typer(metadata_app, name="metadata")
 app.add_typer(data_app, name="data")
+app.add_typer(rqs_app, name="rqs")
 
 console = Console()
 DEFAULT_WORKSPACES_DIR = "workspaces"
@@ -782,6 +790,83 @@ def data_status(
     for key, value in counts.items():
         table.add_row(key, str(value))
     console.print(table)
+
+
+@rqs_app.command("list")
+def rqs_list(
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """List approved, candidate, rejected, and archived research questions."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["rqs", "list"], ws, log_level)
+    groups = list_research_questions(ws)
+    logger.info("Listed research questions", operation="rqs_list", counts={key: len(value) for key, value in groups.items()})
+    _finish(summary, summary_path)
+    if quiet:
+        return
+    table = Table(title="Research questions")
+    table.add_column("group")
+    table.add_column("id")
+    table.add_column("question")
+    for group, rows in groups.items():
+        for row in rows:
+            table.add_row(group, str(row.get("id")), str(row.get("question")))
+    console.print(table)
+
+
+@rqs_app.command("approve")
+def rqs_approve(
+    rq_id: str = typer.Argument(...),
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Approve a draft research question."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["rqs", "approve"], ws, log_level)
+    approve_research_question(ws, rq_id)
+    logger.info("Approved research question", operation="rqs_approve", rq_id=rq_id)
+    _finish(summary, summary_path)
+    if not quiet:
+        console.print(f"[green]Approved[/green] {rq_id}")
+
+
+@rqs_app.command("reject")
+def rqs_reject(
+    rq_id: str = typer.Argument(...),
+    reason: str = typer.Option("", "--reason", help="Reason for rejection"),
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Reject a research question."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["rqs", "reject"], ws, log_level)
+    reject_research_question(ws, rq_id, reason=reason)
+    logger.info("Rejected research question", operation="rqs_reject", rq_id=rq_id, reason=reason)
+    _finish(summary, summary_path)
+    if not quiet:
+        console.print(f"[red]Rejected[/red] {rq_id}")
+
+
+@rqs_app.command("archive")
+def rqs_archive(
+    rq_id: str = typer.Argument(...),
+    reason: str = typer.Option("", "--reason", help="Reason for archiving"),
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Archive a research question."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["rqs", "archive"], ws, log_level)
+    archive_research_question(ws, rq_id, reason=reason)
+    logger.info("Archived research question", operation="rqs_archive", rq_id=rq_id, reason=reason)
+    _finish(summary, summary_path)
+    if not quiet:
+        console.print(f"[yellow]Archived[/yellow] {rq_id}")
 
 
 @zotero_app.command("collections")
