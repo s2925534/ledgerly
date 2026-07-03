@@ -36,6 +36,15 @@ from researchboss.engine.claims import (
 from researchboss.engine.conversion import convert_sources
 from researchboss.engine.data import data_source_counts, list_data_sources, profile_data_sources
 from researchboss.engine.export import export_evidence_bundle
+from researchboss.engine.external_search import (
+    ExternalSearchError,
+    filter_unused_queries,
+    generate_search_query_plan,
+    require_external_search_flag,
+    scopus_credentials,
+    scopus_readiness,
+    scopus_search,
+)
 from researchboss.engine.health import workspace_health_report
 from researchboss.engine.metadata import extract_citation_metadata
 from researchboss.engine.metadata_quality import build_keyword_index, citation_consistency_report, duplicate_metadata_report
@@ -117,6 +126,7 @@ terminology_app = typer.Typer(help="Terminology glossary commands.")
 feedback_app = typer.Typer(help="Supervisor/stakeholder feedback commands.")
 context_app = typer.Typer(help="Context changelog commands.")
 ai_app = typer.Typer(help="Optional OpenAI commands.")
+search_app = typer.Typer(help="Explicit opt-in external search commands.")
 
 app.add_typer(sources_app, name="sources")
 app.add_typer(config_app, name="config")
@@ -131,6 +141,7 @@ app.add_typer(terminology_app, name="terminology")
 app.add_typer(feedback_app, name="feedback")
 app.add_typer(context_app, name="context")
 app.add_typer(ai_app, name="ai")
+app.add_typer(search_app, name="search")
 
 console = Console()
 DEFAULT_WORKSPACES_DIR = "workspaces"
@@ -770,6 +781,87 @@ def ai_review(
     if not quiet:
         console.print(f"[green]Wrote[/green] {output_path}")
         console.print("[yellow]Human review is required before using this output.[/yellow]")
+
+
+@search_app.command("plan")
+def search_plan(
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
+    max_queries: int = typer.Option(20, "--max-queries", help="Maximum query combinations to generate."),
+    unused_only: bool = typer.Option(False, "--unused-only", help="Show only queries not present in query history."),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Generate deterministic external-search query plans without calling external APIs."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["search", "plan"], ws, log_level)
+    plan = generate_search_query_plan(ws, max_queries=max_queries)
+    queries = filter_unused_queries(ws, plan["queries"]) if unused_only else plan["queries"]
+    logger.info("Generated external search query plan", operation="search_plan", query_count=len(queries))
+    _finish(summary, summary_path)
+    if quiet:
+        return
+    table = Table(title="External search query plan")
+    table.add_column("#", justify="right")
+    table.add_column("query")
+    for index, query in enumerate(queries, start=1):
+        table.add_row(str(index), query)
+    console.print(table)
+
+
+@search_app.command("scopus-test")
+def search_scopus_test(
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
+    external_search: bool = typer.Option(False, "--external-search", help="Required explicit opt-in for live Scopus API access."),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Test Scopus credentials without printing keys."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["search", "scopus_test"], ws, log_level)
+    try:
+        require_external_search_flag(external_search)
+        report = scopus_readiness(scopus_credentials(ws))
+    except ExternalSearchError as e:
+        logger.error("Scopus readiness failed", operation="search_scopus_test", error=str(e))
+        summary.errors += 1
+        _finish(summary, summary_path)
+        if not quiet:
+            console.print(f"[red]{e}[/red]")
+        raise typer.Exit(code=2)
+    output_path = ws / "outputs" / "validation" / "scopus-test.yaml"
+    write_yaml(output_path, report)
+    logger.info("Tested Scopus credentials", operation="search_scopus_test", key_loaded=report["key_loaded"])
+    _finish(summary, summary_path)
+    if not quiet:
+        console.print(f"[green]Wrote[/green] {output_path}")
+
+
+@search_app.command("scopus")
+def search_scopus(
+    query: str = typer.Argument(..., help="Scopus query to run."),
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
+    external_search: bool = typer.Option(False, "--external-search", help="Required explicit opt-in for live Scopus API access."),
+    count: int = typer.Option(25, "--count", help="Maximum Scopus results to request."),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Run an explicit Scopus search and save a local response snapshot."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["search", "scopus"], ws, log_level)
+    try:
+        require_external_search_flag(external_search)
+        report = scopus_search(ws, scopus_credentials(ws), query=query, count=count)
+    except ExternalSearchError as e:
+        logger.error("Scopus search failed", operation="search_scopus", error=str(e))
+        summary.errors += 1
+        _finish(summary, summary_path)
+        if not quiet:
+            console.print(f"[red]{e}[/red]")
+        raise typer.Exit(code=2)
+    logger.info("Ran Scopus search", operation="search_scopus", processed=report["metrics"]["processed"])
+    _finish(summary, summary_path)
+    if not quiet:
+        console.print(f"[green]Wrote[/green] {report['snapshot_path']}")
 
 
 @app.command("assess-novelty")

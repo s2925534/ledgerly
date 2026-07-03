@@ -94,6 +94,25 @@ def test_cli_rqs_assess_requires_ai_flag(tmp_path: Path) -> None:
     assert result.exit_code == 2, result.output
 
 
+def test_cli_search_plan_writes_query_plan(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="container port evidence")
+
+    result = runner.invoke(app, ["search", "plan", "--workspace", str(workspace), "--quiet"])
+
+    assert result.exit_code == 0, result.output
+    assert (workspace / "outputs" / "recommendations" / "external-search-query-plan.yaml").is_file()
+
+
+def test_cli_search_scopus_requires_external_search_flag(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+
+    result = runner.invoke(app, ["search", "scopus-test", "--workspace", str(workspace), "--quiet"])
+
+    assert result.exit_code == 2, result.output
+
+
 def test_cli_ai_context_preview_writes_local_context_without_network(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     source_root = tmp_path / "sources"
