@@ -71,7 +71,11 @@ def test_validate_document_compares_target_to_accepted_and_explicit_sources(tmp_
     assert report["evidence_confidence"][0]["metadata_completeness"]["value"] == "complete"
     assert report["evidence_confidence"][0]["recency"]["value"] == "recent"
     assert report["evidence_confidence"][0]["citation_strength"]["value"] == "moderate"
+    assert report["evidence_confidence"][0]["confidence_score"]["score"] == 97
+    assert report["evidence_confidence"][0]["confidence_score"]["unknown_component_count"] == 0
     assert report["evidence_confidence"][1]["metadata_completeness"]["value"] == "partial"
+    assert report["evidence_confidence"][1]["confidence_score"]["unknown_component_count"] > 0
+    assert "citation_strength" in report["evidence_confidence"][1]["confidence_score"]["unknown_components"]
     assert "publication_venue" in report["evidence_confidence"][1]["metadata_completeness"]["unknown_fields"]
     assert report["human_review_checklist"]
     assert [source["source_id"] for source in report["sources"]] == ["source-001", "explicit-source-001"]

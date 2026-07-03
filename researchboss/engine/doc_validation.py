@@ -333,8 +333,9 @@ def _candidate_supporting_sources(comparisons: list[dict[str, Any]]) -> list[dic
 
 
 def _evidence_confidence(comparisons: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    return [
-        {
+    confidence_rows = []
+    for item in comparisons:
+        row = {
             "source_id": item.get("source_id"),
             "claim_relevance": _claim_relevance(item),
             "source_credibility": _source_credibility(item),
@@ -350,8 +351,9 @@ def _evidence_confidence(comparisons: list[dict[str, Any]]) -> list[dict[str, An
             },
             "accepted_vs_candidate_status": _accepted_vs_candidate_status(item),
         }
-        for item in comparisons
-    ]
+        row["confidence_score"] = _confidence_score(row)
+        confidence_rows.append(row)
+    return confidence_rows
 
 
 def _claim_relevance(source: dict[str, Any]) -> dict[str, Any]:
@@ -438,6 +440,47 @@ def _accepted_vs_candidate_status(source: dict[str, Any]) -> dict[str, Any]:
     if source.get("status") == "explicit":
         return {"value": "explicit_source_not_in_workspace_register", "status": "explicit"}
     return {"value": "unknown", "status": source.get("status") or "Unknown"}
+
+
+def _confidence_score(confidence: dict[str, Any]) -> dict[str, Any]:
+    components = {
+        "claim_relevance": _component_score(confidence["claim_relevance"]["value"], {"high": 30, "partial": 15, "none_detected": 0}),
+        "source_credibility": _component_score(
+            confidence["source_credibility"]["value"],
+            {"accepted_workspace_source": 20, "user_supplied_unreviewed_source": 8},
+        ),
+        "metadata_completeness": _component_score(
+            confidence["metadata_completeness"]["value"],
+            {"complete": 15, "partial": 8},
+        ),
+        "recency": _component_score(confidence["recency"]["value"], {"recent": 10, "established": 7, "older": 3}),
+        "citation_strength": _component_score(confidence["citation_strength"]["value"], {"high": 10, "moderate": 7, "low": 3}),
+        "author_signals": _component_score(confidence["author_signals"]["value"], {"authors_present": 5}),
+        "publication_venue_signals": _component_score(confidence["publication_venue_signals"]["value"], {"venue_present": 5}),
+        "paper_type": _component_score(confidence["paper_type"]["value"], {"known": 5}),
+    }
+    known_components = {key: value for key, value in components.items() if value["score"] is not None}
+    unknown_components = [key for key, value in components.items() if value["score"] is None]
+    score = sum(int(value["score"]) for value in known_components.values())
+    return {
+        "score": score,
+        "scale": "0-100",
+        "basis": "deterministic_component_score",
+        "components": components,
+        "known_component_count": len(known_components),
+        "unknown_component_count": len(unknown_components),
+        "unknown_components": unknown_components,
+        "notes": [
+            "Unknown components are not invented.",
+            "This score is a deterministic triage signal, not proof of claim support or source quality.",
+        ],
+    }
+
+
+def _component_score(value: str, scores: dict[str, int]) -> dict[str, Any]:
+    if value == "unknown":
+        return {"value": value, "score": None}
+    return {"value": value, "score": scores.get(value, 0)}
 
 
 def _year_value(value: Any) -> int | None:
@@ -624,8 +667,8 @@ def _markdown_report(report: dict[str, Any]) -> str:
             "",
             "## Evidence Confidence Factors",
             "",
-            "| Source ID | Claim relevance | Source credibility | Metadata | Recency | Citation strength | Venue | Contradiction risk | Status |",
-            "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+            "| Source ID | Score | Unknown components | Claim relevance | Source credibility | Metadata | Recency | Citation strength | Venue | Contradiction risk | Status |",
+            "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
         ]
     )
     for confidence in report["evidence_confidence"]:
@@ -634,6 +677,8 @@ def _markdown_report(report: dict[str, Any]) -> str:
             + " | ".join(
                 [
                     str(confidence.get("source_id") or "Unknown"),
+                    str(confidence["confidence_score"]["score"]),
+                    str(confidence["confidence_score"]["unknown_component_count"]),
                     str(confidence["claim_relevance"]["value"]),
                     str(confidence["source_credibility"]["value"]),
                     str(confidence["metadata_completeness"]["value"]),
