@@ -31,7 +31,15 @@ def test_validate_document_compares_target_to_accepted_and_explicit_sources(tmp_
                     "provider": "zotero_storage",
                     "file_name": "accepted.pdf",
                     "conversion": {"status": "converted", "output_path": str(accepted_text)},
-                    "citation_metadata": {"title": "Accepted Source", "year": 2024},
+                    "citation_metadata": {
+                        "title": "Accepted Source",
+                        "authors": ["A. Author"],
+                        "year": 2024,
+                        "doi": "10.1234/example",
+                        "publication_title": "Journal of Testing",
+                        "document_type": "article",
+                    },
+                    "citation_count": 12,
                 },
                 {
                     "source_id": "source-002",
@@ -58,10 +66,18 @@ def test_validate_document_compares_target_to_accepted_and_explicit_sources(tmp_
     assert report["possible_contradictions"][0]["kind"] == "not_assessed"
     assert report["missing_citations"]
     assert report["candidate_supporting_sources"][0]["source_id"] == "source-001"
+    assert report["evidence_confidence"][0]["claim_relevance"]["value"] == "high"
+    assert report["evidence_confidence"][0]["source_credibility"]["value"] == "accepted_workspace_source"
+    assert report["evidence_confidence"][0]["metadata_completeness"]["value"] == "complete"
+    assert report["evidence_confidence"][0]["recency"]["value"] == "recent"
+    assert report["evidence_confidence"][0]["citation_strength"]["value"] == "moderate"
+    assert report["evidence_confidence"][1]["metadata_completeness"]["value"] == "partial"
+    assert "publication_venue" in report["evidence_confidence"][1]["metadata_completeness"]["unknown_fields"]
     assert report["human_review_checklist"]
     assert [source["source_id"] for source in report["sources"]] == ["source-001", "explicit-source-001"]
     assert report["sources"][0]["provider"] == "zotero_storage"
     markdown = result.markdown_path.read_text(encoding="utf-8")
     assert "## Strengths" in markdown
+    assert "## Evidence Confidence Factors" in markdown
     assert "## Human Review Checklist" in markdown
     assert "pending" not in markdown

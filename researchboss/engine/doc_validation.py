@@ -81,6 +81,7 @@ def validate_document(
         "possible_contradictions": _possible_contradictions(),
         "missing_citations": _missing_citations(sentence_checks),
         "candidate_supporting_sources": _candidate_supporting_sources(comparisons),
+        "evidence_confidence": _evidence_confidence(comparisons),
         "human_review_checklist": _human_review_checklist(),
         "sources": comparisons,
         "sentence_checks": sentence_checks,
@@ -114,6 +115,9 @@ def _validation_sources(workspace: Path, *, source_paths: list[Path]) -> list[di
                 "authors": "Unknown",
                 "year": "Unknown",
                 "doi": "Unknown",
+                "publication_venue": "Unknown",
+                "paper_type": "Unknown",
+                "citation_count": "Unknown",
                 "path": str(resolved),
             }
         )
@@ -134,6 +138,14 @@ def _workspace_source_entry(source: dict[str, Any]) -> dict[str, Any]:
         "authors": _unknown(source.get("zotero_creators") or metadata.get("authors")),
         "year": _unknown(source.get("zotero_year") or metadata.get("year")),
         "doi": _unknown(source.get("zotero_doi") or metadata.get("doi")),
+        "publication_venue": _unknown(
+            source.get("zotero_publication_title")
+            or metadata.get("publication_title")
+            or metadata.get("journal")
+            or metadata.get("venue")
+        ),
+        "paper_type": _unknown(source.get("zotero_item_type") or metadata.get("item_type") or metadata.get("document_type")),
+        "citation_count": _unknown(source.get("citation_count") or source.get("cited_by_count")),
         "path": path,
     }
 
@@ -320,6 +332,126 @@ def _candidate_supporting_sources(comparisons: list[dict[str, Any]]) -> list[dic
     return sorted(candidates, key=lambda item: float(item.get("overlap_score") or 0), reverse=True)
 
 
+def _evidence_confidence(comparisons: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        {
+            "source_id": item.get("source_id"),
+            "claim_relevance": _claim_relevance(item),
+            "source_credibility": _source_credibility(item),
+            "metadata_completeness": _metadata_completeness(item),
+            "recency": _recency(item),
+            "citation_strength": _citation_strength(item),
+            "author_signals": _author_signals(item),
+            "publication_venue_signals": _publication_venue_signals(item),
+            "paper_type": _paper_type_signal(item),
+            "contradiction_risk": {
+                "value": "not_assessed",
+                "reason": "Deterministic term overlap does not assess contradiction.",
+            },
+            "accepted_vs_candidate_status": _accepted_vs_candidate_status(item),
+        }
+        for item in comparisons
+    ]
+
+
+def _claim_relevance(source: dict[str, Any]) -> dict[str, Any]:
+    score = float(source.get("overlap_score") or 0)
+    if not source.get("text_available"):
+        value = "unknown"
+    elif score >= 0.25:
+        value = "high"
+    elif score > 0:
+        value = "partial"
+    else:
+        value = "none_detected"
+    return {"value": value, "basis": "deterministic_target_term_overlap", "overlap_score": score}
+
+
+def _source_credibility(source: dict[str, Any]) -> dict[str, str]:
+    if source.get("status") == "accepted" and source.get("source_kind") == "workspace_source":
+        return {"value": "accepted_workspace_source", "basis": "workspace_review_status"}
+    if source.get("source_kind") == "explicit_path":
+        return {"value": "user_supplied_unreviewed_source", "basis": "explicit_source_path"}
+    return {"value": "unknown", "basis": "no_review_status_available"}
+
+
+def _metadata_completeness(source: dict[str, Any]) -> dict[str, Any]:
+    fields = ["title", "authors", "year", "doi", "publication_venue", "paper_type"]
+    known = [field for field in fields if source.get(field) not in (None, "", "Unknown")]
+    return {
+        "value": "complete" if len(known) == len(fields) else "partial" if known else "unknown",
+        "known_fields": known,
+        "unknown_fields": [field for field in fields if field not in known],
+    }
+
+
+def _recency(source: dict[str, Any]) -> dict[str, Any]:
+    year = _year_value(source.get("year"))
+    if year is None:
+        return {"value": "unknown", "year": "Unknown"}
+    if year >= 2021:
+        value = "recent"
+    elif year >= 2011:
+        value = "established"
+    else:
+        value = "older"
+    return {"value": value, "year": year}
+
+
+def _citation_strength(source: dict[str, Any]) -> dict[str, Any]:
+    citation_count = _integer_value(source.get("citation_count"))
+    if citation_count is None:
+        return {"value": "unknown", "citation_count": "Unknown"}
+    if citation_count >= 100:
+        value = "high"
+    elif citation_count >= 10:
+        value = "moderate"
+    else:
+        value = "low"
+    return {"value": value, "citation_count": citation_count}
+
+
+def _author_signals(source: dict[str, Any]) -> dict[str, Any]:
+    authors = source.get("authors")
+    if authors in (None, "", "Unknown"):
+        return {"value": "unknown", "basis": "author metadata unavailable"}
+    return {"value": "authors_present", "basis": "author metadata present"}
+
+
+def _publication_venue_signals(source: dict[str, Any]) -> dict[str, Any]:
+    venue = source.get("publication_venue")
+    if venue in (None, "", "Unknown"):
+        return {"value": "unknown", "basis": "venue metadata unavailable"}
+    return {"value": "venue_present", "basis": "venue metadata present", "venue": venue}
+
+
+def _paper_type_signal(source: dict[str, Any]) -> dict[str, Any]:
+    paper_type = source.get("paper_type")
+    if paper_type in (None, "", "Unknown"):
+        return {"value": "unknown", "paper_type": "Unknown"}
+    return {"value": "known", "paper_type": paper_type}
+
+
+def _accepted_vs_candidate_status(source: dict[str, Any]) -> dict[str, Any]:
+    if source.get("status") == "accepted":
+        return {"value": "accepted_workspace_evidence", "status": "accepted"}
+    if source.get("status") == "explicit":
+        return {"value": "explicit_source_not_in_workspace_register", "status": "explicit"}
+    return {"value": "unknown", "status": source.get("status") or "Unknown"}
+
+
+def _year_value(value: Any) -> int | None:
+    match = re.search(r"\b(18|19|20)\d{2}\b", str(value or ""))
+    return int(match.group(0)) if match else None
+
+
+def _integer_value(value: Any) -> int | None:
+    try:
+        return int(str(value).replace(",", ""))
+    except (TypeError, ValueError):
+        return None
+
+
 def _human_review_checklist() -> list[str]:
     return [
         "Review unsupported and weakly supported sentences before relying on this report.",
@@ -483,6 +615,33 @@ def _markdown_report(report: dict[str, Any]) -> str:
                     _escape_table(str(source.get("title") or "Unknown")),
                     str(source.get("overlap_score") or 0),
                     ", ".join(source.get("matched_terms") or []) or "None",
+                ]
+            )
+            + " |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Evidence Confidence Factors",
+            "",
+            "| Source ID | Claim relevance | Source credibility | Metadata | Recency | Citation strength | Venue | Contradiction risk | Status |",
+            "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+        ]
+    )
+    for confidence in report["evidence_confidence"]:
+        lines.append(
+            "| "
+            + " | ".join(
+                [
+                    str(confidence.get("source_id") or "Unknown"),
+                    str(confidence["claim_relevance"]["value"]),
+                    str(confidence["source_credibility"]["value"]),
+                    str(confidence["metadata_completeness"]["value"]),
+                    str(confidence["recency"]["value"]),
+                    str(confidence["citation_strength"]["value"]),
+                    str(confidence["publication_venue_signals"]["value"]),
+                    str(confidence["contradiction_risk"]["value"]),
+                    str(confidence["accepted_vs_candidate_status"]["value"]),
                 ]
             )
             + " |"
