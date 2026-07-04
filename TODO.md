@@ -78,8 +78,8 @@
 
 - [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - <span style="color: #00897b; font-weight: 600;">Deterministic</span> - Add optional PyMuPDF/PyPDF2-backed PDF extraction for more reliable page text while preserving the current conservative parser as the fallback.
 - [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - <span style="color: #00897b; font-weight: 600;">Deterministic</span> - Add local OCR readiness checks and an explicit opt-in OCR fallback for scanned PDFs.
-- [ ] <span style="color: #00897b; font-weight: 600;">Deterministic</span> - deterministic sidecar metadata parsing for CSL JSON, BibTeX, and RIS files.
-- [ ] <span style="color: #00897b; font-weight: 600;">Deterministic</span> - deterministic abstract, keyword, publication-title, year, and author extraction from sidecar files and PDF metadata without filling unknown fields.
+- [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - <span style="color: #00897b; font-weight: 600;">Deterministic</span> - Add deterministic sidecar metadata parsing for CSL JSON, BibTeX, and RIS files.
+- [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - <span style="color: #00897b; font-weight: 600;">Deterministic</span> - Add deterministic abstract, keyword, publication-title, year, and author extraction from sidecar files and PDF metadata without filling unknown fields.
 - [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - <span style="color: #00897b; font-weight: 600;">Deterministic</span> - Add accepted-source text corpus export with per-source headers, source IDs, titles, authors, and separators.
 - [ ] <span style="color: #00897b; font-weight: 600;">Deterministic</span> - optional PDF merge artefacts for accepted source PDFs, with library-wide and batch merge modes that never rename or move originals.
 - [ ] <span style="color: #00897b; font-weight: 600;">Deterministic</span> - merge manifests and CSV reports that record which source IDs were included, skipped, failed, or batched.

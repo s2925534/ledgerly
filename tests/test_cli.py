@@ -658,6 +658,28 @@ def test_cli_metadata_filename_suggestions_writes_report(tmp_path: Path) -> None
     assert report["suggestions"][0]["rename_performed"] is False
 
 
+def test_cli_metadata_sidecars_updates_source_metadata(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    source_root = tmp_path / "sources"
+    source_root.mkdir()
+    source = source_root / "paper.pdf"
+    sidecar = source_root / "paper.bib"
+    source.write_text("pdf-ish", encoding="utf-8")
+    sidecar.write_text("@article{x, title = {Sidecar Paper}, author = {Smith, A.}, year = {2024}}", encoding="utf-8")
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    write_yaml(
+        workspace / "source-register.yaml",
+        {"version": 1, "sources": [{"source_id": "source-001", "file_path": str(source), "file_name": source.name}]},
+    )
+
+    result = runner.invoke(app, ["metadata", "sidecars", "--workspace", str(workspace), "--quiet"])
+
+    assert result.exit_code == 0, result.output
+    source_record = read_yaml(workspace / "source-register.yaml")["sources"][0]
+    assert source_record["citation_metadata"]["title"] == "Sidecar Paper"
+    assert (workspace / "sources_metadata" / "sidecar-metadata.yaml").is_file()
+
+
 def test_cli_ai_workspace_report_commands_require_ai_flag(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")

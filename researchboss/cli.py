@@ -95,6 +95,7 @@ from researchboss.engine.research_questions import (
 )
 from researchboss.engine.report_schemas import export_report_schemas
 from researchboss.engine.reports import generate_workspace_report
+from researchboss.engine.sidecars import import_sidecar_metadata
 from researchboss.engine.sources import (
     ScanResult,
     iter_source_files,
@@ -1876,6 +1877,34 @@ def metadata_extract(
 
     if not quiet:
         console.print(f"[green]Metadata extracted[/green] processed={result.processed} updated={result.updated}")
+
+
+@metadata_app.command("sidecars")
+def metadata_sidecars(
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Parse local CSL JSON, BibTeX, and RIS sidecars for registered source metadata."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["metadata", "sidecars"], ws, log_level)
+    result = import_sidecar_metadata(ws)
+    summary.files_processed = result.processed
+    summary.files_succeeded = result.updated
+    summary.files_skipped = result.skipped
+    logger.info(
+        "Imported sidecar metadata",
+        operation="metadata_sidecars",
+        processed=result.processed,
+        updated=result.updated,
+        skipped=result.skipped,
+    )
+    _finish(summary, summary_path, next_action=f"Review `{result.report_path}`")
+    if not quiet:
+        console.print(
+            f"[green]Sidecar metadata complete[/green] processed={result.processed} "
+            f"updated={result.updated} skipped={result.skipped}"
+        )
 
 
 @metadata_app.command("validate")
