@@ -4,7 +4,8 @@ import types
 import zipfile
 
 from researchboss.core.yamlio import read_yaml
-from researchboss.engine.conversion import convert_sources, extract_text
+import researchboss.engine.conversion as conversion
+from researchboss.engine.conversion import convert_sources, extract_text, ocr_readiness_report
 from researchboss.engine.sources import scan_sources, set_source_status
 from researchboss.engine.workspace import init_workspace
 
@@ -113,6 +114,52 @@ endstream endobj
     assert "First page text." in output
     assert "--- Page 2 ---" in output
     assert "Second page text." in output
+
+
+def test_ocr_readiness_reports_local_tool_availability(monkeypatch) -> None:
+    def fake_which(name: str) -> str | None:
+        return f"/usr/bin/{name}" if name in {"tesseract", "pdftoppm"} else None
+
+    monkeypatch.setattr(conversion.shutil, "which", fake_which)
+
+    report = ocr_readiness_report()
+
+    assert report["ocr_supported_locally"] is True
+    assert report["tools"]["tesseract"]["available"] is True
+    assert report["tools"]["pdftoppm"]["available"] is True
+
+
+def test_convert_sources_requires_explicit_ocr_for_scanned_pdf(tmp_path: Path) -> None:
+    workspace = make_workspace(tmp_path)
+    source_root = tmp_path / "sources"
+    source_root.mkdir()
+    source_file = source_root / "scanned.pdf"
+    source_file.write_bytes(b"%PDF-1.4\nstream\nBT\nET\nendstream\n%%EOF\n")
+    scan_sources(workspace, source_root)
+
+    result = convert_sources(workspace)
+
+    source = read_yaml(workspace / "source-register.yaml")["sources"][0]
+    assert result.failed == 1
+    assert source["conversion"]["status"] == "failed"
+    assert "--ocr" in source["conversion"]["error"]
+
+
+def test_convert_sources_uses_explicit_ocr_fallback(tmp_path: Path, monkeypatch) -> None:
+    workspace = make_workspace(tmp_path)
+    source_root = tmp_path / "sources"
+    source_root.mkdir()
+    source_file = source_root / "scanned.pdf"
+    source_file.write_bytes(b"%PDF-1.4\nstream\nBT\nET\nendstream\n%%EOF\n")
+    scan_sources(workspace, source_root)
+    monkeypatch.setattr(conversion, "_ocr_pdf_text", lambda _path: "--- Page 1 ---\nOCR text from scan.\n")
+
+    result = convert_sources(workspace, allow_ocr=True)
+
+    source = read_yaml(workspace / "source-register.yaml")["sources"][0]
+    output = Path(source["conversion"]["output_path"]).read_text(encoding="utf-8")
+    assert result.converted == 1
+    assert "OCR text from scan." in output
 
 
 def test_extract_pdf_uses_optional_pymupdf_when_available(tmp_path: Path, monkeypatch) -> None:

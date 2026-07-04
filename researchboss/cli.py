@@ -34,7 +34,7 @@ from researchboss.engine.claims import (
     set_claim_status,
     write_citation_gap_report,
 )
-from researchboss.engine.conversion import convert_sources
+from researchboss.engine.conversion import convert_sources, ocr_readiness_report
 from researchboss.engine.citations import apply_citation_plan, create_citation_plan
 from researchboss.engine.data import data_source_counts, list_data_sources, profile_data_sources
 from researchboss.engine.doc_validation import validate_document
@@ -1802,6 +1802,7 @@ def timeline(
 def convert(
     workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
     status: Optional[str] = typer.Option(None, "--status", help="Only convert sources with this review status."),
+    ocr: bool = typer.Option(False, "--ocr", help="Explicitly allow local OCR fallback for scanned PDFs."),
     log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
     quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
 ):
@@ -1809,7 +1810,7 @@ def convert(
     ws = _resolve_workspace(workspace)
     _slug, logger, summary, summary_path, _log_path = _run_ctx(["convert"], ws, log_level)
 
-    result = convert_sources(ws, status=status)
+    result = convert_sources(ws, status=status, allow_ocr=ocr)
     summary.files_processed = result.processed
     summary.files_succeeded = result.converted
     summary.files_skipped = result.skipped
@@ -1831,6 +1832,23 @@ def convert(
         f"[green]Convert complete[/green] processed={result.processed} converted={result.converted} "
         f"skipped={result.skipped} failed={result.failed}"
     )
+
+
+@app.command("ocr-readiness")
+def ocr_readiness(
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Check local OCR tool availability without processing documents."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["ocr", "readiness"], ws, log_level)
+    report = ocr_readiness_report(ws)
+    logger.info("Wrote OCR readiness report", operation="ocr_readiness", ocr_supported=report["ocr_supported_locally"])
+    _finish(summary, summary_path)
+    if not quiet:
+        console.print(f"[green]Wrote[/green] {ws / 'outputs' / 'validation' / 'ocr-readiness.yaml'}")
+        console.print(f"OCR supported locally: {report['ocr_supported_locally']}")
 
 
 @metadata_app.command("extract")

@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import re
 import importlib
+import shutil
+import subprocess
+import tempfile
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -109,9 +112,14 @@ def _extract_pdf_stream_text(stream: str) -> str:
     return " ".join(part.strip() for part in parts if part.strip())
 
 
-def _convert_pdf(source_path: Path, output_path: Path) -> None:
+def _convert_pdf(source_path: Path, output_path: Path, *, allow_ocr: bool = False) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(extract_text(source_path), encoding="utf-8")
+    text = extract_text(source_path)
+    if not _has_substantive_text(text):
+        if not allow_ocr:
+            raise ValueError("PDF appears to need OCR; rerun conversion with --ocr to explicitly allow local OCR fallback.")
+        text = _ocr_pdf_text(source_path)
+    output_path.write_text(text, encoding="utf-8")
 
 
 def _extract_pdf_text(source_path: Path) -> str:
@@ -183,7 +191,60 @@ def extract_text(source_path: Path) -> str:
     raise ValueError(f"Unsupported text extraction extension: {extension}")
 
 
-def convert_source_record(workspace: Path, source: dict[str, Any]) -> ConversionResult:
+def ocr_readiness_report(workspace: Path | None = None) -> dict[str, Any]:
+    tesseract = shutil.which("tesseract")
+    pdftoppm = shutil.which("pdftoppm")
+    report = {
+        "version": 1,
+        "ocr_supported_locally": bool(tesseract and pdftoppm),
+        "tools": {
+            "tesseract": {"available": bool(tesseract), "path": tesseract},
+            "pdftoppm": {"available": bool(pdftoppm), "path": pdftoppm},
+        },
+        "notes": "OCR fallback is local-only and requires explicit --ocr opt-in during conversion.",
+    }
+    if workspace is not None:
+        write_yaml(workspace / "outputs" / "validation" / "ocr-readiness.yaml", report)
+    return report
+
+
+def _has_substantive_text(text: str) -> bool:
+    content = re.sub(r"--- Page \d+ ---", "", text)
+    return bool(re.search(r"[A-Za-z0-9]{3,}", content))
+
+
+def _ocr_pdf_text(source_path: Path) -> str:
+    readiness = ocr_readiness_report()
+    if not readiness["ocr_supported_locally"]:
+        raise ValueError("OCR fallback requested but local tools are unavailable; install tesseract and pdftoppm.")
+    with tempfile.TemporaryDirectory() as tmp:
+        prefix = Path(tmp) / "page"
+        subprocess.run(
+            ["pdftoppm", "-png", str(source_path), str(prefix)],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        pages = []
+        for index, image_path in enumerate(sorted(Path(tmp).glob("page-*.png")), start=1):
+            ocr = subprocess.run(
+                ["tesseract", str(image_path), "stdout"],
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            pages.append(f"--- Page {index} ---\n{ocr.stdout.strip()}")
+    if not pages:
+        raise ValueError("OCR fallback produced no page images.")
+    text = "\n".join(pages).strip() + "\n"
+    if not _has_substantive_text(text):
+        raise ValueError("OCR fallback produced no substantive text.")
+    return text
+
+
+def convert_source_record(workspace: Path, source: dict[str, Any], *, allow_ocr: bool = False) -> ConversionResult:
     source_id = str(source.get("source_id") or "")
     source_path = Path(str(source.get("file_path") or ""))
     extension = source_path.suffix.lower()
@@ -220,7 +281,7 @@ def convert_source_record(workspace: Path, source: dict[str, Any]) -> Conversion
         elif extension == ".docx":
             _convert_docx(source_path, output_path)
         elif extension == ".pdf":
-            _convert_pdf(source_path, output_path)
+            _convert_pdf(source_path, output_path, allow_ocr=allow_ocr)
     except Exception as exc:
         failure_path = _conversion_failure_path(workspace, source_id)
         failure = {
@@ -250,12 +311,12 @@ def convert_source_record(workspace: Path, source: dict[str, Any]) -> Conversion
     return ConversionResult(source_id=source_id, status="converted", output_path=output_path)
 
 
-def convert_sources(workspace: Path, *, status: Optional[str] = None) -> ConversionRunResult:
+def convert_sources(workspace: Path, *, status: Optional[str] = None, allow_ocr: bool = False) -> ConversionRunResult:
     register = _load_register(workspace)
     sources = [source for source in register.get("sources", []) if isinstance(source, dict)]
     selected = [source for source in sources if status is None or source.get("status") == status]
 
-    results = [convert_source_record(workspace, source) for source in selected]
+    results = [convert_source_record(workspace, source, allow_ocr=allow_ocr) for source in selected]
     register["sources"] = sources
     _write_register(workspace, register)
 

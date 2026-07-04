@@ -622,6 +622,17 @@ def test_cli_export_corpus_writes_combined_accepted_text(tmp_path: Path) -> None
     assert manifest["included_count"] == 1
 
 
+def test_cli_ocr_readiness_writes_report(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+
+    result = runner.invoke(app, ["ocr-readiness", "--workspace", str(workspace), "--quiet"])
+
+    assert result.exit_code == 0, result.output
+    report = read_yaml(workspace / "outputs" / "validation" / "ocr-readiness.yaml")
+    assert "ocr_supported_locally" in report
+
+
 def test_cli_metadata_filename_suggestions_writes_report(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
