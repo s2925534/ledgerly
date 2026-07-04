@@ -59,7 +59,13 @@ from researchboss.engine.external_search import (
     scopus_search,
     write_high_signal_candidate_report,
 )
-from researchboss.engine.guidelines import GUIDELINE_SCOPES, list_guidelines, register_guideline, set_default_guidelines
+from researchboss.engine.guidelines import (
+    GUIDELINE_SCOPES,
+    guideline_conflict_report,
+    list_guidelines,
+    register_guideline,
+    set_default_guidelines,
+)
 from researchboss.engine.health import workspace_health_report
 from researchboss.engine.metadata import extract_citation_metadata
 from researchboss.engine.metadata_quality import build_keyword_index, citation_consistency_report, duplicate_metadata_report
@@ -849,6 +855,30 @@ def guidelines_defaults(
     if not quiet:
         console.print("[green]Default guidelines updated[/green]")
         console.print(", ".join(config.get("default_guideline_ids") or []) or "None")
+
+
+@guidelines_app.command("conflicts")
+def guidelines_conflicts(
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path."),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Write deterministic guideline conflict checks for human review."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["guidelines", "conflicts"], ws, log_level)
+    report = guideline_conflict_report(ws)
+    output_path = ws / "outputs" / "validation" / "guideline-conflicts.yaml"
+    logger.info(
+        "Wrote guideline conflict report",
+        operation="guidelines_conflicts",
+        conflict_count=report["conflict_count"],
+        output_path=str(output_path),
+    )
+    _finish(summary, summary_path, next_action=f"Review `{output_path}`")
+
+    if not quiet:
+        console.print(f"[green]Guideline conflict report:[/green] {output_path}")
+        console.print(f"Conflicts requiring review: {report['conflict_count']}")
 
 
 @ai_app.command("test")

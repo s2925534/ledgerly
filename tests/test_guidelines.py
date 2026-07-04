@@ -4,6 +4,7 @@ import pytest
 
 from researchboss.core.yamlio import read_yaml
 from researchboss.engine.guidelines import (
+    guideline_conflict_report,
     list_guidelines,
     register_guideline,
     resolve_guidelines,
@@ -92,3 +93,22 @@ def test_explicit_guidelines_override_defaults(tmp_path: Path) -> None:
 
     assert [item["id"] for item in resolved] == [explicit.record["id"]]
     assert resolved[0]["selection_source"] == "explicit"
+
+
+def test_guideline_conflict_report_flags_citation_style_and_priority(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    faculty = tmp_path / "faculty.md"
+    journal = tmp_path / "journal.md"
+    faculty.write_text("Use APA 6 for references.", encoding="utf-8")
+    journal.write_text("Journal submission rules override thesis formatting.", encoding="utf-8")
+    init_workspace(workspace, project_name="Test Project", project_type="M.Phil", topic="")
+    register_guideline(workspace, str(faculty), scopes=["rubric"])
+    register_guideline(workspace, str(journal), scopes=["journal_submission"])
+
+    report = guideline_conflict_report(workspace)
+
+    assert report["conflict_count"] == 2
+    assert report["conflicts"][0]["kind"] == "citation_style_conflict"
+    assert report["conflicts"][0]["conflicting_markers"] == ["apa6"]
+    assert report["conflicts"][1]["kind"] == "guideline_priority_review"
+    assert (workspace / "outputs" / "validation" / "guideline-conflicts.yaml").is_file()

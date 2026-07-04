@@ -24,6 +24,13 @@ GUIDELINE_SCOPES = {
     "rubric",
     "all_purpose",
 }
+STYLE_PATTERNS = {
+    "apa7": [r"\bapa\s*7\b", r"american psychological association 7"],
+    "apa6": [r"\bapa\s*6\b", r"american psychological association 6"],
+    "vancouver": [r"\bvancouver\b"],
+    "ieee": [r"\bieee\b"],
+    "mla9": [r"\bmla\s*9\b", r"modern language association 9"],
+}
 
 
 @dataclass(frozen=True)
@@ -141,11 +148,100 @@ def resolve_guidelines(
     return resolved
 
 
+def guideline_conflict_report(workspace: Path) -> dict[str, Any]:
+    guidelines = list_guidelines(workspace)
+    context = read_yaml(workspace / "research-context.yaml")
+    citation = context.get("citation") if isinstance(context.get("citation"), dict) else {}
+    configured_style = str(citation.get("custom_style") or citation.get("style") or "Unknown")
+    configured_markers = _style_markers(configured_style)
+
+    guideline_rows = []
+    conflicts = []
+    for guideline in guidelines:
+        text = _read_guideline_text(guideline)
+        markers = _style_markers(text)
+        row = {
+            "id": guideline.get("id"),
+            "title": guideline.get("title"),
+            "scopes": guideline.get("scopes") or [],
+            "detected_style_markers": sorted(markers),
+        }
+        guideline_rows.append(row)
+        conflicting_markers = sorted(markers - configured_markers)
+        if configured_markers and conflicting_markers:
+            conflicts.append(
+                {
+                    "kind": "citation_style_conflict",
+                    "guideline_id": guideline.get("id"),
+                    "configured_style": configured_style,
+                    "configured_markers": sorted(configured_markers),
+                    "guideline_markers": sorted(markers),
+                    "conflicting_markers": conflicting_markers,
+                    "status": "human_review_required",
+                }
+            )
+
+    conflicts.extend(_scope_priority_conflicts(guidelines))
+    report = {
+        "version": 1,
+        "configured_citation_style": configured_style,
+        "configured_style_markers": sorted(configured_markers),
+        "guidelines_checked": guideline_rows,
+        "conflict_count": len(conflicts),
+        "conflicts": conflicts,
+        "limitations": [
+            "This report only flags explicit deterministic style markers and priority tensions.",
+            "It does not interpret prose or decide which guideline should win.",
+        ],
+    }
+    output_path = workspace / "outputs" / "validation" / "guideline-conflicts.yaml"
+    write_yaml(output_path, report)
+    return report
+
+
 def _snapshot_local(workspace: Path, guideline_id: str, source_path: Path) -> Path:
     snapshot_path = workspace / "guidelines" / "snapshots" / f"{guideline_id}{source_path.suffix.lower()}"
     snapshot_path.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(source_path, snapshot_path)
     return snapshot_path
+
+
+def _read_guideline_text(guideline: dict[str, Any]) -> str:
+    text_path = guideline.get("text_path")
+    if not text_path:
+        return ""
+    path = Path(str(text_path))
+    if not path.exists() or not path.is_file():
+        return ""
+    return path.read_text(encoding="utf-8", errors="replace")
+
+
+def _style_markers(text: str) -> set[str]:
+    normalized = text.lower()
+    markers = set()
+    for marker, patterns in STYLE_PATTERNS.items():
+        if any(re.search(pattern, normalized) for pattern in patterns):
+            markers.add(marker)
+    return markers
+
+
+def _scope_priority_conflicts(guidelines: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    scoped = [
+        guideline
+        for guideline in guidelines
+        if any(scope in (guideline.get("scopes") or []) for scope in {"journal_submission", "thesis", "supervisor", "rubric"})
+    ]
+    if len(scoped) <= 1:
+        return []
+    return [
+        {
+            "kind": "guideline_priority_review",
+            "guideline_ids": [guideline.get("id") for guideline in scoped],
+            "scopes": {str(guideline.get("id")): guideline.get("scopes") or [] for guideline in scoped},
+            "status": "human_review_required",
+            "message": "Multiple high-authority guideline scopes are registered; confirm precedence before applying edits.",
+        }
+    ]
 
 
 def _snapshot_remote(workspace: Path, guideline_id: str, source: str) -> Path:

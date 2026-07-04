@@ -176,6 +176,25 @@ def test_cli_validate_explicit_guidelines_override_defaults(tmp_path: Path) -> N
     assert report["guidelines"][0]["selection_source"] == "explicit"
 
 
+def test_cli_guidelines_conflicts_writes_report(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    guideline = tmp_path / "rubric.md"
+    guideline.write_text("Use APA 6.", encoding="utf-8")
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    add_result = runner.invoke(
+        app,
+        ["guidelines", "add", str(guideline), "--scope", "rubric", "--workspace", str(workspace), "--quiet"],
+    )
+
+    result = runner.invoke(app, ["guidelines", "conflicts", "--workspace", str(workspace), "--quiet"])
+
+    assert add_result.exit_code == 0, add_result.output
+    assert result.exit_code == 0, result.output
+    report = read_yaml(workspace / "outputs" / "validation" / "guideline-conflicts.yaml")
+    assert report["conflict_count"] == 1
+    assert report["conflicts"][0]["status"] == "human_review_required"
+
+
 def test_cli_ai_test_missing_key_does_not_print_secret(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.chdir(tmp_path)
