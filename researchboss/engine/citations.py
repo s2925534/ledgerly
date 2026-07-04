@@ -1,13 +1,20 @@
 from __future__ import annotations
 
 import re
+import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from xml.etree import ElementTree
 
 from researchboss.core.yamlio import read_yaml, write_yaml
+from researchboss.engine.conversion import extract_text
 from researchboss.engine.doc_validation import validate_document
 from researchboss.engine.document_targets import resolve_document_target
+
+
+WORD_NAMESPACE = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+WORD = f"{{{WORD_NAMESPACE}}}"
 
 
 @dataclass(frozen=True)
@@ -113,14 +120,16 @@ def apply_citation_plan(
     cwd: Path | None = None,
 ) -> CitationApplyRun:
     resolved_target = resolve_document_target(workspace, target, cwd=cwd)
-    if resolved_target.path.suffix.lower() not in {".md", ".txt"}:
-        raise ValueError("Deterministic citation plan application currently supports Markdown and TXT targets.")
+    target_suffix = resolved_target.path.suffix.lower()
+    if target_suffix not in {".md", ".txt", ".docx", ".pdf"}:
+        raise ValueError(
+            "Deterministic citation plan application currently supports Markdown, TXT, DOCX, and PDF-to-Markdown targets."
+        )
 
     plan_yaml = plan_path or _plan_path(workspace, resolved_target.path, ".yaml")
     if not plan_yaml.exists():
         raise ValueError(f"Citation plan does not exist: {plan_yaml}")
     plan = read_yaml(plan_yaml)
-    text = resolved_target.path.read_text(encoding="utf-8", errors="replace")
     insertions = [item for item in plan.get("insertions", []) if isinstance(item, dict)]
     approved = [
         item
@@ -128,9 +137,42 @@ def apply_citation_plan(
         if str(item.get("review_status") or "").lower() in {"accepted", "approved"}
     ]
 
+    if target_suffix == ".docx":
+        output_path = _applied_path(workspace, resolved_target.path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        applied = _apply_to_docx(resolved_target.path, output_path, approved, plan.get("references") or {})
+    else:
+        if target_suffix == ".pdf":
+            text = extract_text(resolved_target.path)
+            output_path = _applied_path(workspace, resolved_target.path, suffix=".md")
+        else:
+            text = resolved_target.path.read_text(encoding="utf-8", errors="replace")
+            output_path = _applied_path(workspace, resolved_target.path)
+        revised, applied = _apply_to_text(text, approved)
+        revised = _append_references(revised, plan.get("references") or {})
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(revised, encoding="utf-8")
+
+    report = {
+        "version": 1,
+        "target": str(resolved_target.path),
+        "plan_path": str(plan_yaml),
+        "output_path": str(output_path),
+        "target_format": target_suffix.lstrip(".") or "unknown",
+        "output_format": output_path.suffix.lower().lstrip(".") or "unknown",
+        "original_document_modified": False,
+        "applied_insertions": applied,
+        "skipped_insertions": len(insertions) - applied,
+    }
+    report_path = _applied_report_path(workspace, resolved_target.path)
+    write_yaml(report_path, report)
+    return CitationApplyRun(applied=applied, skipped=len(insertions) - applied, output_path=output_path, report_path=report_path)
+
+
+def _apply_to_text(text: str, insertions: list[dict[str, Any]]) -> tuple[str, int]:
     revised = text
     applied = 0
-    for insertion in approved:
+    for insertion in insertions:
         sentence = str(insertion.get("target_sentence") or "").strip()
         citation = str(insertion.get("suggested_inline_citation") or "").strip()
         if not sentence or not citation or citation in sentence:
@@ -139,24 +181,94 @@ def apply_citation_plan(
         if sentence in revised:
             revised = revised.replace(sentence, revised_sentence, 1)
             applied += 1
+            continue
+        pattern = _whitespace_flexible_pattern(sentence)
+        match = pattern.search(revised)
+        if match and citation not in match.group(0):
+            revised = revised[: match.start()] + _insert_citation(match.group(0), citation) + revised[match.end() :]
+            applied += 1
+    return revised, applied
 
-    revised = _append_references(revised, plan.get("references") or {})
-    output_path = _applied_path(workspace, resolved_target.path)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(revised, encoding="utf-8")
 
-    report = {
-        "version": 1,
-        "target": str(resolved_target.path),
-        "plan_path": str(plan_yaml),
-        "output_path": str(output_path),
-        "original_document_modified": False,
-        "applied_insertions": applied,
-        "skipped_insertions": len(insertions) - applied,
-    }
-    report_path = _applied_report_path(workspace, resolved_target.path)
-    write_yaml(report_path, report)
-    return CitationApplyRun(applied=applied, skipped=len(insertions) - applied, output_path=output_path, report_path=report_path)
+def _whitespace_flexible_pattern(text: str) -> re.Pattern[str]:
+    parts = [re.escape(part) for part in text.split()]
+    return re.compile(r"\s+".join(parts))
+
+
+def _apply_to_docx(
+    source_path: Path,
+    output_path: Path,
+    insertions: list[dict[str, Any]],
+    references: dict[str, Any],
+) -> int:
+    with zipfile.ZipFile(source_path) as source_docx:
+        document_xml = source_docx.read("word/document.xml")
+        root = ElementTree.fromstring(document_xml)
+        applied = _apply_insertions_to_docx_root(root, insertions)
+        _append_docx_references(root, references)
+        updated_xml = ElementTree.tostring(root, encoding="utf-8", xml_declaration=True)
+
+        with zipfile.ZipFile(output_path, "w", compression=zipfile.ZIP_DEFLATED) as revised_docx:
+            for item in source_docx.infolist():
+                if item.filename == "word/document.xml":
+                    revised_docx.writestr(item, updated_xml)
+                else:
+                    revised_docx.writestr(item, source_docx.read(item.filename))
+    return applied
+
+
+def _apply_insertions_to_docx_root(root: ElementTree.Element, insertions: list[dict[str, Any]]) -> int:
+    applied = 0
+    paragraphs = root.findall(f".//{WORD}p")
+    for insertion in insertions:
+        sentence = str(insertion.get("target_sentence") or "").strip()
+        citation = str(insertion.get("suggested_inline_citation") or "").strip()
+        if not sentence or not citation:
+            continue
+        for paragraph in paragraphs:
+            paragraph_text = _docx_paragraph_text(paragraph)
+            if sentence in paragraph_text and citation not in paragraph_text:
+                _replace_docx_paragraph_text(paragraph, paragraph_text.replace(sentence, _insert_citation(sentence, citation), 1))
+                applied += 1
+                break
+    return applied
+
+
+def _append_docx_references(root: ElementTree.Element, references: dict[str, Any]) -> None:
+    accepted = references.get("accepted_workspace_evidence") if isinstance(references, dict) else []
+    lines = [str(item.get("reference")) for item in accepted if isinstance(item, dict) and item.get("reference")]
+    if not lines:
+        return
+    body = root.find(f".//{WORD}body")
+    if body is None:
+        return
+    body.append(_docx_paragraph("References"))
+    for line in lines:
+        body.append(_docx_paragraph(line))
+
+
+def _docx_paragraph(text: str) -> ElementTree.Element:
+    paragraph = ElementTree.Element(f"{WORD}p")
+    run = ElementTree.SubElement(paragraph, f"{WORD}r")
+    text_node = ElementTree.SubElement(run, f"{WORD}t")
+    text_node.text = text
+    return paragraph
+
+
+def _docx_paragraph_text(paragraph: ElementTree.Element) -> str:
+    return "".join(text_node.text or "" for text_node in paragraph.findall(f".//{WORD}t"))
+
+
+def _replace_docx_paragraph_text(paragraph: ElementTree.Element, text: str) -> None:
+    text_nodes = paragraph.findall(f".//{WORD}t")
+    if not text_nodes:
+        run = ElementTree.SubElement(paragraph, f"{WORD}r")
+        text_node = ElementTree.SubElement(run, f"{WORD}t")
+        text_node.text = text
+        return
+    text_nodes[0].text = text
+    for text_node in text_nodes[1:]:
+        text_node.text = ""
 
 
 def _inline_citation(source: dict[str, Any]) -> str:
@@ -200,10 +312,10 @@ def _plan_path(workspace: Path, target_path: Path, suffix: str) -> Path:
     return workspace / "outputs" / "citation-plans" / f"citation-plan-{stem}{suffix}"
 
 
-def _applied_path(workspace: Path, target_path: Path) -> Path:
+def _applied_path(workspace: Path, target_path: Path, *, suffix: str | None = None) -> Path:
     stem = "".join(ch.lower() if ch.isalnum() else "-" for ch in target_path.stem).strip("-") or "target"
-    suffix = target_path.suffix.lower() or ".md"
-    return workspace / "outputs" / "citation-plans" / f"citation-applied-{stem}{suffix}"
+    output_suffix = suffix or target_path.suffix.lower() or ".md"
+    return workspace / "outputs" / "citation-plans" / f"citation-applied-{stem}{output_suffix}"
 
 
 def _applied_report_path(workspace: Path, target_path: Path) -> Path:
