@@ -5,8 +5,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from researchboss.core.yamlio import write_yaml
+from researchboss.core.yamlio import read_yaml, write_yaml
 from researchboss.engine.doc_validation import validate_document
+from researchboss.engine.document_targets import resolve_document_target
 
 
 @dataclass(frozen=True)
@@ -14,6 +15,14 @@ class CitationPlanRun:
     plan: dict[str, Any]
     yaml_path: Path
     markdown_path: Path
+
+
+@dataclass(frozen=True)
+class CitationApplyRun:
+    applied: int
+    skipped: int
+    output_path: Path
+    report_path: Path
 
 
 def create_citation_plan(
@@ -81,10 +90,82 @@ def create_citation_plan(
     return CitationPlanRun(plan=plan, yaml_path=yaml_path, markdown_path=markdown_path)
 
 
+def apply_citation_plan(
+    workspace: Path,
+    target: str,
+    *,
+    plan_path: Path | None = None,
+    cwd: Path | None = None,
+) -> CitationApplyRun:
+    resolved_target = resolve_document_target(workspace, target, cwd=cwd)
+    if resolved_target.path.suffix.lower() not in {".md", ".txt"}:
+        raise ValueError("Deterministic citation plan application currently supports Markdown and TXT targets.")
+
+    plan_yaml = plan_path or _plan_path(workspace, resolved_target.path, ".yaml")
+    if not plan_yaml.exists():
+        raise ValueError(f"Citation plan does not exist: {plan_yaml}")
+    plan = read_yaml(plan_yaml)
+    text = resolved_target.path.read_text(encoding="utf-8", errors="replace")
+    insertions = [item for item in plan.get("insertions", []) if isinstance(item, dict)]
+    approved = [
+        item
+        for item in insertions
+        if str(item.get("review_status") or "").lower() in {"accepted", "approved"}
+    ]
+
+    revised = text
+    applied = 0
+    for insertion in approved:
+        sentence = str(insertion.get("target_sentence") or "").strip()
+        citation = str(insertion.get("suggested_inline_citation") or "").strip()
+        if not sentence or not citation or citation in sentence:
+            continue
+        revised_sentence = _insert_citation(sentence, citation)
+        if sentence in revised:
+            revised = revised.replace(sentence, revised_sentence, 1)
+            applied += 1
+
+    revised = _append_references(revised, plan.get("references") or {})
+    output_path = _applied_path(workspace, resolved_target.path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(revised, encoding="utf-8")
+
+    report = {
+        "version": 1,
+        "target": str(resolved_target.path),
+        "plan_path": str(plan_yaml),
+        "output_path": str(output_path),
+        "original_document_modified": False,
+        "applied_insertions": applied,
+        "skipped_insertions": len(insertions) - applied,
+    }
+    report_path = _applied_report_path(workspace, resolved_target.path)
+    write_yaml(report_path, report)
+    return CitationApplyRun(applied=applied, skipped=len(insertions) - applied, output_path=output_path, report_path=report_path)
+
+
 def _inline_citation(source: dict[str, Any]) -> str:
     author = _first_author(source.get("authors"))
     year = source.get("year") if source.get("year") not in (None, "", "Unknown") else "n.d."
     return f"({author}, {year})"
+
+
+def _insert_citation(sentence: str, citation: str) -> str:
+    stripped = sentence.rstrip()
+    if stripped.endswith((".", "!", "?")):
+        return f"{stripped[:-1]} {citation}{stripped[-1]}"
+    return f"{stripped} {citation}"
+
+
+def _append_references(text: str, references: dict[str, Any]) -> str:
+    accepted = references.get("accepted_workspace_evidence") if isinstance(references, dict) else []
+    if not accepted:
+        return text
+    lines = [str(item.get("reference")) for item in accepted if isinstance(item, dict) and item.get("reference")]
+    if not lines:
+        return text
+    base = text.rstrip()
+    return base + "\n\n## References\n\n" + "\n".join(f"- {line}" for line in lines) + "\n"
 
 
 def _first_author(value: Any) -> str:
@@ -102,6 +183,17 @@ def _first_author(value: Any) -> str:
 def _plan_path(workspace: Path, target_path: Path, suffix: str) -> Path:
     stem = "".join(ch.lower() if ch.isalnum() else "-" for ch in target_path.stem).strip("-") or "target"
     return workspace / "outputs" / "citation-plans" / f"citation-plan-{stem}{suffix}"
+
+
+def _applied_path(workspace: Path, target_path: Path) -> Path:
+    stem = "".join(ch.lower() if ch.isalnum() else "-" for ch in target_path.stem).strip("-") or "target"
+    suffix = target_path.suffix.lower() or ".md"
+    return workspace / "outputs" / "citation-plans" / f"citation-applied-{stem}{suffix}"
+
+
+def _applied_report_path(workspace: Path, target_path: Path) -> Path:
+    stem = "".join(ch.lower() if ch.isalnum() else "-" for ch in target_path.stem).strip("-") or "target"
+    return workspace / "outputs" / "citation-plans" / f"citation-apply-{stem}.yaml"
 
 
 def _markdown_plan(plan: dict[str, Any]) -> str:

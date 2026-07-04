@@ -35,7 +35,7 @@ from researchboss.engine.claims import (
     write_citation_gap_report,
 )
 from researchboss.engine.conversion import convert_sources
-from researchboss.engine.citations import create_citation_plan
+from researchboss.engine.citations import apply_citation_plan, create_citation_plan
 from researchboss.engine.data import data_source_counts, list_data_sources, profile_data_sources
 from researchboss.engine.doc_validation import validate_document
 from researchboss.engine.export import export_evidence_bundle
@@ -758,6 +758,42 @@ def cite_plan(
         console.print(f"[green]Citation plan:[/green] {result.markdown_path}")
         console.print(f"YAML plan: {result.yaml_path}")
         console.print(f"Proposed insertions: {len(result.plan.get('insertions', []))}")
+
+
+@cite_app.command("apply")
+def cite_apply(
+    target: str = typer.Argument(..., help="Document target whose reviewed citation plan should be applied."),
+    plan_path: Optional[Path] = typer.Option(None, "--plan", help="Optional citation plan YAML path."),
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path."),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Apply accepted citation-plan insertions to a revised output copy."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["cite", "apply"], ws, log_level)
+
+    try:
+        result = apply_citation_plan(ws, target, plan_path=plan_path, cwd=Path.cwd())
+        logger.info(
+            "Citation plan applied",
+            operation="cite_apply",
+            target=target,
+            output_path=str(result.output_path),
+            report_path=str(result.report_path),
+            applied=result.applied,
+            skipped=result.skipped,
+        )
+        _finish(summary, summary_path, next_action=f"Review `{result.output_path}`")
+    except Exception as e:
+        logger.error("Citation apply failed", operation="cite_apply", target=target, error=str(e))
+        summary.errors += 1
+        _finish(summary, summary_path)
+        raise
+
+    if not quiet:
+        console.print(f"[green]Revised citation copy:[/green] {result.output_path}")
+        console.print(f"Applied insertions: {result.applied}")
+        console.print(f"Skipped insertions: {result.skipped}")
 
 
 @config_app.command("validate")
