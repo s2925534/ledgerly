@@ -8,6 +8,7 @@ from researchboss.core.yamlio import read_yaml, write_yaml
 from researchboss.engine.ai import (
     OpenAiCredentials,
     OpenAiError,
+    ai_citation_plan_review,
     ai_assisted_review,
     ai_novelty_assessment,
     ai_research_question_assessment,
@@ -437,3 +438,27 @@ def test_ai_candidate_validation_uses_external_candidates_and_abstracts(tmp_path
     assert report["external_candidate_count"] == 1
     assert report["abstract_candidate_count"] == 1
     assert report["status_changes_applied"] is False
+
+
+def test_ai_citation_plan_review_returns_review_only_recommendations(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+
+    def opener(request: Request):
+        body = json.loads(request.data.decode("utf-8"))
+        assert "Target document text" in body["input"]
+        assert "source-001" in body["input"]
+        return FakeResponse({"id": "resp_cite", "output_text": "Insert citation after sentence one."})
+
+    report = ai_citation_plan_review(
+        workspace,
+        OpenAiCredentials(api_key="sk-secret"),
+        target_text="Claim needing a citation.",
+        citation_plan={"insertions": [{"source_id": "source-001"}]},
+        opener=opener,
+    )
+
+    assert report["ai_used"] is True
+    assert report["requires_user_review"] is True
+    assert report["original_document_modified"] is False
+    assert report["recommendations"] == "Insert citation after sentence one."

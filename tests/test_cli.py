@@ -323,6 +323,79 @@ def test_cli_cite_plan_requires_flag_for_candidate_citations(tmp_path: Path) -> 
     assert allowed["insertions"][0]["source_id"] == "explicit-source-001"
 
 
+def test_cli_cite_ai_plan_requires_ai_and_full_target_flags(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    target = workspace / "artefacts" / "papers" / "draft.md"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    target.write_text("Container terminal automation uses berth planning evidence.", encoding="utf-8")
+
+    missing_ai = runner.invoke(
+        app,
+        ["cite", "ai-plan", str(target), "--full-target-document-ai", "--workspace", str(workspace), "--quiet"],
+    )
+    missing_target = runner.invoke(app, ["cite", "ai-plan", str(target), "--ai", "--workspace", str(workspace), "--quiet"])
+
+    assert missing_ai.exit_code == 2, missing_ai.output
+    assert missing_target.exit_code == 2, missing_target.output
+
+
+def test_cli_cite_ai_plan_writes_review_plan_without_editing_target(tmp_path: Path, monkeypatch) -> None:
+    workspace = tmp_path / "workspace"
+    target = workspace / "artefacts" / "papers" / "draft.md"
+    source_text = workspace / "sources_text" / "source-001.txt"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    original = "Container terminal automation uses berth planning evidence."
+    target.write_text(original, encoding="utf-8")
+    source_text.write_text("Berth planning evidence supports container terminal automation.", encoding="utf-8")
+    write_yaml(
+        workspace / "source-register.yaml",
+        {
+            "version": 1,
+            "sources": [
+                {
+                    "source_id": "source-001",
+                    "status": "accepted",
+                    "provider": "local_folder",
+                    "file_name": "paper.pdf",
+                    "conversion": {"status": "converted", "output_path": str(source_text)},
+                }
+            ],
+        },
+    )
+    monkeypatch.setattr(cli, "openai_credentials", lambda _workspace: object())
+    monkeypatch.setattr(
+        cli,
+        "ai_citation_plan_review",
+        lambda *_args, **_kwargs: {
+            "ai_used": True,
+            "requires_user_review": True,
+            "original_document_modified": False,
+            "recommendations": "AI citation recommendation",
+        },
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "cite",
+            "ai-plan",
+            str(target),
+            "--ai",
+            "--full-target-document-ai",
+            "--workspace",
+            str(workspace),
+            "--quiet",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    plan = read_yaml(workspace / "outputs" / "citation-plans" / "citation-plan-draft.yaml")
+    assert plan["ai_used"] is True
+    assert plan["ai_assistance"]["recommendations"] == "AI citation recommendation"
+    assert plan["original_document_modified"] is False
+    assert target.read_text(encoding="utf-8") == original
+
+
 def test_cli_ai_test_missing_key_does_not_print_secret(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.chdir(tmp_path)

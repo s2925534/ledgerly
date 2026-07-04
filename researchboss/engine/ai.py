@@ -601,3 +601,36 @@ def ai_workspace_report(
         "response_id": response.get("id") if isinstance(response, dict) else None,
         "report": text,
     }
+
+
+def ai_citation_plan_review(
+    workspace: Path,
+    credentials: OpenAiCredentials,
+    *,
+    target_text: str,
+    citation_plan: dict[str, Any],
+    opener: Callable[[Request], Any] | None = None,
+) -> dict[str, Any]:
+    model = default_openai_model(workspace)
+    prompt = (
+        "You are assisting with citation insertion for a local-first, evidence-first research workspace.\n"
+        "Use the supplied target document text and deterministic citation plan. Do not edit the document directly. "
+        "Propose inline citation locations, link each insertion to evidence source IDs, explain confidence, and require human review.\n\n"
+        f"Deterministic citation plan JSON:\n{json.dumps(citation_plan, ensure_ascii=False, indent=2)}\n\n"
+        f"Target document text:\n{target_text}"
+    )
+    response = openai_post(
+        "responses",
+        credentials,
+        {"model": model, "input": prompt},
+        opener=opener,
+    )
+    return {
+        "provider": "openai",
+        "model": model,
+        "ai_used": True,
+        "requires_user_review": True,
+        "original_document_modified": False,
+        "response_id": response.get("id") if isinstance(response, dict) else None,
+        "recommendations": extract_response_text(response),
+    }

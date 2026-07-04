@@ -15,6 +15,7 @@ from researchboss.core.runlog import JsonlLogger, RunSummary, make_run_paths, wr
 from researchboss.core.yamlio import read_yaml, write_yaml
 from researchboss.engine.ai import (
     OpenAiError,
+    ai_citation_plan_review,
     ai_assisted_review,
     ai_novelty_assessment,
     ai_research_question_assessment,
@@ -26,6 +27,7 @@ from researchboss.engine.ai import (
     require_directory_ai_opt_in,
     require_full_file_ai_opt_in,
     require_full_source_document_ai_opt_in,
+    require_full_target_document_ai_opt_in,
 )
 from researchboss.engine.abstracts import import_abstract_folder
 from researchboss.engine.artefact_creation import SUPPORTED_ARTEFACT_TYPES, create_deterministic_artefact
@@ -38,7 +40,7 @@ from researchboss.engine.claims import (
     set_claim_status,
     write_citation_gap_report,
 )
-from researchboss.engine.conversion import convert_sources, ocr_readiness_report, processing_issue_report
+from researchboss.engine.conversion import convert_sources, extract_text, ocr_readiness_report, processing_issue_report
 from researchboss.engine.citations import apply_citation_plan, create_citation_plan
 from researchboss.engine.data import data_source_counts, list_data_sources, profile_data_sources
 from researchboss.engine.doc_validation import validate_document
@@ -782,6 +784,86 @@ def cite_plan(
         console.print(f"[green]Citation plan:[/green] {result.markdown_path}")
         console.print(f"YAML plan: {result.yaml_path}")
         console.print(f"Proposed insertions: {len(result.plan.get('insertions', []))}")
+
+
+@cite_app.command("ai-plan")
+def cite_ai_plan(
+    target: str = typer.Argument(..., help="Document target: path, artefact ID/title, alias, or artefact type."),
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path."),
+    ai: bool = typer.Option(False, "--ai", help="Required explicit opt-in for OpenAI citation planning."),
+    full_target_document_ai: bool = typer.Option(
+        False,
+        "--full-target-document-ai",
+        help="Explicitly allow sending the whole target document text to the AI provider.",
+    ),
+    source_path: list[Path] = typer.Option(
+        [],
+        "--source-path",
+        help="Additional source document path to compare against. Can be repeated.",
+    ),
+    allow_candidate_citations: bool = typer.Option(
+        False,
+        "--allow-candidate-citations",
+        help="Allow citation suggestions from explicit or not-yet-accepted sources.",
+    ),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Create an AI-assisted citation insertion plan for review without editing the target document."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["cite", "ai_plan"], ws, log_level)
+    try:
+        require_full_target_document_ai_opt_in(ai=ai, full_target_document=full_target_document_ai)
+        deterministic = create_citation_plan(
+            ws,
+            target,
+            source_paths=source_path,
+            allow_candidate_citations=allow_candidate_citations,
+            cwd=Path.cwd(),
+        )
+        target_path = Path(str(deterministic.plan["target"]["path"]))
+        target_text = extract_text(target_path)
+        ai_review = ai_citation_plan_review(
+            ws,
+            openai_credentials(ws),
+            target_text=target_text,
+            citation_plan=deterministic.plan,
+        )
+        plan = {
+            **deterministic.plan,
+            "ai_used": True,
+            "ai_assistance": ai_review,
+            "full_target_document_ai_opt_in": True,
+            "original_document_modified": False,
+            "plan_status": "ai_review_required",
+        }
+        write_yaml(deterministic.yaml_path, plan)
+        deterministic.markdown_path.write_text(
+            deterministic.markdown_path.read_text(encoding="utf-8")
+            + "\n## AI Recommendations\n\n"
+            + str(ai_review.get("recommendations") or "No recommendations returned.")
+            + "\n",
+            encoding="utf-8",
+        )
+    except (OpenAiError, Exception) as e:
+        logger.error("AI citation plan failed", operation="cite_ai_plan", target=target, error=str(e))
+        summary.errors += 1
+        _finish(summary, summary_path)
+        if not quiet:
+            console.print(f"[red]{e}[/red]")
+        raise typer.Exit(code=2)
+
+    logger.info(
+        "AI citation plan written",
+        operation="cite_ai_plan",
+        target=target,
+        yaml_path=str(deterministic.yaml_path),
+        markdown_path=str(deterministic.markdown_path),
+    )
+    _finish(summary, summary_path, next_action=f"Review `{deterministic.markdown_path}`")
+    if not quiet:
+        console.print(f"[green]AI citation plan:[/green] {deterministic.markdown_path}")
+        console.print("[yellow]Original document was not modified. Human review is required.[/yellow]")
 
 
 @cite_app.command("apply")
