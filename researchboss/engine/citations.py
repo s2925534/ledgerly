@@ -32,6 +32,7 @@ def create_citation_plan(
     source_paths: list[Path] | None = None,
     guideline_ids: list[str] | None = None,
     use_default_guidelines: bool = True,
+    allow_candidate_citations: bool = False,
     cwd: Path | None = None,
 ) -> CitationPlanRun:
     validation = validate_document(
@@ -49,10 +50,22 @@ def create_citation_plan(
         for item in report.get("evidence_confidence", [])
     }
     insertions = []
+    blocked_candidate_citations = []
     for item in report.get("missing_citations", []):
         source_id = item.get("best_source_id")
         source = source_map.get(str(source_id))
         if not source:
+            continue
+        if source.get("status") != "accepted" and not allow_candidate_citations:
+            blocked_candidate_citations.append(
+                {
+                    "sentence_index": item.get("sentence_index"),
+                    "target_sentence": item.get("text"),
+                    "source_id": source_id,
+                    "source_status": source.get("status"),
+                    "reason": "candidate_citations_require_explicit_allow_flag",
+                }
+            )
             continue
         insertions.append(
             {
@@ -74,7 +87,9 @@ def create_citation_plan(
         "ai_used": False,
         "original_document_modified": False,
         "plan_status": "review_required",
+        "allow_candidate_citations": allow_candidate_citations,
         "insertions": insertions,
+        "blocked_candidate_citations": blocked_candidate_citations,
         "references": report.get("references", {}),
         "guidelines": report.get("guidelines", []),
         "limitations": [

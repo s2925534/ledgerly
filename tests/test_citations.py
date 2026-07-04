@@ -87,3 +87,25 @@ def test_apply_citation_plan_creates_revised_copy_for_accepted_insertions(tmp_pa
     assert "## References" in revised
     assert result.applied == 1
     assert read_yaml(result.report_path)["original_document_modified"] is False
+
+
+def test_citation_plan_blocks_candidate_sources_by_default(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test Project", project_type="M.Phil", topic="")
+    target = workspace / "artefacts" / "papers" / "draft.md"
+    target.write_text("Container terminal automation uses berth planning evidence.", encoding="utf-8")
+    explicit_source = tmp_path / "candidate.txt"
+    explicit_source.write_text("Berth planning evidence supports container terminal automation.", encoding="utf-8")
+
+    blocked = create_citation_plan(workspace, str(target), source_paths=[explicit_source])
+    allowed = create_citation_plan(
+        workspace,
+        str(target),
+        source_paths=[explicit_source],
+        allow_candidate_citations=True,
+    )
+
+    assert blocked.plan["insertions"] == []
+    assert blocked.plan["blocked_candidate_citations"][0]["source_status"] == "explicit"
+    assert allowed.plan["insertions"][0]["source_id"] == "explicit-source-001"
+    assert allowed.plan["allow_candidate_citations"] is True

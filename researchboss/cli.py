@@ -723,6 +723,11 @@ def cite_plan(
         "--no-default-guidelines",
         help="Do not apply workspace default guidelines.",
     ),
+    allow_candidate_citations: bool = typer.Option(
+        False,
+        "--allow-candidate-citations",
+        help="Allow citation suggestions from explicit or not-yet-accepted sources.",
+    ),
     log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
     quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
 ):
@@ -737,6 +742,7 @@ def cite_plan(
             source_paths=source_path,
             guideline_ids=guideline_ids,
             use_default_guidelines=not no_default_guidelines,
+            allow_candidate_citations=allow_candidate_citations,
             cwd=Path.cwd(),
         )
         logger.info(

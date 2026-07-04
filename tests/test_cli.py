@@ -266,6 +266,51 @@ def test_cli_cite_apply_writes_revised_copy(tmp_path: Path) -> None:
     assert report["applied_insertions"] == 1
 
 
+def test_cli_cite_plan_requires_flag_for_candidate_citations(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    target = workspace / "artefacts" / "papers" / "draft.md"
+    explicit_source = tmp_path / "candidate.txt"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    target.write_text("Container terminal automation uses berth planning evidence.", encoding="utf-8")
+    explicit_source.write_text("Berth planning evidence supports container terminal automation.", encoding="utf-8")
+
+    blocked_result = runner.invoke(
+        app,
+        [
+            "cite",
+            "plan",
+            str(target),
+            "--source-path",
+            str(explicit_source),
+            "--workspace",
+            str(workspace),
+            "--quiet",
+        ],
+    )
+    assert blocked_result.exit_code == 0, blocked_result.output
+    blocked = read_yaml(workspace / "outputs" / "citation-plans" / "citation-plan-draft.yaml")
+    assert blocked["insertions"] == []
+    assert blocked["blocked_candidate_citations"]
+
+    allowed_result = runner.invoke(
+        app,
+        [
+            "cite",
+            "plan",
+            str(target),
+            "--source-path",
+            str(explicit_source),
+            "--allow-candidate-citations",
+            "--workspace",
+            str(workspace),
+            "--quiet",
+        ],
+    )
+    assert allowed_result.exit_code == 0, allowed_result.output
+    allowed = read_yaml(workspace / "outputs" / "citation-plans" / "citation-plan-draft.yaml")
+    assert allowed["insertions"][0]["source_id"] == "explicit-source-001"
+
+
 def test_cli_ai_test_missing_key_does_not_print_secret(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.chdir(tmp_path)
