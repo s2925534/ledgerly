@@ -2,13 +2,13 @@
 
 Project version: 0.5.4
 
-Last updated: 2026-07-03
+Last updated: 2026-07-04
 
 This roadmap tracks implementation progress for ResearchBoss. Update this file whenever development changes feature status, project scope, version, or recommended next steps.
 
 ## 1. Executive Summary
 
-ResearchBoss is currently past the local deterministic Phase 2-4 foundation and still before AI, FastAPI, UI, and packaging.
+ResearchBoss is currently past the local deterministic Phase 2-6 foundation for core workspace, source, artefact, external-search, document-validation, and guideline-registration workflows. SQLite memory, document vault/versioning, FastAPI, UI, and packaging remain future phases.
 
 Implemented:
 
@@ -51,7 +51,10 @@ Implemented:
 - OpenAI readiness checks through `researchboss ai test`, with live requests requiring explicit `--ai`.
 - Safe AI context preview generation that excludes original files, whole documents, whole CSVs, and whole SQLite databases by default.
 - AI-assisted review, novelty assessment, and research-question assessment behind explicit `--ai`.
-- README, AGENTS.md, architecture notes, TODO, changelog, and tests.
+- Document target resolution for file paths, artefact IDs, artefact titles, primary aliases, and deterministic artefact types.
+- Deterministic `researchboss validate <target>` reports with source comparison, strengths, weaknesses, unsupported or weakly supported sentences, missing citations, evidence confidence factors, conservative confidence scores, and APA7 references.
+- Guideline registration with workspace-local snapshots, extracted text, and validated scopes.
+- README, AGENTS.md, architecture notes, TODO, changelog, detailed roadmap, and tests.
 - Planned local FastAPI API contract in `docs/api/CONTRACT.md`.
 
 Partially implemented:
@@ -61,12 +64,14 @@ Partially implemented:
 
 Not implemented:
 
-- Future explicit full-file/directory AI opt-ins and AI-assisted abstract screening.
+- Future explicit full-file/directory AI opt-ins, AI-assisted abstract screening, citation insertion, SQLite memory, document vault/versioning, FastAPI, UI, and packaging.
+- Workspace SQLite memory and sync.
+- Document vault and versioning.
 - FastAPI backend.
 - Cross-platform UI.
 - Packaging.
 
-Current repository state: coherent and test-covered for local deterministic engine and CLI workflows through conversion, metadata, data profiling, Zotero offline support, research questions, claims, reports, backup, and migration.
+Current repository state: coherent and test-covered for local deterministic engine and CLI workflows through conversion, metadata, data profiling, Zotero offline support, external search, document validation, guideline registration, research questions, claims, reports, backup, and migration.
 
 Deterministic boundary:
 
@@ -169,6 +174,8 @@ Expected future folders:
 | Artefact registry | Implemented | `researchboss/engine/artefacts.py`, `researchboss/engine/export.py`, `cli.py` | Linked sources/RQs, review and AI flags, dependency checks, evidence bundle export. |
 | Research stages/questions | Implemented | `workspace.py`, `research_questions.py`, `cli.py` | M.Phil/PhD stages, RQ workflow commands, and deterministic readiness checks. |
 | Claims and citation gaps | Implemented | `researchboss/engine/claims.py`, `cli.py` | Manual claims and gap report. |
+| Document validation | Implemented | `researchboss/engine/document_targets.py`, `researchboss/engine/doc_validation.py`, `cli.py` | Resolves target documents and writes deterministic validation reports with confidence factors, scores, citation gaps, and APA7 references. |
+| Guideline registration | Implemented | `researchboss/engine/guidelines.py`, `cli.py` | Snapshots local or remote guideline sources inside the workspace, extracts text, and stores validated scopes. |
 | Reports/watch/backup/migration | Implemented | `reports.py`, `watch.py`, `backup.py`, `health.py`, `migrations.py` | Local deterministic utility workflows, workspace health, backup dry-run inspection. |
 | Hashing | Implemented | `sha256_file` in `sources.py` | SHA-256 content hash. |
 | Duplicate detection | Implemented | `scan_sources` in `sources.py` | Duplicate by content hash. |
@@ -292,7 +299,46 @@ Next work:
 - Explicit full-file and full-directory opt-in modes with warning output and tests.
 - AI-assisted abstract screening for locally imported abstracts.
 
-### Phase 6: FastAPI Local Backend
+### Phase 6: Document Validation, Guidelines, and Citation Assistance
+
+Status: partially implemented for deterministic validation and guideline registration.
+
+Implemented:
+
+- APA7 is the default workspace citation style unless configured otherwise.
+- Document target resolution for paths, artefact IDs, artefact titles, primary aliases, and deterministic artefact type names.
+- `researchboss validate <target>` compares a target document against accepted workspace sources and explicitly supplied source paths.
+- Validation reports include strengths, weaknesses, unsupported and weakly supported sentences, missing citations, candidate supporting sources, evidence confidence factors, conservative confidence scores, and APA7 references.
+- Guideline registration writes snapshots and extracted text inside the workspace.
+- Guideline scopes are validated for validation, citation, structure, style, journal submission, thesis, supervisor, rubric, and all-purpose rules.
+
+Next deterministic work:
+
+- Guideline defaults, priorities, and command integration.
+- Guideline conflict reports.
+- Reviewable citation insertion plans and deterministic citation-plan application.
+- Citation safety gates and validation/citation output schemas.
+
+### Phase 7: Workspace SQLite Memory, Indexing, and Sync
+
+Status: not started.
+
+Next work:
+
+- Add optional local `researchboss.sqlite`.
+- Preserve YAML and Markdown files as the human-readable source of truth.
+- Add database init/sync/status/rebuild commands and pending-change review.
+
+### Phase 8: Document Vault, Versioning, and Restoration
+
+Status: not started.
+
+Next work:
+
+- Add a local document vault layout.
+- Add document version metadata, snapshots, diffs, manifests, and restore commands.
+
+### Phase 9: FastAPI Local Backend
 
 Status: contract defined, backend not started.
 
@@ -301,7 +347,7 @@ Next work:
 - Add a minimal local FastAPI app skeleton.
 - Add local API routes after core behavior is tested.
 
-### Phase 7: Cross-Platform UI Preparation
+### Phase 10: Cross-Platform UI Preparation
 
 Status: API contract defined, UI strategy not started.
 
@@ -311,7 +357,7 @@ Next work:
 - Use `docs/api/CONTRACT.md` as the first UI/backend contract.
 - Keep UI logic outside engine/core.
 
-### Phase 8: Packaging
+### Phase 11: Packaging
 
 Status: not started.
 
@@ -336,6 +382,7 @@ Next work:
 | `researchboss data list` | Implemented | Lists data sources. |
 | `researchboss data status` | Implemented | Shows data profile counts. |
 | `researchboss report` | Implemented | Generates local Markdown workspace report. |
+| `researchboss validate` | Implemented | Resolves target documents and writes deterministic validation reports. |
 | `researchboss watch` | Implemented | Writes unregistered source candidate report. |
 | `researchboss backup` | Implemented | Creates local workspace zip backup. |
 | `researchboss sources list` | Implemented | Lists source register records. |
@@ -365,6 +412,7 @@ Next work:
 | `researchboss claims add/list/gaps` | Implemented | Manual claim ledger and citation gaps. |
 | `researchboss artefacts register/list` | Implemented | Artefact registry workflow. |
 | `researchboss artefacts create` | Implemented | Deterministic non-AI artefact creation from existing workspace state. |
+| `researchboss guidelines add/list` | Implemented | Registers guideline snapshots and extracted text inside the workspace with validated scopes. |
 | `researchboss review` | Missing | Later integrated review workflow. |
 | `researchboss rqs assess` | Implemented | AI-assisted RQ assessment; requires `--ai`. |
 | `researchboss assess-novelty` | Implemented | AI-assisted novelty assessment; requires `--ai`; updates novelty ledger. |
@@ -563,13 +611,13 @@ Framework: pytest.
 
 Current tested areas:
 
-- CLI smoke tests.
+- CLI smoke tests, including document validation and guideline registration commands.
 - Workspace initialization.
 - Source scanning and review.
 - Workspace selection.
 - Runtime checks.
 - Local Zotero storage helpers, SQLite metadata, collection filtering, reports, snapshots, duplicate checks, BibTeX export, and CLI search.
-- Conversion, metadata extraction, data profiling, artefact registry, research questions, claims, reports, watch, backup, and migration.
+- Conversion, metadata extraction, data profiling, artefact registry, research questions, claims, document validation, guidelines, reports, watch, backup, and migration.
 
 Current expected validation:
 
@@ -622,7 +670,7 @@ Missing:
 
 ## 15. Immediate Next Steps
 
-Phase 1 through Phase 4 offline deterministic work is complete for the current roadmap. Remaining work is either Phase 2 enhancement, API/backend work, AI work, UI preparation, or packaging.
+Phase 1 through the currently implemented deterministic Phase 6 work is complete for the committed items. Remaining work includes Phase 2 PDF/text enhancements, Phase 6 guideline/citation follow-ups, Phase 7 SQLite memory, Phase 8 document vault/versioning, API/backend work, AI privacy-boundary work, UI preparation, and packaging.
 
 1. Add richer PDF extraction using an optional local dependency.
    - Why: current PDF support is intentionally conservative for simple uncompressed streams.
@@ -631,19 +679,19 @@ Phase 1 through Phase 4 offline deterministic work is complete for the current r
    - Complexity: medium.
    - Phase: 2 enhancement, not blocking Phase 2 completion.
 
-2. Start a minimal FastAPI local backend skeleton.
-   - Why: the API contract now exists and can be implemented as a thin transport layer over the tested engine.
-   - Likely files: `researchboss/api`, tests, `docs/api/CONTRACT.md`.
-   - Tests: API route tests.
-   - Complexity: high.
+2. Add guideline defaults, priorities, and command integration.
+   - Why: guideline registration and scopes now exist, but commands do not yet apply default guideline sets.
+   - Likely files: guideline engine, workspace config, CLI, tests.
+   - Tests: default guideline selection, precedence, and `--no-default-guidelines`.
+   - Complexity: medium.
    - Phase: 6.
 
-3. Design AI privacy-boundary tests before AI implementation.
-   - Why: AI features must not upload full documents or datasets unless explicitly opted in by the user.
-   - Likely files: future AI engine contracts, tests, docs.
-   - Tests: key handling, context limits, no key logging, no default uploads.
-   - Complexity: medium.
-   - Phase: 5.
+3. Start SQLite memory and sync design after guideline defaults are stable.
+   - Why: SQLite should index and remember workspace state without replacing YAML/Markdown as the human-readable source of truth.
+   - Likely files: new database engine module, CLI commands, tests.
+   - Tests: init/status/sync/rebuild, hash tracking, pending-change behavior.
+   - Complexity: high.
+   - Phase: 7.
 
 ## 15a. Useful Ideas Learned From `../pdf-merge`
 
@@ -668,7 +716,7 @@ Not suitable for MVP right now:
 
 ## 16. Recommended Resume Point
 
-Resume with either a Phase 2 PDF extraction enhancement, a minimal Phase 6 FastAPI local backend skeleton based on `docs/api/CONTRACT.md`, or Phase 5 AI privacy-boundary tests. Phase 1 through Phase 4 offline deterministic work is complete for the current roadmap. AI work remains intentionally separated until privacy-boundary tests are designed.
+Resume with either Phase 6 guideline defaults/priorities, a Phase 2 PDF extraction enhancement, or Phase 7 SQLite memory design. FastAPI remains Phase 9 and should wait until the validation, citation, SQLite, and document-vault engine contracts are stable. AI work remains intentionally separated until privacy-boundary tests are designed.
 
 ## 17. Maintenance Rule
 

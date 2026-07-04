@@ -4,6 +4,8 @@ All notable changes to ResearchBoss will be documented in this file.
 
 ## Unreleased
 
+- Added deterministic document target resolution and `researchboss validate <target>` reports with strengths, weaknesses, unsupported or weakly supported sentences, citation gaps, confidence factors, confidence scores, and APA7 references.
+- Added guideline registration through `researchboss guidelines add/list`, with workspace-local snapshots, extracted text, and validated scopes.
 - Bumped project version to 0.5.4.
 - Added structured external-search query plans with legacy params-file import, broad/balanced/strict strategy modes, query group labels, and research-question links.
 - Bumped project version to 0.5.3.

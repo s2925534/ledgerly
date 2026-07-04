@@ -58,6 +58,8 @@ Phase 1 complete:
 - Safe local AI context previews through `researchboss ai context-preview --ai`, excluding original files and whole documents or datasets by default
 - AI-assisted review, novelty assessment, research-question assessment, corpus summary, claim-checking, citation-gap, artefact cross-reference, and source-relevance commands, all requiring explicit `--ai`
 - Explicit Scopus external-search runs with structured query plans, legacy params-file import, query strategy modes, local snapshots, query validation, quality-scored candidate registers, threshold filters, no-result or low-result logs, saved refine plans, and local candidate reports
+- Deterministic document target resolution and `researchboss validate <target>` reports with strengths, weaknesses, unsupported or weakly supported sentences, citation gaps, confidence factors, confidence scores, and APA7 references
+- Guideline registration through `researchboss guidelines add`, with local or remote snapshots and extracted text stored inside the workspace, plus validated guideline scopes
 - Zotero-style citation wording during init, including explicit `American Psychological Association 7th edition`
 - Strict one-way Zotero-to-ResearchBoss blocker config that prevents writes inside the local Zotero directory
 - SHA-256 file hashing
@@ -386,9 +388,12 @@ The detailed living roadmap is maintained in `DETAILED_ROADMAP.md`. Update that 
 3. CSV, SQLite, JSON profiling plus artefact metadata complete for deterministic local MVP paths.
 4. Research stages and research question approval workflows complete for deterministic local MVP paths.
 5. Add optional OpenAI features with strict privacy boundaries.
-6. Add a local FastAPI backend.
-7. Prepare a cross-platform UI.
-8. Add packaging plans for desktop distribution.
+6. Add deterministic document validation, guideline handling, citation assistance, and later explicit AI opt-ins for whole-document workflows.
+7. Add optional workspace SQLite memory, indexing, and sync.
+8. Add a local document vault with versions, manifests, and restoration workflows.
+9. Add a local FastAPI backend.
+10. Prepare a cross-platform UI.
+11. Add packaging plans for desktop distribution.
 
 ## Repository Hygiene
 
