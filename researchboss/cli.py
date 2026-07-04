@@ -79,6 +79,7 @@ from researchboss.engine.metadata_quality import (
     filename_suggestion_report,
 )
 from researchboss.engine.migrations import migrate_workspace
+from researchboss.engine.pdf_merge import pdf_merge_report
 from researchboss.engine.project_log import (
     add_context_change,
     add_decision,
@@ -1781,6 +1782,35 @@ def export_corpus(
     if not quiet:
         console.print(f"[green]Wrote[/green] {result.corpus_path}")
         console.print(f"Manifest: {result.manifest_path}")
+
+
+@app.command("merge-pdfs")
+def merge_pdfs(
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
+    write: bool = typer.Option(False, "--write", help="Write the merged PDF artefact. Default writes manifest reports only."),
+    output: Optional[Path] = typer.Option(None, "--output", help="Optional merged PDF output path."),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Create accepted-source PDF merge manifests and optionally a merged PDF artefact."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["merge", "pdfs"], ws, log_level)
+    result = pdf_merge_report(ws, dry_run=not write, output=output)
+    logger.info(
+        "Wrote PDF merge report",
+        operation="merge_pdfs",
+        dry_run=result.dry_run,
+        included=result.included,
+        skipped=result.skipped,
+        failed=result.failed,
+        output_path=str(result.output_path) if result.output_path else None,
+    )
+    _finish(summary, summary_path, next_action=f"Review `{result.manifest_path}`")
+    if not quiet:
+        console.print(f"[green]Wrote[/green] {result.manifest_path}")
+        console.print(f"CSV: {result.csv_path}")
+        if result.output_path:
+            console.print(f"Merged PDF: {result.output_path}")
 
 
 @app.command("timeline")

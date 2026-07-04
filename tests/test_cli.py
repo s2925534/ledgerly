@@ -622,6 +622,28 @@ def test_cli_export_corpus_writes_combined_accepted_text(tmp_path: Path) -> None
     assert manifest["included_count"] == 1
 
 
+def test_cli_merge_pdfs_writes_dry_run_manifest(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    source_root = tmp_path / "sources"
+    source_root.mkdir()
+    pdf = source_root / "paper.pdf"
+    pdf.write_bytes(b"%PDF-1.4\n%%EOF\n")
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    write_yaml(workspace / "accepted-sources.yaml", {"version": 1, "source_ids": ["source-001"]})
+    write_yaml(
+        workspace / "source-register.yaml",
+        {"version": 1, "sources": [{"source_id": "source-001", "file_name": pdf.name, "file_path": str(pdf)}]},
+    )
+
+    result = runner.invoke(app, ["merge-pdfs", "--workspace", str(workspace), "--quiet"])
+
+    assert result.exit_code == 0, result.output
+    manifest = read_yaml(workspace / "outputs" / "reports" / "pdf-merge-manifest.yaml")
+    assert manifest["dry_run"] is True
+    assert manifest["included_count"] == 1
+    assert (workspace / "outputs" / "reports" / "pdf-merge-manifest.csv").is_file()
+
+
 def test_cli_ocr_readiness_writes_report(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
