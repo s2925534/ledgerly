@@ -57,6 +57,7 @@ WORKSPACE_DIRS: list[str] = [
     "outputs",
     "outputs/reports",
     "outputs/validation",
+    "outputs/citation-plans",
     "outputs/novelty",
     "outputs/recommendations",
     "outputs/data-profiles",

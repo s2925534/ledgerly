@@ -195,6 +195,38 @@ def test_cli_guidelines_conflicts_writes_report(tmp_path: Path) -> None:
     assert report["conflicts"][0]["status"] == "human_review_required"
 
 
+def test_cli_cite_plan_writes_review_plan(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    target = workspace / "artefacts" / "papers" / "draft.md"
+    source_text = workspace / "sources_text" / "source-001.txt"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    target.write_text("Container terminal automation uses berth planning evidence.", encoding="utf-8")
+    source_text.write_text("Berth planning evidence supports container terminal automation.", encoding="utf-8")
+    write_yaml(
+        workspace / "source-register.yaml",
+        {
+            "version": 1,
+            "sources": [
+                {
+                    "source_id": "source-001",
+                    "status": "accepted",
+                    "provider": "local_folder",
+                    "file_name": "paper.pdf",
+                    "conversion": {"status": "converted", "output_path": str(source_text)},
+                    "citation_metadata": {"authors": ["Smith, A."], "year": 2024},
+                }
+            ],
+        },
+    )
+
+    result = runner.invoke(app, ["cite", "plan", str(target), "--workspace", str(workspace), "--quiet"])
+
+    assert result.exit_code == 0, result.output
+    plan = read_yaml(workspace / "outputs" / "citation-plans" / "citation-plan-draft.yaml")
+    assert plan["original_document_modified"] is False
+    assert plan["insertions"][0]["suggested_inline_citation"] == "(Smith, 2024)"
+
+
 def test_cli_ai_test_missing_key_does_not_print_secret(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.chdir(tmp_path)

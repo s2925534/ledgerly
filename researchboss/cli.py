@@ -35,6 +35,7 @@ from researchboss.engine.claims import (
     write_citation_gap_report,
 )
 from researchboss.engine.conversion import convert_sources
+from researchboss.engine.citations import create_citation_plan
 from researchboss.engine.data import data_source_counts, list_data_sources, profile_data_sources
 from researchboss.engine.doc_validation import validate_document
 from researchboss.engine.export import export_evidence_bundle
@@ -150,6 +151,7 @@ context_app = typer.Typer(help="Context changelog commands.")
 ai_app = typer.Typer(help="Optional OpenAI commands.")
 search_app = typer.Typer(help="Explicit opt-in external search commands.")
 guidelines_app = typer.Typer(help="Local guideline registration commands.")
+cite_app = typer.Typer(help="Citation planning commands.")
 
 app.add_typer(sources_app, name="sources")
 app.add_typer(config_app, name="config")
@@ -166,6 +168,7 @@ app.add_typer(context_app, name="context")
 app.add_typer(ai_app, name="ai")
 app.add_typer(search_app, name="search")
 app.add_typer(guidelines_app, name="guidelines")
+app.add_typer(cite_app, name="cite")
 
 console = Console()
 DEFAULT_WORKSPACES_DIR = "workspaces"
@@ -699,6 +702,62 @@ def validate(
         f"{report_summary['source_count']} sources; "
         f"{report_summary['sources_with_overlap']} had deterministic term overlap."
     )
+
+
+@cite_app.command("plan")
+def cite_plan(
+    target: str = typer.Argument(..., help="Document target: path, artefact ID/title, alias, or artefact type."),
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path."),
+    source_path: list[Path] = typer.Option(
+        [],
+        "--source-path",
+        help="Additional source document path to compare against. Can be repeated.",
+    ),
+    guideline_ids: list[str] = typer.Option(
+        [],
+        "--guidelines",
+        help="Guideline ID to apply. Can be repeated. Explicit IDs override default guidelines.",
+    ),
+    no_default_guidelines: bool = typer.Option(
+        False,
+        "--no-default-guidelines",
+        help="Do not apply workspace default guidelines.",
+    ),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Create a reviewable citation insertion plan without editing the target document."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["cite", "plan"], ws, log_level)
+
+    try:
+        result = create_citation_plan(
+            ws,
+            target,
+            source_paths=source_path,
+            guideline_ids=guideline_ids,
+            use_default_guidelines=not no_default_guidelines,
+            cwd=Path.cwd(),
+        )
+        logger.info(
+            "Citation plan written",
+            operation="cite_plan",
+            target=target,
+            yaml_path=str(result.yaml_path),
+            markdown_path=str(result.markdown_path),
+            insertion_count=len(result.plan.get("insertions", [])),
+        )
+        _finish(summary, summary_path, next_action=f"Review `{result.markdown_path}`")
+    except Exception as e:
+        logger.error("Citation plan failed", operation="cite_plan", target=target, error=str(e))
+        summary.errors += 1
+        _finish(summary, summary_path)
+        raise
+
+    if not quiet:
+        console.print(f"[green]Citation plan:[/green] {result.markdown_path}")
+        console.print(f"YAML plan: {result.yaml_path}")
+        console.print(f"Proposed insertions: {len(result.plan.get('insertions', []))}")
 
 
 @config_app.command("validate")
