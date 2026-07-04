@@ -11,6 +11,7 @@ from researchboss.engine.external_search import (
     SearchThresholds,
     ScopusCredentials,
     external_candidate_register_path,
+    external_candidate_zotero_match_report,
     filter_unused_queries,
     generate_auto_refine_plan,
     generate_search_query_plan,
@@ -234,6 +235,54 @@ def test_import_external_candidates_adds_metadata_only_pending_sources(tmp_path:
     assert source["citation_metadata"]["doi"] == "10.1000/example"
     assert candidate["review_status"] == "imported_pending_review"
     assert candidate["imported_source_id"] == candidate_id
+
+
+def test_external_candidate_zotero_match_report_marks_local_full_text_availability(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    candidate_id = "ext-scopus-zotero"
+    source_text = workspace / "sources_text" / "source-001.txt"
+    source_text.write_text("Converted local Zotero text.", encoding="utf-8")
+    write_candidate_register(
+        workspace,
+        [
+            {
+                "candidate_id": candidate_id,
+                "title": "Container port evidence paper",
+                "year": 2024,
+                "doi": "https://doi.org/10.1000/example",
+                "full_text_availability": {"doi_present": True},
+            }
+        ],
+    )
+    write_yaml(
+        workspace / "source-register.yaml",
+        {
+            "version": 1,
+            "sources": [
+                {
+                    "source_id": "source-001",
+                    "provider": "zotero_storage",
+                    "status": "accepted",
+                    "file_path": str(tmp_path / "Zotero" / "storage" / "ABCD1234" / "paper.pdf"),
+                    "zotero_storage_key": "ABCD1234",
+                    "has_zotero_fulltext_cache": True,
+                    "zotero_title": "Container port evidence paper",
+                    "zotero_year": 2024,
+                    "zotero_doi": "10.1000/example",
+                    "conversion": {"status": "converted", "output_path": str(source_text)},
+                }
+            ],
+        },
+    )
+
+    report = external_candidate_zotero_match_report(workspace)
+    candidate = read_yaml(external_candidate_register_path(workspace))["candidates"][0]
+
+    assert report["matched_candidate_count"] == 1
+    assert report["matches"][0]["matches"][0]["match_types"] == ["doi", "title_year"]
+    assert candidate["full_text_availability"]["local_zotero_match"] is True
+    assert candidate["full_text_availability"]["local_zotero_full_text_available"] is True
 
 
 def test_scopus_search_updates_batch_summary_across_queries(tmp_path: Path) -> None:

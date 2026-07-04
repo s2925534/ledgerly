@@ -472,6 +472,7 @@ def test_cli_search_reports_writes_external_search_reports(tmp_path: Path) -> No
     assert result.exit_code == 0, result.output
     assert (workspace / "outputs" / "recommendations" / "external-high-signal-candidates.yaml").is_file()
     assert (workspace / "outputs" / "validation" / "external-candidate-duplicates.yaml").is_file()
+    assert (workspace / "outputs" / "validation" / "external-candidate-zotero-matches.yaml").is_file()
     assert (workspace / "outputs" / "validation" / "external-search-evidence-validation.yaml").is_file()
     assert (workspace / "outputs" / "validation" / "external-search-run-comparison.yaml").is_file()
 

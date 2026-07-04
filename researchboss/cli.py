@@ -46,6 +46,8 @@ from researchboss.engine.external_search import (
     auto_refine_plan_path,
     external_candidate_deduplication_report,
     external_candidate_duplicates_path,
+    external_candidate_zotero_match_report,
+    external_candidate_zotero_matches_path,
     external_evidence_validation_path,
     external_run_comparison_path,
     external_search_evidence_validation_report,
@@ -1344,6 +1346,7 @@ def search_reports(
     _slug, logger, summary, summary_path, _log_path = _run_ctx(["search", "reports"], ws, log_level)
     high_signal = write_high_signal_candidate_report(ws, limit=limit)
     duplicates = external_candidate_deduplication_report(ws)
+    zotero_matches = external_candidate_zotero_match_report(ws)
     evidence = external_search_evidence_validation_report(ws)
     comparison = external_search_run_comparison_report(ws)
     logger.info(
@@ -1351,6 +1354,7 @@ def search_reports(
         operation="search_reports",
         high_signal_candidates=high_signal["reported_count"],
         duplicate_groups=duplicates["duplicate_group_count"],
+        zotero_matched_candidates=zotero_matches["matched_candidate_count"],
         evidence_candidates=evidence["candidate_count"],
         run_count=len(comparison["runs"]),
     )
@@ -1359,6 +1363,7 @@ def search_reports(
         return
     console.print(f"[green]Wrote[/green] {high_signal_candidate_report_path(ws)}")
     console.print(f"[green]Wrote[/green] {external_candidate_duplicates_path(ws)}")
+    console.print(f"[green]Wrote[/green] {external_candidate_zotero_matches_path(ws)}")
     console.print(f"[green]Wrote[/green] {external_evidence_validation_path(ws)}")
     console.print(f"[green]Wrote[/green] {external_run_comparison_path(ws)}")
 

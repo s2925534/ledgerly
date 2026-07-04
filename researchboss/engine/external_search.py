@@ -454,6 +454,10 @@ def external_candidate_duplicates_path(workspace: Path) -> Path:
     return workspace / "outputs" / "validation" / "external-candidate-duplicates.yaml"
 
 
+def external_candidate_zotero_matches_path(workspace: Path) -> Path:
+    return workspace / "outputs" / "validation" / "external-candidate-zotero-matches.yaml"
+
+
 def external_evidence_validation_path(workspace: Path) -> Path:
     return workspace / "outputs" / "validation" / "external-search-evidence-validation.yaml"
 
@@ -1259,6 +1263,136 @@ def external_candidate_deduplication_report(workspace: Path) -> dict[str, Any]:
     }
     write_yaml(external_candidate_duplicates_path(workspace), report)
     return report
+
+
+def external_candidate_zotero_match_report(workspace: Path) -> dict[str, Any]:
+    candidate_path = external_candidate_register_path(workspace)
+    register = read_yaml(candidate_path) if candidate_path.exists() else {"candidates": []}
+    candidates = [candidate for candidate in register.get("candidates", []) if isinstance(candidate, dict)]
+    zotero_records = _zotero_match_records(workspace)
+
+    matches = []
+    for candidate in candidates:
+        candidate_matches = []
+        for record in zotero_records:
+            match_types = _candidate_zotero_match_types(candidate, record)
+            if match_types:
+                candidate_matches.append(
+                    {
+                        "record_source": record.get("record_source"),
+                        "source_id": record.get("source_id"),
+                        "zotero_attachment_item_key": record.get("zotero_attachment_item_key"),
+                        "zotero_parent_item_key": record.get("zotero_parent_item_key"),
+                        "zotero_storage_key": record.get("zotero_storage_key"),
+                        "match_types": match_types,
+                        "full_text_available_locally": bool(record.get("full_text_available_locally")),
+                        "full_text_signals": record.get("full_text_signals") or [],
+                    }
+                )
+        if candidate_matches:
+            availability = candidate.get("full_text_availability") if isinstance(candidate.get("full_text_availability"), dict) else {}
+            availability["local_zotero_match"] = True
+            availability["local_zotero_full_text_available"] = any(
+                bool(match.get("full_text_available_locally")) for match in candidate_matches
+            )
+            availability["local_zotero_match_count"] = len(candidate_matches)
+            candidate["full_text_availability"] = availability
+            candidate["local_zotero_matches"] = candidate_matches
+            matches.append({"candidate_id": candidate.get("candidate_id"), "matches": candidate_matches})
+
+    register["candidates"] = candidates
+    if candidate_path.exists():
+        write_yaml(candidate_path, register)
+
+    report = {
+        "version": 1,
+        "candidate_count": len(candidates),
+        "zotero_record_count": len(zotero_records),
+        "matched_candidate_count": len(matches),
+        "matches": matches,
+        "matching_fields": ["doi", "title_year", "storage_key"],
+        "notes": "Matches use workspace source metadata and workspace Zotero snapshots only; local Zotero files are not modified.",
+    }
+    write_yaml(external_candidate_zotero_matches_path(workspace), report)
+    return report
+
+
+def _zotero_match_records(workspace: Path) -> list[dict[str, Any]]:
+    records = []
+    source_register = read_yaml(workspace / "source-register.yaml") if (workspace / "source-register.yaml").exists() else {"sources": []}
+    for source in source_register.get("sources", []):
+        if not isinstance(source, dict):
+            continue
+        if source.get("provider") != "zotero_storage" and not any(str(key).startswith("zotero_") for key in source):
+            continue
+        metadata = _source_metadata_for_matching(source)
+        conversion = source.get("conversion") if isinstance(source.get("conversion"), dict) else {}
+        full_text_signals = []
+        if source.get("has_zotero_fulltext_cache"):
+            full_text_signals.append("zotero_fulltext_cache")
+        if conversion.get("output_path") and Path(str(conversion["output_path"])).exists():
+            full_text_signals.append("workspace_converted_text")
+        if source.get("file_path"):
+            full_text_signals.append("workspace_registered_attachment_path")
+        records.append(
+            {
+                **metadata,
+                "record_source": "source_register",
+                "zotero_attachment_item_key": source.get("zotero_attachment_item_key"),
+                "zotero_parent_item_key": source.get("zotero_parent_item_key"),
+                "zotero_storage_key": source.get("zotero_storage_key"),
+                "full_text_available_locally": bool(full_text_signals),
+                "full_text_signals": full_text_signals,
+            }
+        )
+
+    snapshot_path = workspace / "sources_metadata" / "zotero-snapshot.yaml"
+    if snapshot_path.exists():
+        snapshot = read_yaml(snapshot_path)
+        for attachment in snapshot.get("attachments", []):
+            if not isinstance(attachment, dict):
+                continue
+            records.append(
+                {
+                    "record_source": "zotero_snapshot",
+                    "source_id": None,
+                    "title": attachment.get("zotero_title"),
+                    "year": attachment.get("zotero_year"),
+                    "doi": attachment.get("zotero_doi"),
+                    "eid": None,
+                    "provider": "zotero_snapshot",
+                    "status": "snapshot",
+                    "zotero_attachment_item_key": attachment.get("zotero_attachment_item_key"),
+                    "zotero_parent_item_key": attachment.get("zotero_parent_item_key"),
+                    "zotero_storage_key": attachment.get("zotero_storage_key"),
+                    "full_text_available_locally": bool(attachment.get("zotero_attachment_item_key")),
+                    "full_text_signals": ["zotero_snapshot_attachment_metadata"],
+                }
+            )
+    return records
+
+
+def _candidate_zotero_match_types(candidate: dict[str, Any], record: dict[str, Any]) -> list[str]:
+    match_types = []
+    candidate_doi = _normalize_doi(candidate.get("doi"))
+    record_doi = _normalize_doi(record.get("doi"))
+    if candidate_doi and record_doi and candidate_doi == record_doi:
+        match_types.append("doi")
+    candidate_title = _normalize_title(candidate.get("title"))
+    record_title = _normalize_title(record.get("title"))
+    candidate_year = str(candidate.get("year") or "")
+    record_year = str(record.get("year") or "")
+    if candidate_title and record_title and candidate_year and record_year and candidate_title == record_title and candidate_year == record_year:
+        match_types.append("title_year")
+    candidate_storage_key = (
+        candidate.get("zotero_storage_key")
+        or (candidate.get("full_text_availability") or {}).get("local_zotero_storage_key")
+        if isinstance(candidate.get("full_text_availability"), dict)
+        else None
+    )
+    if candidate_storage_key and record.get("zotero_storage_key") and str(candidate_storage_key) == str(record.get("zotero_storage_key")):
+        match_types.append("storage_key")
+    return match_types
 
 
 def external_search_evidence_validation_report(workspace: Path) -> dict[str, Any]:
