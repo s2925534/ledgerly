@@ -5,6 +5,7 @@ from researchboss.engine.metadata_quality import (
     build_keyword_index,
     citation_consistency_report,
     duplicate_metadata_report,
+    filename_suggestion_report,
     normalize_doi,
 )
 from researchboss.engine.workspace import init_workspace
@@ -86,3 +87,36 @@ def test_build_keyword_index_reads_converted_text(tmp_path: Path) -> None:
 
     assert index["entries"][0]["terms"]["evidence"] == 2
     assert read_yaml(workspace / "sources_metadata" / "keyword-index.yaml")["entry_count"] == 1
+
+
+def test_filename_suggestion_report_does_not_rename_originals(tmp_path: Path) -> None:
+    workspace = make_workspace(tmp_path)
+    original = workspace / "sources_original" / "manual" / "bad name.pdf"
+    original.write_text("original", encoding="utf-8")
+    write_yaml(
+        workspace / "source-register.yaml",
+        {
+            "version": 1,
+            "sources": [
+                {
+                    "source_id": "source-001",
+                    "file_name": original.name,
+                    "file_ext": "pdf",
+                    "file_path": str(original),
+                    "citation_metadata": {
+                        "title": "Container Port Evidence",
+                        "authors": ["Smith, A."],
+                        "year": 2024,
+                    },
+                }
+            ],
+        },
+    )
+
+    report = filename_suggestion_report(workspace)
+
+    suggestion = report["suggestions"][0]
+    assert suggestion["suggested_file_name"] == "smith_2024_container-port-evidence_source-001.pdf"
+    assert suggestion["rename_performed"] is False
+    assert report["original_files_renamed"] is False
+    assert original.is_file()

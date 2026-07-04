@@ -72,7 +72,12 @@ from researchboss.engine.guidelines import (
 )
 from researchboss.engine.health import workspace_health_report
 from researchboss.engine.metadata import extract_citation_metadata
-from researchboss.engine.metadata_quality import build_keyword_index, citation_consistency_report, duplicate_metadata_report
+from researchboss.engine.metadata_quality import (
+    build_keyword_index,
+    citation_consistency_report,
+    duplicate_metadata_report,
+    filename_suggestion_report,
+)
 from researchboss.engine.migrations import migrate_workspace
 from researchboss.engine.project_log import (
     add_context_change,
@@ -1885,6 +1890,22 @@ def metadata_duplicates(
     _finish(summary, summary_path)
     if not quiet:
         console.print(f"[green]Wrote[/green] {ws / 'outputs' / 'validation' / 'metadata-duplicates.yaml'}")
+
+
+@metadata_app.command("filename-suggestions")
+def metadata_filename_suggestions(
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Write deterministic filename suggestions without renaming original files."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["metadata", "filename_suggestions"], ws, log_level)
+    report = filename_suggestion_report(ws)
+    logger.info("Wrote filename suggestion report", operation="metadata_filename_suggestions", source_count=report["source_count"])
+    _finish(summary, summary_path)
+    if not quiet:
+        console.print(f"[green]Wrote[/green] {ws / 'outputs' / 'recommendations' / 'filename-suggestions.yaml'}")
 
 
 @metadata_app.command("index")

@@ -128,6 +128,64 @@ def build_keyword_index(workspace: Path) -> dict[str, Any]:
     return index
 
 
+def filename_suggestion_report(workspace: Path) -> dict[str, Any]:
+    rows = []
+    for source in _sources(workspace):
+        rows.append(_filename_suggestion(source))
+    report = {
+        "version": 1,
+        "source_count": len(rows),
+        "suggestions": rows,
+        "original_files_renamed": False,
+        "notes": "Suggestions are deterministic only; ResearchBoss does not rename or move original files.",
+    }
+    write_yaml(workspace / "outputs" / "recommendations" / "filename-suggestions.yaml", report)
+    return report
+
+
+def _filename_suggestion(source: dict[str, Any]) -> dict[str, Any]:
+    metadata = source.get("citation_metadata") if isinstance(source.get("citation_metadata"), dict) else {}
+    title = source.get("zotero_title") or metadata.get("title") or Path(str(source.get("file_name") or "source")).stem
+    authors = source.get("zotero_creators") or metadata.get("authors") or metadata.get("creators") or []
+    if isinstance(authors, str):
+        authors = [authors]
+    author_token = _safe_filename_token(_author_token(authors), fallback="unknown-author")
+    title_token = _safe_filename_token(str(title), fallback="untitled")
+    year = str(source.get("zotero_year") or metadata.get("year") or "nd")
+    source_id = _safe_filename_token(str(source.get("source_id") or "source"), fallback="source")
+    extension = str(source.get("file_ext") or Path(str(source.get("file_name") or "")).suffix.lstrip(".") or "pdf").lower()
+    suggested = f"{author_token}_{year}_{title_token}_{source_id}.{extension}"
+    return {
+        "source_id": source.get("source_id"),
+        "current_file_name": source.get("file_name"),
+        "suggested_file_name": suggested[:180],
+        "basis": {
+            "author_token": author_token,
+            "year": year,
+            "title": title,
+            "source_id": source.get("source_id"),
+            "extension": extension,
+        },
+        "rename_performed": False,
+    }
+
+
+def _author_token(authors: list[Any]) -> str:
+    if not authors:
+        return "unknown-author"
+    first = str(authors[0])
+    if "," in first:
+        return first.split(",", 1)[0].strip()
+    parts = first.split()
+    return parts[-1] if parts else "unknown-author"
+
+
+def _safe_filename_token(value: str, *, fallback: str) -> str:
+    text = re.sub(r"[^A-Za-z0-9]+", "-", value.lower()).strip("-")
+    text = re.sub(r"-{2,}", "-", text)
+    return (text or fallback)[:60]
+
+
 def _sources(workspace: Path) -> list[dict[str, Any]]:
     register = read_yaml(workspace / "source-register.yaml")
     return [source for source in register.get("sources", []) if isinstance(source, dict)]
