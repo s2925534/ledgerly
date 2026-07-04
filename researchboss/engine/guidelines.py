@@ -199,6 +199,40 @@ def guideline_conflict_report(workspace: Path) -> dict[str, Any]:
     return report
 
 
+def build_ai_guideline_context(
+    workspace: Path,
+    *,
+    full_guidelines: bool = False,
+    max_excerpt_chars: int = 1200,
+) -> dict[str, Any]:
+    rows = []
+    for guideline in list_guidelines(workspace):
+        text = _read_guideline_text(guideline)
+        included_text = text if full_guidelines else text[: max(0, max_excerpt_chars)]
+        rows.append(
+            {
+                "id": guideline.get("id"),
+                "title": guideline.get("title"),
+                "scopes": guideline.get("scopes") or [],
+                "selection_policy": "full_text_explicit_opt_in" if full_guidelines else "excerpt_default",
+                "text": included_text,
+                "text_truncated": not full_guidelines and len(text) > max_excerpt_chars,
+                "full_guideline_included": full_guidelines,
+            }
+        )
+    context = {
+        "version": 1,
+        "ai_used": False,
+        "full_guidelines_included": full_guidelines,
+        "requires_explicit_full_guidelines_opt_in": True,
+        "guideline_count": len(rows),
+        "guidelines": rows,
+    }
+    output_path = workspace / "outputs" / "validation" / "ai-guideline-context.yaml"
+    write_yaml(output_path, context)
+    return context
+
+
 def _snapshot_local(workspace: Path, guideline_id: str, source_path: Path) -> Path:
     snapshot_path = workspace / "guidelines" / "snapshots" / f"{guideline_id}{source_path.suffix.lower()}"
     snapshot_path.parent.mkdir(parents=True, exist_ok=True)

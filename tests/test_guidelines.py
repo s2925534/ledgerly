@@ -4,6 +4,7 @@ import pytest
 
 from researchboss.core.yamlio import read_yaml
 from researchboss.engine.guidelines import (
+    build_ai_guideline_context,
     guideline_conflict_report,
     list_guidelines,
     register_guideline,
@@ -112,3 +113,20 @@ def test_guideline_conflict_report_flags_citation_style_and_priority(tmp_path: P
     assert report["conflicts"][0]["conflicting_markers"] == ["apa6"]
     assert report["conflicts"][1]["kind"] == "guideline_priority_review"
     assert (workspace / "outputs" / "validation" / "guideline-conflicts.yaml").is_file()
+
+
+def test_build_ai_guideline_context_uses_excerpts_unless_full_opt_in(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    guideline = tmp_path / "rules.md"
+    guideline.write_text("A" * 20, encoding="utf-8")
+    init_workspace(workspace, project_name="Test Project", project_type="M.Phil", topic="")
+    register_guideline(workspace, str(guideline), title="Rules", scopes=["style"])
+
+    excerpt = build_ai_guideline_context(workspace, max_excerpt_chars=5)
+    full = build_ai_guideline_context(workspace, full_guidelines=True, max_excerpt_chars=5)
+
+    assert excerpt["guidelines"][0]["text"] == "A" * 5
+    assert excerpt["guidelines"][0]["text_truncated"] is True
+    assert excerpt["guidelines"][0]["full_guideline_included"] is False
+    assert full["guidelines"][0]["text"] == "A" * 20
+    assert full["full_guidelines_included"] is True

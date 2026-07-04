@@ -69,6 +69,7 @@ from researchboss.engine.external_search import (
 )
 from researchboss.engine.guidelines import (
     GUIDELINE_SCOPES,
+    build_ai_guideline_context,
     guideline_conflict_report,
     list_guidelines,
     register_guideline,
@@ -997,6 +998,42 @@ def guidelines_conflicts(
     if not quiet:
         console.print(f"[green]Guideline conflict report:[/green] {output_path}")
         console.print(f"Conflicts requiring review: {report['conflict_count']}")
+
+
+@guidelines_app.command("ai-context")
+def guidelines_ai_context(
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path."),
+    ai: bool = typer.Option(False, "--ai", help="Required explicit opt-in for AI guideline context preparation."),
+    full_guidelines_ai: bool = typer.Option(False, "--full-guidelines-ai", help="Explicitly include full converted guideline text."),
+    max_excerpt_chars: int = typer.Option(1200, "--max-excerpt-chars", help="Maximum guideline excerpt length when full text is not opted in."),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Write safe AI guideline context using excerpts unless full guidelines are explicitly opted in."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["guidelines", "ai_context"], ws, log_level)
+    try:
+        require_ai_flag(ai)
+        if full_guidelines_ai and not ai:
+            raise OpenAiError("Pass --ai with --full-guidelines-ai.")
+        context = build_ai_guideline_context(ws, full_guidelines=full_guidelines_ai, max_excerpt_chars=max_excerpt_chars)
+    except OpenAiError as e:
+        logger.error("AI guideline context failed", operation="guidelines_ai_context", error=str(e))
+        summary.errors += 1
+        _finish(summary, summary_path)
+        if not quiet:
+            console.print(f"[red]{e}[/red]")
+        raise typer.Exit(code=2)
+    output_path = ws / "outputs" / "validation" / "ai-guideline-context.yaml"
+    logger.info(
+        "Wrote AI guideline context",
+        operation="guidelines_ai_context",
+        guideline_count=context["guideline_count"],
+        full_guidelines_included=context["full_guidelines_included"],
+    )
+    _finish(summary, summary_path)
+    if not quiet:
+        console.print(f"[green]Wrote[/green] {output_path}")
 
 
 @ai_app.command("test")

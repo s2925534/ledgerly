@@ -812,6 +812,26 @@ def test_cli_metadata_sidecars_updates_source_metadata(tmp_path: Path) -> None:
     assert (workspace / "sources_metadata" / "sidecar-metadata.yaml").is_file()
 
 
+def test_cli_guidelines_ai_context_requires_ai_and_defaults_to_excerpts(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    guideline = tmp_path / "rules.md"
+    guideline.write_text("A" * 20, encoding="utf-8")
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    runner.invoke(app, ["guidelines", "add", str(guideline), "--workspace", str(workspace), "--quiet"])
+
+    blocked = runner.invoke(app, ["guidelines", "ai-context", "--workspace", str(workspace), "--quiet"])
+    allowed = runner.invoke(
+        app,
+        ["guidelines", "ai-context", "--ai", "--max-excerpt-chars", "5", "--workspace", str(workspace), "--quiet"],
+    )
+
+    assert blocked.exit_code == 2, blocked.output
+    assert allowed.exit_code == 0, allowed.output
+    context = read_yaml(workspace / "outputs" / "validation" / "ai-guideline-context.yaml")
+    assert context["guidelines"][0]["text"] == "A" * 5
+    assert context["full_guidelines_included"] is False
+
+
 def test_cli_abstracts_import_writes_candidate_register(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     folder = tmp_path / "abstracts"
