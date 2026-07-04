@@ -57,6 +57,30 @@ def require_ai_flag(ai: bool) -> None:
         raise OpenAiError("Pass --ai to explicitly allow this OpenAI action.")
 
 
+def require_full_file_ai_opt_in(*, ai: bool, full_file: bool) -> None:
+    require_ai_flag(ai)
+    if not full_file:
+        raise OpenAiError("Pass --full-file-ai to explicitly allow sending a whole file to an AI provider.")
+
+
+def require_directory_ai_opt_in(*, ai: bool, directory: bool) -> None:
+    require_ai_flag(ai)
+    if not directory:
+        raise OpenAiError("Pass --directory-ai to explicitly allow folder-level AI context.")
+
+
+def require_full_target_document_ai_opt_in(*, ai: bool, full_target_document: bool) -> None:
+    require_ai_flag(ai)
+    if not full_target_document:
+        raise OpenAiError("Pass --full-target-document-ai to explicitly allow sending a whole target document to an AI provider.")
+
+
+def require_full_source_document_ai_opt_in(*, ai: bool, full_source_document: bool) -> None:
+    require_ai_flag(ai)
+    if not full_source_document:
+        raise OpenAiError("Pass --full-source-document-ai to explicitly allow sending whole backing/source documents to an AI provider.")
+
+
 def openai_get(
     path: str,
     credentials: OpenAiCredentials,

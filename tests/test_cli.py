@@ -359,6 +359,12 @@ def test_cli_ai_context_preview_requires_ai_flag(tmp_path: Path) -> None:
 
     assert result.exit_code == 2, result.output
 
+    full_file_result = runner.invoke(
+        app,
+        ["ai", "context-preview", "--full-file-ai", "--workspace", str(workspace), "--quiet"],
+    )
+    assert full_file_result.exit_code == 2, full_file_result.output
+
 
 def test_cli_ai_review_requires_ai_flag(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
@@ -767,12 +773,17 @@ def test_cli_ai_context_preview_writes_local_context_without_network(tmp_path: P
     source_id = read_yaml(workspace / "source-register.yaml")["sources"][0]["source_id"]
     set_source_status(workspace, source_id=source_id, new_status="accepted")
 
-    result = runner.invoke(app, ["ai", "context-preview", "--ai", "--workspace", str(workspace), "--quiet"])
+    result = runner.invoke(
+        app,
+        ["ai", "context-preview", "--ai", "--full-file-ai", "--directory-ai", "--workspace", str(workspace), "--quiet"],
+    )
 
     assert result.exit_code == 0, result.output
     context = read_yaml(workspace / "outputs" / "validation" / "openai-safe-context.yaml")
     assert context["policy"]["original_files_excluded"] is True
     assert context["sources"][0]["metadata"]["source_id"] == source_id
+    assert context["full_file_ai_opt_in"] is True
+    assert context["directory_ai_opt_in"] is True
 
 
 def test_python_module_entrypoint_help() -> None:

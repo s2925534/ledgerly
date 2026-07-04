@@ -18,7 +18,11 @@ from researchboss.engine.ai import (
     openai_post,
     openai_credentials,
     openai_readiness,
+    require_directory_ai_opt_in,
     require_ai_flag,
+    require_full_file_ai_opt_in,
+    require_full_source_document_ai_opt_in,
+    require_full_target_document_ai_opt_in,
 )
 from researchboss.engine.conversion import convert_sources
 from researchboss.engine.sources import scan_sources, set_source_status
@@ -70,6 +74,24 @@ def test_openai_credentials_missing_key_raises_without_secret(tmp_path: Path, mo
 def test_require_ai_flag_blocks_ai_actions_without_explicit_opt_in() -> None:
     with pytest.raises(OpenAiError, match="Pass --ai"):
         require_ai_flag(False)
+
+
+def test_full_file_and_directory_ai_gates_require_separate_flags() -> None:
+    with pytest.raises(OpenAiError, match="--full-file-ai"):
+        require_full_file_ai_opt_in(ai=True, full_file=False)
+    with pytest.raises(OpenAiError, match="--directory-ai"):
+        require_directory_ai_opt_in(ai=True, directory=False)
+    with pytest.raises(OpenAiError, match="--full-target-document-ai"):
+        require_full_target_document_ai_opt_in(ai=True, full_target_document=False)
+    with pytest.raises(OpenAiError, match="--full-source-document-ai"):
+        require_full_source_document_ai_opt_in(ai=True, full_source_document=False)
+    with pytest.raises(OpenAiError, match="--ai"):
+        require_full_file_ai_opt_in(ai=False, full_file=True)
+
+    require_full_file_ai_opt_in(ai=True, full_file=True)
+    require_directory_ai_opt_in(ai=True, directory=True)
+    require_full_target_document_ai_opt_in(ai=True, full_target_document=True)
+    require_full_source_document_ai_opt_in(ai=True, full_source_document=True)
 
 
 def test_openai_readiness_local_check_does_not_call_network_or_expose_key(tmp_path: Path) -> None:

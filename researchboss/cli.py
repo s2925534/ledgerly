@@ -23,6 +23,8 @@ from researchboss.engine.ai import (
     openai_credentials,
     openai_readiness,
     require_ai_flag,
+    require_directory_ai_opt_in,
+    require_full_file_ai_opt_in,
 )
 from researchboss.engine.abstracts import import_abstract_folder
 from researchboss.engine.artefact_creation import SUPPORTED_ARTEFACT_TYPES, create_deterministic_artefact
@@ -1037,6 +1039,8 @@ def ai_test(
 def ai_context_preview(
     workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
     ai: bool = typer.Option(False, "--ai", help="Required explicit opt-in for AI-context preparation."),
+    full_file_ai: bool = typer.Option(False, "--full-file-ai", help="Explicitly allow whole-file AI context in future full-file commands."),
+    directory_ai: bool = typer.Option(False, "--directory-ai", help="Explicitly allow folder-level AI context in future directory commands."),
     max_sources: int = typer.Option(10, "--max-sources", help="Maximum accepted sources to include."),
     max_excerpt_chars: int = typer.Option(1200, "--max-excerpt-chars", help="Maximum converted-text excerpt characters per source."),
     log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
@@ -1046,8 +1050,19 @@ def ai_context_preview(
     ws = _resolve_workspace(workspace)
     _slug, logger, summary, summary_path, _log_path = _run_ctx(["ai", "context_preview"], ws, log_level)
     try:
-        require_ai_flag(ai)
+        if full_file_ai:
+            require_full_file_ai_opt_in(ai=ai, full_file=full_file_ai)
+        if directory_ai:
+            require_directory_ai_opt_in(ai=ai, directory=directory_ai)
+        if not full_file_ai and not directory_ai:
+            require_ai_flag(ai)
         context = build_safe_context(ws, max_sources=max_sources, max_excerpt_chars=max_excerpt_chars)
+        context["full_file_ai_opt_in"] = full_file_ai
+        context["directory_ai_opt_in"] = directory_ai
+        context["warnings"] = [
+            "Safe context preview still excludes original full files and directories.",
+            "Whole-file or directory AI use requires explicit per-run opt-in flags on commands that support it.",
+        ]
     except OpenAiError as e:
         logger.error("AI context preview failed", operation="ai_context_preview", error=str(e))
         summary.errors += 1
