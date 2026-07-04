@@ -89,7 +89,7 @@
 - [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - <span style="color: #00897b; font-weight: 600;">Deterministic</span> - Add an abstract candidate register that separates imported abstracts into candidate, filtered, not relevant, skipped, and selected-for-review groups without moving or deleting original files.
 - [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - <span style="color: #00897b; font-weight: 600;">Deterministic</span> - Add accepted-source text corpus export that can write one combined file plus a manifest while preserving individual converted text files.
 - [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - <span style="color: #00897b; font-weight: 600;">Deterministic</span> - Add PDF merge dry-run and manifest-first mode before generating merged artefact PDFs.
-- [ ] <span style="color: #00897b; font-weight: 600;">Deterministic</span> - skipped and failed processing reports for protected PDFs, corrupt PDFs, OCR-needed PDFs, missing metadata, and unsupported formats without moving originals.
+- [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - <span style="color: #00897b; font-weight: 600;">Deterministic</span> - Add skipped and failed processing reports for protected PDFs, corrupt PDFs, OCR-needed PDFs, missing metadata, and unsupported formats without moving originals.
 
 ## Phase 3: Data and Artefacts
 

@@ -655,6 +655,31 @@ def test_cli_ocr_readiness_writes_report(tmp_path: Path) -> None:
     assert "ocr_supported_locally" in report
 
 
+def test_cli_processing_issues_writes_report(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    write_yaml(
+        workspace / "source-register.yaml",
+        {
+            "version": 1,
+            "sources": [
+                {
+                    "source_id": "source-001",
+                    "file_name": "scan.pdf",
+                    "file_path": str(tmp_path / "scan.pdf"),
+                    "conversion": {"status": "failed", "error": "PDF appears to need OCR"},
+                }
+            ],
+        },
+    )
+
+    result = runner.invoke(app, ["processing-issues", "--workspace", str(workspace), "--quiet"])
+
+    assert result.exit_code == 0, result.output
+    report = read_yaml(workspace / "outputs" / "validation" / "processing-issues.yaml")
+    assert report["issues"][0]["issue_kind"] == "ocr_needed"
+
+
 def test_cli_metadata_filename_suggestions_writes_report(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")

@@ -327,3 +327,57 @@ def convert_sources(workspace: Path, *, status: Optional[str] = None, allow_ocr:
         failed=sum(1 for result in results if result.status == "failed"),
         results=results,
     )
+
+
+def processing_issue_report(workspace: Path) -> dict[str, Any]:
+    register = _load_register(workspace)
+    rows = []
+    for source in register.get("sources", []):
+        if not isinstance(source, dict):
+            continue
+        conversion = source.get("conversion") if isinstance(source.get("conversion"), dict) else {}
+        status = conversion.get("status")
+        error = str(conversion.get("error") or "")
+        issue = _processing_issue_kind(source, conversion)
+        if issue:
+            rows.append(
+                {
+                    "source_id": source.get("source_id"),
+                    "file_name": source.get("file_name"),
+                    "file_path": source.get("file_path"),
+                    "conversion_status": status or "not_converted",
+                    "issue_kind": issue,
+                    "error": error or None,
+                }
+            )
+    report = {
+        "version": 1,
+        "issue_count": len(rows),
+        "issues": rows,
+        "counts": {kind: sum(1 for row in rows if row["issue_kind"] == kind) for kind in sorted({row["issue_kind"] for row in rows})},
+        "original_files_modified": False,
+    }
+    write_yaml(workspace / "outputs" / "validation" / "processing-issues.yaml", report)
+    return report
+
+
+def _processing_issue_kind(source: dict[str, Any], conversion: dict[str, Any]) -> str | None:
+    status = conversion.get("status")
+    error = str(conversion.get("error") or "").lower()
+    file_path = Path(str(source.get("file_path") or ""))
+    metadata = source.get("citation_metadata") if isinstance(source.get("citation_metadata"), dict) else {}
+    if status == "not_supported":
+        return "unsupported_format"
+    if "ocr" in error:
+        return "ocr_needed"
+    if status == "failed":
+        if "encrypted" in error or "protected" in error or "permission" in error:
+            return "protected_file"
+        if "corrupt" in error or "bad" in error or "syntax" in error:
+            return "corrupt_file"
+        return "failed_conversion"
+    if source.get("status") in {"accepted", "maybe", "pending_review"} and not file_path.exists():
+        return "missing_file"
+    if source.get("status") == "accepted" and not (metadata.get("title") or source.get("zotero_title")):
+        return "missing_metadata"
+    return None

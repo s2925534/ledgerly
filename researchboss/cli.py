@@ -35,7 +35,7 @@ from researchboss.engine.claims import (
     set_claim_status,
     write_citation_gap_report,
 )
-from researchboss.engine.conversion import convert_sources, ocr_readiness_report
+from researchboss.engine.conversion import convert_sources, ocr_readiness_report, processing_issue_report
 from researchboss.engine.citations import apply_citation_plan, create_citation_plan
 from researchboss.engine.data import data_source_counts, list_data_sources, profile_data_sources
 from researchboss.engine.doc_validation import validate_document
@@ -1913,6 +1913,22 @@ def ocr_readiness(
     if not quiet:
         console.print(f"[green]Wrote[/green] {ws / 'outputs' / 'validation' / 'ocr-readiness.yaml'}")
         console.print(f"OCR supported locally: {report['ocr_supported_locally']}")
+
+
+@app.command("processing-issues")
+def processing_issues(
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Report skipped and failed processing issues without modifying originals."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["processing", "issues"], ws, log_level)
+    report = processing_issue_report(ws)
+    logger.info("Wrote processing issue report", operation="processing_issues", issue_count=report["issue_count"])
+    _finish(summary, summary_path)
+    if not quiet:
+        console.print(f"[green]Wrote[/green] {ws / 'outputs' / 'validation' / 'processing-issues.yaml'}")
 
 
 @metadata_app.command("extract")

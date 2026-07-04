@@ -3,9 +3,9 @@ import sys
 import types
 import zipfile
 
-from researchboss.core.yamlio import read_yaml
+from researchboss.core.yamlio import read_yaml, write_yaml
 import researchboss.engine.conversion as conversion
-from researchboss.engine.conversion import convert_sources, extract_text, ocr_readiness_report
+from researchboss.engine.conversion import convert_sources, extract_text, ocr_readiness_report, processing_issue_report
 from researchboss.engine.sources import scan_sources, set_source_status
 from researchboss.engine.workspace import init_workspace
 
@@ -160,6 +160,44 @@ def test_convert_sources_uses_explicit_ocr_fallback(tmp_path: Path, monkeypatch)
     output = Path(source["conversion"]["output_path"]).read_text(encoding="utf-8")
     assert result.converted == 1
     assert "OCR text from scan." in output
+
+
+def test_processing_issue_report_groups_failed_and_skipped_sources(tmp_path: Path) -> None:
+    workspace = make_workspace(tmp_path)
+    write_yaml(
+        workspace / "source-register.yaml",
+        {
+            "version": 1,
+            "sources": [
+                {
+                    "source_id": "ocr",
+                    "file_name": "scan.pdf",
+                    "file_path": str(tmp_path / "scan.pdf"),
+                    "conversion": {"status": "failed", "error": "PDF appears to need OCR; rerun with --ocr"},
+                },
+                {
+                    "source_id": "unsupported",
+                    "file_name": "slides.pptx",
+                    "file_path": str(tmp_path / "slides.pptx"),
+                    "conversion": {"status": "not_supported"},
+                },
+                {
+                    "source_id": "metadata",
+                    "status": "accepted",
+                    "file_name": "paper.pdf",
+                    "file_path": str(tmp_path / "paper.pdf"),
+                    "conversion": {"status": "converted"},
+                },
+            ],
+        },
+    )
+    (tmp_path / "paper.pdf").write_text("pdf", encoding="utf-8")
+
+    report = processing_issue_report(workspace)
+
+    kinds = {row["issue_kind"] for row in report["issues"]}
+    assert {"ocr_needed", "unsupported_format", "missing_metadata"} <= kinds
+    assert report["original_files_modified"] is False
 
 
 def test_extract_pdf_uses_optional_pymupdf_when_available(tmp_path: Path, monkeypatch) -> None:
