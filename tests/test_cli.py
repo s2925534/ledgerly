@@ -757,6 +757,7 @@ def test_cli_ai_workspace_report_commands_require_ai_flag(tmp_path: Path) -> Non
         ["ai", "citation-gaps"],
         ["ai", "artefact-cross-reference"],
         ["ai", "source-relevance"],
+        ["ai", "abstract-screening"],
     ]
     for command in commands:
         result = runner.invoke(app, [*command, "--workspace", str(workspace), "--quiet"])

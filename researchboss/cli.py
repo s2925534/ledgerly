@@ -1276,6 +1276,28 @@ def ai_source_relevance(
     )
 
 
+@ai_app.command("abstract-screening")
+def ai_abstract_screening(
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
+    ai: bool = typer.Option(False, "--ai", help="Required explicit opt-in for OpenAI abstract screening."),
+    max_sources: int = typer.Option(10, "--max-sources", help="Maximum accepted sources to include."),
+    max_excerpt_chars: int = typer.Option(1200, "--max-excerpt-chars", help="Maximum converted-text excerpt characters per source."),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Generate AI abstract-screening recommendations without changing abstract statuses."""
+    _run_ai_workspace_report(
+        workspace=workspace,
+        ai=ai,
+        kind="abstract_screening",
+        output_name="openai-abstract-screening.yaml",
+        max_sources=max_sources,
+        max_excerpt_chars=max_excerpt_chars,
+        log_level=log_level,
+        quiet=quiet,
+    )
+
+
 @search_app.command("plan")
 def search_plan(
     workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),

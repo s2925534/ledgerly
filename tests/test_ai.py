@@ -4,7 +4,7 @@ from urllib.request import Request
 
 import pytest
 
-from researchboss.core.yamlio import read_yaml
+from researchboss.core.yamlio import read_yaml, write_yaml
 from researchboss.engine.ai import (
     OpenAiCredentials,
     OpenAiError,
@@ -381,3 +381,28 @@ def test_ai_workspace_report_rejects_unknown_kind(tmp_path: Path) -> None:
 
     with pytest.raises(OpenAiError, match="Invalid AI workspace report kind"):
         ai_workspace_report(workspace, OpenAiCredentials(api_key="sk-secret"), kind="unknown")
+
+
+def test_ai_abstract_screening_uses_candidate_register_without_status_changes(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    write_yaml(
+        workspace / "outputs" / "recommendations" / "abstract-candidates.yaml",
+        {"version": 1, "candidates": [{"candidate_id": "abs-001", "title": "Candidate abstract"}], "filtered": []},
+    )
+
+    def opener(request: Request):
+        body = json.loads(request.data.decode("utf-8"))
+        assert "Candidate abstract" in body["input"]
+        return FakeResponse({"id": "resp_abs", "output_text": "Screening recommendations"})
+
+    report = ai_workspace_report(
+        workspace,
+        OpenAiCredentials(api_key="sk-secret"),
+        kind="abstract_screening",
+        opener=opener,
+    )
+
+    assert report["kind"] == "abstract_screening"
+    assert report["abstract_candidate_count"] == 1
+    assert report["status_changes_applied"] is False

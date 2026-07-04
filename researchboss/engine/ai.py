@@ -512,6 +512,10 @@ AI_WORKSPACE_REPORTS = {
         "title": "AI source relevance recommendations",
         "sections": "Relevant Source Signals, Low-Relevance Risks, Suggested Review Tags, Follow-up Checks, Human Review Required",
     },
+    "abstract_screening": {
+        "title": "AI-assisted abstract screening",
+        "sections": "Likely Relevant Abstracts, Low-Relevance Abstracts, Missing Metadata, Suggested Review Queue, Human Review Required",
+    },
 }
 
 
@@ -524,6 +528,9 @@ def _workspace_ai_payload(workspace: Path, context: dict[str, Any]) -> dict[str,
         },
         "claims": read_yaml(workspace / "claims-ledger.yaml").get("claims", []),
         "artefacts": read_yaml(workspace / "artefact-registry.yaml").get("artefacts", []),
+        "abstract_candidates": read_yaml(workspace / "outputs" / "recommendations" / "abstract-candidates.yaml")
+        if (workspace / "outputs" / "recommendations" / "abstract-candidates.yaml").exists()
+        else {"candidates": [], "filtered": [], "skipped": []},
     }
 
 
@@ -576,6 +583,7 @@ def ai_workspace_report(
         "source_count": len(context["sources"]),
         "claim_count": len(payload["claims"]),
         "artefact_count": len(payload["artefacts"]),
+        "abstract_candidate_count": len(payload["abstract_candidates"].get("candidates", [])),
         "research_question_count": len(payload["research_questions"]["approved"])
         + len(payload["research_questions"]["candidates"]),
         "response_id": response.get("id") if isinstance(response, dict) else None,

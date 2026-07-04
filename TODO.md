@@ -144,7 +144,7 @@
 - [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - <span style="color: #ef6c00; font-weight: 600;">AI</span> - Add explicit per-run full-file AI opt-in flags with warning output and tests before any original or converted full document can be sent to an AI provider.
 - [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - <span style="color: #ef6c00; font-weight: 600;">AI</span> - Add explicit per-run directory AI opt-in flags with warning output and tests before any folder-level content can be sent to an AI provider.
 - [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - <span style="color: #ef6c00; font-weight: 600;">AI</span> - Add AI source relevance recommendations that cite source IDs and never modify source statuses automatically through `researchboss ai source-relevance --ai`.
-- [ ] <span style="color: #ef6c00; font-weight: 600;">AI</span> - AI-assisted screening for locally imported abstracts, writing recommendations only and never changing abstract candidate statuses automatically.
+- [x] <span style="color: #2e7d32; font-weight: 600;">Done</span> - <span style="color: #ef6c00; font-weight: 600;">AI</span> - Add AI-assisted screening for locally imported abstracts, writing recommendations only and never changing abstract candidate statuses automatically.
 
 ## Future External Search Work After MVP
 
