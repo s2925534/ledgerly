@@ -4,6 +4,8 @@ All notable changes to ResearchBoss will be documented in this file.
 
 ## Unreleased
 
+- Added explicit SQLite tables for validation runs, evidence matches, citation plans, guideline registrations, search query history, and document version metadata.
+- Bumped project version to 0.6.1.
 - Added Phase 7 workspace SQLite memory, indexing, and sync through `researchboss db init/sync/status/rebuild`.
 - Added reviewed SQLite-to-YAML/Markdown pending-change commands through `researchboss db apply-pending --review` and `researchboss db apply-pending --apply`.
 - Added SQLite memory defaults, document aliases, bounded FTS indexes, integrity/rebuild checks, and database privacy checks.

@@ -1,6 +1,6 @@
 # ResearchBoss
 
-Current version: 0.6.0
+Current version: 0.6.1
 
 ResearchBoss is a local-first, evidence-first research workspace for managing research context, source files, review state, and project memory without requiring cloud services for the MVP.
 
@@ -62,7 +62,7 @@ Phase 1 complete:
 - Guideline registration through `researchboss guidelines add`, with local or remote snapshots and extracted text stored inside the workspace, plus validated guideline scopes
 - Optional workspace SQLite index and memory layer through `researchboss db init/sync/status/rebuild`, preserving YAML and Markdown as the source of truth
 - Reviewed SQLite-to-YAML/Markdown pending-change flow through `researchboss db apply-pending --review` and `researchboss db apply-pending --apply`
-- SQLite memory defaults, document aliases, bounded FTS indexes, repair checks, and database privacy checks through `researchboss db privacy`
+- SQLite memory defaults, explicit research index tables, document aliases, bounded FTS indexes, repair checks, and database privacy checks through `researchboss db privacy`
 - Zotero-style citation wording during init, including explicit `American Psychological Association 7th edition`
 - Strict one-way Zotero-to-ResearchBoss blocker config that prevents writes inside the local Zotero directory
 - SHA-256 file hashing

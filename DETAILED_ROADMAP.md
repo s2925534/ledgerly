@@ -332,6 +332,7 @@ Implemented:
 - Sync metadata with file hashes, last synced timestamps, database revisions, file revisions, dirty flags, and conflict status.
 - Reviewed pending-change write-back through `researchboss db apply-pending --review` and `researchboss db apply-pending --apply`.
 - Memory tables for query patterns, user preferences, guideline decisions, citation decisions, validation notes, claim-source links, and AI-safe context choices.
+- Explicit research index tables for validation runs, evidence matches, citation plans, guideline registrations, search query history, and document version metadata.
 - Document aliases for primary outputs and artefact registry IDs/titles.
 - Bounded SQLite FTS indexes for converted source text, artefact text, guideline text, claims, references, and document sections.
 - SQLite integrity/repair status and rebuild-from-YAML behavior.
