@@ -4,6 +4,10 @@ All notable changes to ResearchBoss will be documented in this file.
 
 ## Unreleased
 
+- Added Phase 7 workspace SQLite memory, indexing, and sync through `researchboss db init/sync/status/rebuild`.
+- Added reviewed SQLite-to-YAML/Markdown pending-change commands through `researchboss db apply-pending --review` and `researchboss db apply-pending --apply`.
+- Added SQLite memory defaults, document aliases, bounded FTS indexes, integrity/rebuild checks, and database privacy checks.
+- Bumped project version to 0.6.0.
 - Added deterministic document target resolution and `researchboss validate <target>` reports with strengths, weaknesses, unsupported or weakly supported sentences, citation gaps, confidence factors, confidence scores, and APA7 references.
 - Added guideline registration through `researchboss guidelines add/list`, with workspace-local snapshots, extracted text, and validated scopes.
 - Bumped project version to 0.5.4.

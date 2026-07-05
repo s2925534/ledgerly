@@ -1,6 +1,6 @@
 # ResearchBoss
 
-Current version: 0.5.4
+Current version: 0.6.0
 
 ResearchBoss is a local-first, evidence-first research workspace for managing research context, source files, review state, and project memory without requiring cloud services for the MVP.
 
@@ -60,6 +60,9 @@ Phase 1 complete:
 - Explicit Scopus external-search runs with structured query plans, legacy params-file import, query strategy modes, local snapshots, query validation, quality-scored candidate registers, threshold filters, no-result or low-result logs, saved refine plans, and local candidate reports
 - Deterministic document target resolution and `researchboss validate <target>` reports with strengths, weaknesses, unsupported or weakly supported sentences, citation gaps, confidence factors, confidence scores, and APA7 references
 - Guideline registration through `researchboss guidelines add`, with local or remote snapshots and extracted text stored inside the workspace, plus validated guideline scopes
+- Optional workspace SQLite index and memory layer through `researchboss db init/sync/status/rebuild`, preserving YAML and Markdown as the source of truth
+- Reviewed SQLite-to-YAML/Markdown pending-change flow through `researchboss db apply-pending --review` and `researchboss db apply-pending --apply`
+- SQLite memory defaults, document aliases, bounded FTS indexes, repair checks, and database privacy checks through `researchboss db privacy`
 - Zotero-style citation wording during init, including explicit `American Psychological Association 7th edition`
 - Strict one-way Zotero-to-ResearchBoss blocker config that prevents writes inside the local Zotero directory
 - SHA-256 file hashing
@@ -106,6 +109,7 @@ researchboss/
     claims.py         # manual claim ledger and citation gap helpers
     conversion.py     # TXT, MD, DOCX, and PDF-to-text conversion
     data.py           # CSV, SQLite, and JSON profiling
+    database.py       # optional workspace SQLite index, memory, sync, and privacy checks
     metadata.py       # deterministic citation metadata extraction
     migrations.py     # workspace config migrations
     reports.py        # local Markdown report generation
@@ -370,6 +374,23 @@ Source statuses are currently limited to:
 
 The source review commands update local workspace YAML files. Conversion, metadata extraction, data profiling, claim checks, and reports are local deterministic workflows and can be filtered by source status where supported.
 
+## Workspace SQLite
+
+`researchboss.sqlite` is optional and local to each workspace. YAML and Markdown files remain the human-readable source of truth. The database is a rebuildable index, cache, memory layer, and controlled sync layer.
+
+Useful commands:
+
+```bash
+researchboss db init --workspace workspaces/<workspace-name>
+researchboss db sync --workspace workspaces/<workspace-name>
+researchboss db status --workspace workspaces/<workspace-name>
+researchboss db privacy --workspace workspaces/<workspace-name>
+researchboss db apply-pending --review --workspace workspaces/<workspace-name>
+researchboss db rebuild --workspace workspaces/<workspace-name>
+```
+
+SQLite-to-file write-back is never silent. Proposed database-originated changes must be in the pending-change table and reviewed before `researchboss db apply-pending --apply` writes to YAML or Markdown.
+
 ## Validation
 
 Run these checks before committing:
@@ -389,7 +410,7 @@ The detailed living roadmap is maintained in `DETAILED_ROADMAP.md`. Update that 
 4. Research stages and research question approval workflows complete for deterministic local MVP paths.
 5. Add optional OpenAI features with strict privacy boundaries.
 6. Add deterministic document validation, guideline handling, citation assistance, and later explicit AI opt-ins for whole-document workflows.
-7. Add optional workspace SQLite memory, indexing, and sync.
+7. Optional workspace SQLite memory, indexing, and sync complete for deterministic local MVP paths.
 8. Add a local document vault with versions, manifests, and restoration workflows.
 9. Add a local FastAPI backend.
 10. Prepare a cross-platform UI.

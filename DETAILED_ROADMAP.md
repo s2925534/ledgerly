@@ -321,13 +321,21 @@ Next deterministic work:
 
 ### Phase 7: Workspace SQLite Memory, Indexing, and Sync
 
-Status: not started.
+Status: implemented for deterministic local MVP paths.
 
-Next work:
+Implemented:
 
-- Add optional local `researchboss.sqlite`.
-- Preserve YAML and Markdown files as the human-readable source of truth.
-- Add database init/sync/status/rebuild commands and pending-change review.
+- Optional local `researchboss.sqlite` inside each workspace.
+- YAML and Markdown remain the human-readable source of truth.
+- SQLite is a rebuildable index, cache, memory layer, and controlled sync layer.
+- `researchboss db init`, `researchboss db sync`, `researchboss db status`, and `researchboss db rebuild`.
+- Sync metadata with file hashes, last synced timestamps, database revisions, file revisions, dirty flags, and conflict status.
+- Reviewed pending-change write-back through `researchboss db apply-pending --review` and `researchboss db apply-pending --apply`.
+- Memory tables for query patterns, user preferences, guideline decisions, citation decisions, validation notes, claim-source links, and AI-safe context choices.
+- Document aliases for primary outputs and artefact registry IDs/titles.
+- Bounded SQLite FTS indexes for converted source text, artefact text, guideline text, claims, references, and document sections.
+- SQLite integrity/repair status and rebuild-from-YAML behavior.
+- Database privacy checks for secrets, full original documents, Zotero-owned file boundaries, and unintended large/original content storage.
 
 ### Phase 8: Document Vault, Versioning, and Restoration
 
@@ -670,7 +678,7 @@ Missing:
 
 ## 15. Immediate Next Steps
 
-Phase 1 through the currently implemented deterministic Phase 6 work is complete for the committed items. Remaining work includes Phase 2 PDF/text enhancements, Phase 6 guideline/citation follow-ups, Phase 7 SQLite memory, Phase 8 document vault/versioning, API/backend work, AI privacy-boundary work, UI preparation, and packaging.
+Phase 1 through the currently implemented deterministic Phase 7 work is complete for the committed items. Remaining work includes Phase 8 document vault/versioning, API/backend work, AI privacy-boundary work, UI preparation, and packaging.
 
 1. Add richer PDF extraction using an optional local dependency.
    - Why: current PDF support is intentionally conservative for simple uncompressed streams.
@@ -686,12 +694,12 @@ Phase 1 through the currently implemented deterministic Phase 6 work is complete
    - Complexity: medium.
    - Phase: 6.
 
-3. Start SQLite memory and sync design after guideline defaults are stable.
-   - Why: SQLite should index and remember workspace state without replacing YAML/Markdown as the human-readable source of truth.
-   - Likely files: new database engine module, CLI commands, tests.
-   - Tests: init/status/sync/rebuild, hash tracking, pending-change behavior.
+3. Start document vault and versioning.
+   - Why: citation application, AI-assisted editing, and restoration need explicit document versions before any workflow modifies generated copies.
+   - Likely files: new document vault engine module, CLI commands, tests, workspace folders.
+   - Tests: version creation, snapshot hashes, diff metadata, restore-copy behavior, Zotero no-write boundary.
    - Complexity: high.
-   - Phase: 7.
+   - Phase: 8.
 
 ## 15a. Useful Ideas Learned From `../pdf-merge`
 
@@ -716,7 +724,7 @@ Not suitable for MVP right now:
 
 ## 16. Recommended Resume Point
 
-Resume with either Phase 6 guideline defaults/priorities, a Phase 2 PDF extraction enhancement, or Phase 7 SQLite memory design. FastAPI remains Phase 9 and should wait until the validation, citation, SQLite, and document-vault engine contracts are stable. AI work remains intentionally separated until privacy-boundary tests are designed.
+Resume with Phase 8 document vault, versioning, and restoration. FastAPI remains Phase 9 and should wait until validation, citation, SQLite, and document-vault engine contracts are stable. AI work remains intentionally separated behind explicit opt-in and privacy-boundary tests.
 
 ## 17. Maintenance Rule
 

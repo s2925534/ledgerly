@@ -9,6 +9,10 @@ htmlcov/
 dist/
 build/
 *.egg-info/
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
 
 # Generated ResearchBoss workspaces.
 /workspaces/**
