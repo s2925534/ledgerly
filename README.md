@@ -216,19 +216,35 @@ researchboss init
 researchboss status [--workspace <path>]
 researchboss config validate [--workspace <path>]
 researchboss config migrate [--workspace <path>]
-researchboss scan [--workspace <path>] [--source <source-folder>]
-researchboss convert [--workspace <path>] [--status accepted]
+researchboss scan [--workspace <path>] [--source <source-folder>] [--kind local_folder|zotero_storage]
+researchboss convert [--workspace <path>] [--status accepted] [--ocr]
+researchboss validate <target> [--workspace <path>] [--source-path <path>] [--guidelines <guideline-id>] [--no-default-guidelines]
 researchboss metadata extract [--workspace <path>]
+researchboss metadata sidecars [--workspace <path>]
+researchboss metadata filename-suggestions [--workspace <path>]
 researchboss data profile [--workspace <path>]
 researchboss data list [--workspace <path>]
 researchboss data status [--workspace <path>]
 researchboss report [--workspace <path>]
+researchboss report-schemas [--workspace <path>]
 researchboss watch [--workspace <path>]
 researchboss health [--workspace <path>]
 researchboss timeline [--workspace <path>]
 researchboss backup [--workspace <path>] [--include-originals]
 researchboss backup-inspect <backup.zip> [--workspace <path>]
 researchboss export-evidence [--workspace <path>]
+researchboss export-corpus [--workspace <path>]
+researchboss merge-pdfs [--workspace <path>] [--write] [--output <path>]
+researchboss ocr-readiness [--workspace <path>]
+researchboss processing-issues [--workspace <path>]
+researchboss guidelines add <path-or-url> [--workspace <path>]
+researchboss guidelines list [--workspace <path>]
+researchboss guidelines defaults <guideline-id>... [--workspace <path>]
+researchboss guidelines conflicts [--workspace <path>]
+researchboss guidelines ai-context --ai [--workspace <path>] [--full-guidelines-ai] [--max-excerpt-chars <n>]
+researchboss cite plan <target> [--workspace <path>] [--source-path <path>] [--guidelines <guideline-id>] [--no-default-guidelines] [--allow-candidate-citations]
+researchboss cite ai-plan <target> --ai [--workspace <path>] [--full-target-document-ai] [--source-path <path>] [--allow-candidate-citations]
+researchboss cite apply <target> [--plan <plan.yaml>] [--workspace <path>]
 researchboss ai test [--workspace <path>] [--ai]
 researchboss ai context-preview --ai [--workspace <path>]
 researchboss ai review --ai [--workspace <path>]
@@ -239,7 +255,12 @@ researchboss ai claim-check --ai [--workspace <path>]
 researchboss ai citation-gaps --ai [--workspace <path>]
 researchboss ai artefact-cross-reference --ai [--workspace <path>]
 researchboss ai source-relevance --ai [--workspace <path>]
+researchboss ai abstract-screening --ai [--workspace <path>] [--max-sources <n>] [--max-excerpt-chars <n>]
+researchboss abstracts import <folder> [--workspace <path>]
 researchboss search plan [--workspace <path>] [--strategy broad|balanced|strict] [--params-file <path>]
+researchboss search ai-query-plan --ai --external-search [--workspace <path>] [--max-sources <n>] [--max-excerpt-chars <n>]
+researchboss search ai-candidate-review --ai --external-search [--workspace <path>] [--full-source-document-ai] [--max-sources <n>] [--max-excerpt-chars <n>]
+researchboss search import-candidates --candidate-id <id> [--workspace <path>]
 researchboss search refine-plan [--workspace <path>]
 researchboss search reports [--workspace <path>]
 researchboss search scopus-test --external-search [--workspace <path>]
@@ -390,6 +411,68 @@ researchboss db rebuild --workspace workspaces/<workspace-name>
 ```
 
 SQLite-to-file write-back is never silent. Proposed database-originated changes must be in the pending-change table and reviewed before `researchboss db apply-pending --apply` writes to YAML or Markdown.
+
+## Document Validation, Guidelines, and Citation Planning
+
+`researchboss validate <target>` deterministically checks a document (by path, artefact ID/title, alias, or artefact type) against accepted sources and any `--source-path` values you pass explicitly. It writes a local report with strengths, weaknesses, unsupported or weakly supported sentences, citation gaps, confidence scores, and APA7 references. Nothing is sent to AI and the original document is never modified.
+
+Guidelines (style guides, supervisor requirements, formatting rules) are registered locally and applied during validation and citation planning:
+
+```bash
+researchboss guidelines add <path-or-url> --workspace <workspace>
+researchboss guidelines list --workspace <workspace>
+researchboss guidelines defaults <guideline-id>... --workspace <workspace>
+researchboss guidelines conflicts --workspace <workspace>
+```
+
+`guidelines defaults` sets the workspace default guideline IDs and their precedence order, applied automatically by `validate` and `cite plan` unless `--no-default-guidelines` or explicit `--guidelines <id>` overrides are passed. `guidelines conflicts` writes a deterministic report of contradictory guideline requirements to `outputs/validation/guideline-conflicts.yaml` for human review. `guidelines ai-context --ai` is the explicit AI opt-in for guideline reasoning; it sends bounded excerpts by default and only includes full guideline text with `--full-guidelines-ai`.
+
+Citation planning turns a validation report's missing-citation findings into a reviewable, non-destructive plan:
+
+```bash
+researchboss cite plan <target> --workspace <workspace>
+researchboss cite ai-plan <target> --ai --workspace <workspace>
+researchboss cite apply <target> --workspace <workspace>
+```
+
+`cite plan` is deterministic and writes `outputs/citation-plans/citation-plan-<target>.yaml` and `.md`. `cite ai-plan` is the AI-assisted equivalent behind explicit `--ai`, and only sends the full target document text with an additional `--full-target-document-ai` opt-in. Both plan commands only suggest citations from `accepted` sources unless `--allow-candidate-citations` is passed. `cite apply` reads a reviewed plan (from `--plan` or the default plan path) and writes the accepted insertions to a revised output copy — it never edits the original document in place.
+
+## Abstract Screening and External Candidate Import
+
+Legacy or externally sourced abstracts can be imported into a reviewable local candidate register before they become workspace sources:
+
+```bash
+researchboss abstracts import <folder> --workspace <workspace>
+researchboss ai abstract-screening --ai --workspace <workspace>
+researchboss search import-candidates --candidate-id <id> --workspace <workspace>
+```
+
+`abstracts import` reads local abstract text files from `<folder>` and writes a candidate register; it does not register sources by itself. `ai abstract-screening --ai` generates AI-assisted screening recommendations from accepted-source metadata and bounded excerpts without changing any abstract's status. `search import-candidates` promotes reviewed external search candidates (see below) into the source register as metadata-only `pending_review` sources.
+
+External-search query and candidate assistance follow the same `--ai` plus `--external-search` double opt-in as other external-search commands:
+
+```bash
+researchboss search ai-query-plan --ai --external-search --workspace <workspace>
+researchboss search ai-candidate-review --ai --external-search --workspace <workspace>
+```
+
+`ai-query-plan` suggests external-search queries without executing them. `ai-candidate-review` reviews external candidates for relevance and novelty from metadata and abstracts first; sending full source documents requires the additional `--full-source-document-ai` opt-in.
+
+## Metadata and Document Processing Utilities
+
+```bash
+researchboss metadata sidecars --workspace <workspace>
+researchboss metadata filename-suggestions --workspace <workspace>
+researchboss export-corpus --workspace <workspace>
+researchboss merge-pdfs --workspace <workspace> [--write] [--output <path>]
+researchboss ocr-readiness --workspace <workspace>
+researchboss processing-issues --workspace <workspace>
+researchboss report-schemas --workspace <workspace>
+```
+
+`metadata sidecars` parses local CSL JSON, BibTeX, and RIS sidecar files to fill in registered source metadata without inventing fields. `metadata filename-suggestions` writes deterministic renaming suggestions under `outputs/recommendations/filename-suggestions.yaml` without renaming original files. `convert --ocr` explicitly allows a local OCR fallback for scanned PDFs; `ocr-readiness` reports whether local OCR tooling is available without processing any documents, and `processing-issues` reports skipped or failed conversions without modifying originals.
+
+`export-corpus` writes accepted sources' converted text into a single local corpus file plus a manifest under `outputs/`. `merge-pdfs` writes a merge manifest by default (dry run); pass `--write` to also produce a merged PDF artefact, optionally at a custom `--output` path. `report-schemas` writes the documented schema contracts for validation, citation, confidence, guideline-conflict, and APA7-reference reports to `outputs/reports/report-schemas.yaml` and `.md`.
 
 ## Validation
 

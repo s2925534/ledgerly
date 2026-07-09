@@ -10,6 +10,16 @@ All notable changes to ResearchBoss will be documented in this file.
 - Added reviewed SQLite-to-YAML/Markdown pending-change commands through `researchboss db apply-pending --review` and `researchboss db apply-pending --apply`.
 - Added SQLite memory defaults, document aliases, bounded FTS indexes, integrity/rebuild checks, and database privacy checks.
 - Bumped project version to 0.6.0.
+- Added AI-assisted citation planning through `researchboss cite ai-plan --ai`, with an explicit `--full-target-document-ai` opt-in for whole-document AI use, and safe AI guideline context preparation through `researchboss guidelines ai-context --ai`.
+- Added Scopus metric provenance to quality-scored external candidate reports.
+- Added AI candidate validation review through `researchboss search ai-candidate-review --ai --external-search` and AI external query planning through `researchboss search ai-query-plan --ai --external-search`.
+- Added AI abstract-screening reports through `researchboss ai abstract-screening --ai`, alongside explicit full-context AI opt-in gates for whole-document and whole-source-document AI use.
+- Added local processing-issue reports through `researchboss processing-issues` and local abstract candidate import through `researchboss abstracts import`.
+- Added local PDF merge manifests through `researchboss merge-pdfs`, deterministic sidecar metadata import through `researchboss metadata sidecars`, an explicit local OCR fallback for scanned PDFs through `researchboss convert --ocr`, optional local PDF text extractors, and deterministic filename suggestions through `researchboss metadata filename-suggestions`.
+- Added accepted-source corpus export through `researchboss export-corpus`, local Zotero candidate matching, and reviewed external candidate imports through `researchboss search import-candidates`.
+- Added deterministic citation plans and reviewed citation-plan application through `researchboss cite plan` and `researchboss cite apply`, expanded citation application formats, and citation candidate safety gates that require `--allow-candidate-citations` before suggesting citations from non-accepted sources.
+- Added report schema guidance through `researchboss report-schemas`.
+- Added guideline conflict reports through `researchboss guidelines conflicts` and guideline defaults/precedence through `researchboss guidelines defaults`.
 - Added deterministic document target resolution and `researchboss validate <target>` reports with strengths, weaknesses, unsupported or weakly supported sentences, citation gaps, confidence factors, confidence scores, and APA7 references.
 - Added guideline registration through `researchboss guidelines add/list`, with workspace-local snapshots, extracted text, and validated scopes.
 - Bumped project version to 0.5.4.
