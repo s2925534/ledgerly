@@ -214,7 +214,7 @@ console = Console()
 DEFAULT_WORKSPACES_DIR = "workspaces"
 CLI_DEFAULTS_FILE = ".researchboss-cli.local.yaml"
 MIN_PYTHON = (3, 11)
-REQUIRED_RUNTIME_MODULES = ["click", "typer", "rich", "pydantic", "yaml"]
+REQUIRED_RUNTIME_MODULES = ["click", "typer", "rich", "pydantic", "yaml", "fastapi", "uvicorn"]
 
 
 def _runtime_check_errors() -> list[str]:
@@ -581,6 +581,18 @@ def doctor():
         raise typer.Exit(code=2)
 
     console.print(f"[green]OK[/green] ResearchBoss {__version__} is ready.")
+
+
+@app.command()
+def serve(
+    host: str = typer.Option("127.0.0.1", "--host", help="Bind host. Use 0.0.0.0 only behind a reverse proxy/auth layer."),
+    port: int = typer.Option(8000, "--port", help="Bind port."),
+    reload: bool = typer.Option(False, "--reload", help="Auto-reload on source changes (development only)."),
+):
+    """Run the local ResearchBoss FastAPI app with uvicorn."""
+    import uvicorn
+
+    uvicorn.run("researchboss.api.app:app", host=host, port=port, reload=reload)
 
 
 @app.command()

@@ -4,6 +4,8 @@ All notable changes to ResearchBoss will be documented in this file.
 
 ## Unreleased
 
+- Started Phase 9 local FastAPI backend (`researchboss.api`, run with `researchboss serve`): app factory with a shared response envelope and error handling, plus `GET /health` (no workspace/auth dependency), `GET/POST /api/v1/projects/*`, and the `POST/GET /api/v1/doc/*` document-versioning routes, all reusing existing tested engine functions.
+- Bumped project version to 0.7.1.
 - Added Phase 8 local document vault, versioning, and restoration through `researchboss doc version/versions/diff/restore/compare`, with a `document-vault.yaml` ledger and a `document_vault/` folder for originals, versions, diffs, and manifests.
 - Added automatic pre/post-change document version snapshots to `researchboss cite apply`, linking each applied citation copy to its source snapshot, validation report ID, and citation plan ID.
 - Added `document_versions` SQLite sync so `researchboss db sync` indexes document vault version history.

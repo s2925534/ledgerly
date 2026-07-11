@@ -1,6 +1,6 @@
 # ResearchBoss
 
-Current version: 0.7.0
+Current version: 0.7.1
 
 ResearchBoss is a local-first, evidence-first research workspace for managing research context, source files, review state, and project memory without requiring cloud services for the MVP.
 
@@ -451,6 +451,16 @@ researchboss doc restore <version-id> --workspace <workspace>
 
 `doc version` snapshots a target (path, artefact ID/title, alias, or artefact type) into the vault, recording its content hash, parent version, creation reason, source command, and — when applicable — the linked validation report and citation plan IDs. `doc diff` shows a unified text diff between two versions (Markdown/TXT only; other formats report `diff_supported: false` rather than guessing). `doc compare` shows how a target's validation strengths, weaknesses, unsupported claims, and references changed between two versions, when both carry a linked validation report. `doc restore` always writes a new, separate copy rather than overwriting the current document or deleting newer versions.
 
+## Local API
+
+`researchboss serve` runs a local FastAPI app (`researchboss.api`) that is a thin transport layer over the same `researchboss.engine` functions the CLI uses — no route duplicates business logic. It binds to `127.0.0.1` by default; use `0.0.0.0` only behind a reverse proxy and auth layer.
+
+```bash
+researchboss serve --host 127.0.0.1 --port 8000
+```
+
+Implemented so far: `GET /health` (no workspace or auth dependency, for deploy/update health checks), `GET /api/v1/projects/status`, `POST /api/v1/projects/init`, `GET /api/v1/projects/health`, and the document vault routes `POST /api/v1/doc/version`, `GET /api/v1/doc/versions`, `GET /api/v1/doc/diff`, `GET /api/v1/doc/compare`, and `POST /api/v1/doc/restore`. Every response uses the envelope `{"ok", "data", "warnings", "errors"}` documented in `docs/api/CONTRACT.md`, which also lists the remaining planned routes. Auth and additional route groups are not implemented yet — do not expose `researchboss serve` on a public interface until login protection lands.
+
 ## Abstract Screening and External Candidate Import
 
 Legacy or externally sourced abstracts can be imported into a reviewable local candidate register before they become workspace sources:
@@ -509,7 +519,7 @@ The detailed living roadmap is maintained in `DETAILED_ROADMAP.md`. Update that 
 6. Add deterministic document validation, guideline handling, citation assistance, and later explicit AI opt-ins for whole-document workflows.
 7. Optional workspace SQLite memory, indexing, and sync complete for deterministic local MVP paths.
 8. Document vault, versioning, and restoration complete for deterministic local MVP paths (`researchboss doc version/versions/diff/restore/compare`); derived-text anchoring and AI edit sessions remain future work.
-9. Add a local FastAPI backend.
+9. Local FastAPI backend started: app skeleton, `researchboss serve`, health/projects/document-vault routes live; sources, artefacts, research questions, AI, validation, citation, and guideline routes remain.
 10. Prepare a cross-platform UI.
 11. Add packaging plans for desktop distribution.
 

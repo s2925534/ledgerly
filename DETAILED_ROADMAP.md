@@ -358,12 +358,22 @@ Next work:
 
 ### Phase 9: FastAPI Local Backend
 
-Status: contract defined, backend not started.
+Status: started.
+
+Done:
+
+- App factory (`researchboss/api/app.py`) with the documented `{ok, data, warnings, errors}` response envelope and `ApiError`-to-JSON exception handling.
+- Workspace-resolution dependency requiring an explicit `workspace` query parameter (no interactive discovery, unlike the CLI).
+- `GET /health` outside `/api/v1`, with no workspace or auth dependency.
+- `GET /api/v1/projects/status`, `GET /api/v1/projects/health`, `POST /api/v1/projects/init` (409s rather than silently overwriting an already-initialized workspace).
+- `POST /api/v1/doc/version`, `GET /api/v1/doc/versions`, `GET /api/v1/doc/diff`, `GET /api/v1/doc/compare`, `POST /api/v1/doc/restore`.
+- `researchboss serve` to run the app with uvicorn; route tests via `fastapi.testclient.TestClient`.
 
 Next work:
 
-- Add a minimal local FastAPI app skeleton.
-- Add local API routes after core behavior is tested.
+- Routes for sources, artefacts, research questions, reports, settings, logs, AI, novelty, validation, citation plans, guidelines, and SQLite sync status.
+- Single-user login protection guarding `/api/v1` routes (needs a credential-storage design decision).
+- Artefact upload, batch limits, and cross-reference routes (need new engine-level functions first — none of this exists in `researchboss.engine` yet).
 
 ### Phase 10: Cross-Platform UI Preparation
 
@@ -688,7 +698,7 @@ Missing:
 
 ## 15. Immediate Next Steps
 
-Phase 1 through the currently implemented deterministic Phase 8 work is complete for the committed items. Remaining work includes derived-text anchoring and AI edit sessions in Phase 8, API/backend work, AI privacy-boundary work, UI preparation, and packaging.
+Phase 1 through the currently implemented deterministic Phase 8 work is complete for the committed items. A minimal FastAPI app skeleton and first routes (health, projects, document vault) are also live. Remaining work includes derived-text anchoring and AI edit sessions in Phase 8, the rest of the Phase 9 route groups, login protection, AI privacy-boundary work, UI preparation, and packaging.
 
 1. Add derived text snapshots, section maps, paragraph IDs, claim IDs, reference IDs, and citation insertion anchors per document version.
    - Why: repeatable AI-assisted editing needs stable anchors into a document version rather than re-matching raw text each run.
@@ -697,11 +707,18 @@ Phase 1 through the currently implemented deterministic Phase 8 work is complete
    - Complexity: high — needs an explicit anchor-ID design decision before implementation.
    - Phase: 8 remainder.
 
-2. Add a minimal local FastAPI app skeleton and the first read-only routes.
-   - Why: validation, citation, SQLite sync, and document-vault engine contracts are now tested, satisfying the AGENTS.md gate on starting Phase 9.
-   - Likely files: new `researchboss/api` package, `docs/api/CONTRACT.md` cross-checks, tests.
-   - Tests: routes call shared engine functions only, workspace-scoped writes, no-Zotero-write boundary.
-   - Complexity: high.
+2. Add the remaining Phase 9 route groups: sources, artefacts, research questions, reports, validation, citation plans, guidelines, and SQLite sync status.
+   - Why: `docs/api/CONTRACT.md` already specifies these routes; each maps to an existing, tested engine function, so this is mechanical route-wrapping rather than new design.
+   - Likely files: new modules under `researchboss/api/routers/`, `researchboss/api/app.py` router registration, tests.
+   - Tests: routes call shared engine functions only, workspace-scoped writes, no-Zotero-write boundary, per route group.
+   - Complexity: medium per route group.
+   - Phase: 9.
+
+3. Add single-user login protection guarding `/api/v1` routes.
+   - Why: a deployed instance (Phase 12) holds one researcher's private workspace data; every other route group should land behind auth before any public deployment.
+   - Likely files: new `researchboss/api/auth.py`, session/credential storage, `researchboss/api/app.py` middleware wiring, tests.
+   - Tests: unauthenticated requests rejected, session expiry, no secrets in logs/SQLite/git.
+   - Complexity: medium — needs a credential-storage design decision (e.g. env-var-configured password hash vs. a local credentials file).
    - Phase: 9.
 
 ## 15a. Useful Ideas Learned From `../pdf-merge`
@@ -727,7 +744,7 @@ Not suitable for MVP right now:
 
 ## 16. Recommended Resume Point
 
-Deterministic Phase 8 document vault, versioning, and restoration is complete. Resume with either the remaining Phase 8 derived-text/anchor work or Phase 9 FastAPI, now that validation, citation, SQLite, and document-vault engine contracts are stable. AI work remains intentionally separated behind explicit opt-in and privacy-boundary tests.
+Deterministic Phase 8 document vault, versioning, and restoration is complete, and Phase 9 FastAPI has a live app skeleton with health/projects/document-vault routes. Resume with either the remaining Phase 8 derived-text/anchor work or the remaining Phase 9 route groups and login protection. AI work remains intentionally separated behind explicit opt-in and privacy-boundary tests.
 
 ## 17. Maintenance Rule
 

@@ -2,7 +2,7 @@
 
 This document defines the planned FastAPI boundary for ResearchBoss before any backend routes are implemented.
 
-Contract status: planned for project version `0.4.1`.
+Contract status: implementation started in project version `0.7.0` (`researchboss.api`, run with `researchboss serve`). Routes marked `(implemented)` below are live; all other routes remain planned.
 
 The API must be local-first, workspace-scoped, and a thin transport layer over `researchboss.engine` functions. It must not duplicate business logic already implemented in the engine.
 
@@ -58,9 +58,15 @@ Error shape:
 }
 ```
 
+## Health
+
+### `GET /health` (implemented)
+
+Liveness check outside `/api/v1`, with no workspace or auth dependency, so NAS deploy/update health checks succeed independently of login state.
+
 ## Projects And Workspace Routes
 
-### `GET /api/v1/projects/status`
+### `GET /api/v1/projects/status` (implemented)
 
 Returns workspace status and source counts.
 
@@ -68,17 +74,17 @@ Engine source:
 
 - `researchboss.engine.sources.source_counts`
 
-### `POST /api/v1/projects/init`
+### `POST /api/v1/projects/init` (implemented)
 
-Creates a local workspace.
+Creates a local workspace. Returns `409 workspace_already_exists` if the target already contains `research-context.yaml`, rather than silently overwriting it.
 
 Engine source:
 
 - `researchboss.engine.workspace.init_workspace`
 
-Body fields should mirror the CLI init fields, including project type, topic, source mode, citation style, output type, AI preference metadata, and privacy preferences.
+Body fields mirror the CLI init fields, including project type, topic, source mode, citation style, output type, AI preference metadata, and privacy preferences.
 
-### `GET /api/v1/projects/health`
+### `GET /api/v1/projects/health` (implemented)
 
 Returns deterministic workspace health checks.
 
@@ -387,7 +393,7 @@ Rules:
 
 ## Document Vault Routes
 
-### `POST /api/v1/doc/version`
+### `POST /api/v1/doc/version` (implemented)
 
 Snapshots a target document into the local document vault.
 
@@ -395,7 +401,7 @@ Engine source:
 
 - `researchboss.engine.vault.create_document_version`
 
-### `GET /api/v1/doc/versions`
+### `GET /api/v1/doc/versions` (implemented)
 
 Lists document vault versions, optionally filtered by target.
 
@@ -403,7 +409,7 @@ Engine source:
 
 - `researchboss.engine.vault.list_document_versions`
 
-### `GET /api/v1/doc/diff`
+### `GET /api/v1/doc/diff` (implemented)
 
 Compares two document vault versions.
 
@@ -411,7 +417,7 @@ Engine source:
 
 - `researchboss.engine.vault.diff_document_versions`
 
-### `POST /api/v1/doc/restore`
+### `POST /api/v1/doc/restore` (implemented)
 
 Restores a document vault version as a new copy without overwriting the current document.
 
@@ -419,7 +425,7 @@ Engine source:
 
 - `researchboss.engine.vault.restore_document_version`
 
-### `GET /api/v1/doc/compare`
+### `GET /api/v1/doc/compare` (implemented)
 
 Compares how document strengths, weaknesses, unsupported claims, and references changed between two versions, when both versions have a linked validation report.
 

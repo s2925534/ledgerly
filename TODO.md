@@ -233,10 +233,11 @@
 
 ## Phase 9: FastAPI Local Backend
 
-- [ ] **API** - a local FastAPI app after engine contracts for validation, citation, SQLite sync, and document versioning are tested.
-- [ ] **API** - routes for projects, sources, artefacts, research questions, reports, settings, logs, AI, novelty, validation, citation plans, guidelines, SQLite sync status, and document versions.
-- [ ] **API** - API implementation that reuses engine logic rather than duplicating business logic.
-- [ ] **API** - API route tests that preserve local-first, no-Zotero-write, no-secret-logging, and explicit-AI-opt-in boundaries.
+- [x] **Done** - **API** - a local FastAPI app (app factory, response envelope, workspace-resolution dependency, error handling, `researchboss serve`) after engine contracts for validation, citation, SQLite sync, and document versioning were tested.
+- [x] **Done** - **API** - `GET /health`, `GET/POST /api/v1/projects/*`, and `POST/GET /api/v1/doc/*` document-versioning routes.
+- [ ] **API** - routes for sources, artefacts, research questions, reports, settings, logs, AI, novelty, validation, citation plans, guidelines, and SQLite sync status.
+- [x] **Done** - **API** - API implementation that reuses engine logic rather than duplicating business logic.
+- [x] **Done** - **API** - API route tests proving workspace-scoped writes and no original-file modification for the routes built so far; no-Zotero-write, no-secret-logging, and explicit-AI-opt-in boundary tests remain as those route groups are added.
 - [ ] **API** - Add `POST /api/v1/artefacts/upload` for batch artefact uploads, reusing document-vault and artefact-registration engine logic rather than duplicating upload handling in the API layer.
 - [ ] **API** - Add configurable batch-upload limits (max files per batch, max file size, allowed extensions reused from source scanning) with a clear rejection response when a batch exceeds limits, rather than silently truncating it.
 - [ ] **API** - Add a per-batch upload report (accepted, renamed, duplicate, rejected, failed) mirroring the existing source review report pattern.
@@ -246,7 +247,7 @@
 - [ ] **API** - Add single-user login protection (username/password or token-based session) guarding every `/api/v1` route, since a deployed instance holds one researcher's private workspace data rather than serving multiple tenants.
 - [ ] **API** - Add `POST /api/v1/auth/login` and `POST /api/v1/auth/logout` routes with secure, expiring session handling and no public self-registration route.
 - [ ] **Deterministic** - Add login credential handling that keeps passwords, session secrets, and tokens out of git, logs, and the SQLite database, consistent with the existing `OPENAI_API_KEY` non-disclosure rules.
-- [ ] **API** - Add a `GET /health` route with no workspace or auth dependency so NAS deploy/update health checks succeed independently of login state.
+- [x] **Done** - **API** - Add a `GET /health` route with no workspace or auth dependency so NAS deploy/update health checks succeed independently of login state.
 - [ ] **API** - Add a `RESEARCHBOSS_WORKSPACE_ROOT` environment setting so a deployed instance resolves workspaces from a mounted NAS volume path instead of a container-local path, preserving workspace-scoped rules in the deployed environment.
 
 ## Phase 10: Cross-Platform UI Preparation
