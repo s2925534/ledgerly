@@ -330,6 +330,83 @@ def intake_uploaded_artefact(
     return record
 
 
+def intake_uploaded_artefact_batch(
+    workspace: Path,
+    source_paths: list[Path],
+    *,
+    max_files: Optional[int] = None,
+    max_file_size_bytes: Optional[int] = None,
+    allowed_extensions: Optional[set[str]] = None,
+) -> dict[str, Any]:
+    """Intake multiple uploaded artefacts in one batch, writing a per-batch report.
+
+    If the batch exceeds `max_files`, the whole batch is rejected up front —
+    no files are copied — rather than silently processing only the first
+    `max_files` of them. Each file is otherwise handled independently: one
+    rejected, duplicate, or failed file does not abort the rest of the batch.
+    Duplicates are detected by content hash against artefacts already
+    uploaded in this workspace.
+    """
+    if max_files is not None and len(source_paths) > max_files:
+        raise ValueError(
+            f"Batch of {len(source_paths)} files exceeds the configured limit of {max_files} files per batch."
+        )
+
+    existing_hashes = {
+        record.get("content_hash") for record in list_uploaded_artefacts(workspace) if record.get("content_hash")
+    }
+    rows: list[dict[str, Any]] = []
+    counts = {"accepted": 0, "duplicate": 0, "rejected": 0, "failed": 0}
+
+    for source_path in source_paths:
+        row: dict[str, Any] = {"source_path": str(source_path), "file_name": source_path.name}
+        try:
+            if not source_path.is_file():
+                row.update(status="failed", reason="file_missing")
+                counts["failed"] += 1
+                rows.append(row)
+                continue
+
+            extension = source_path.suffix.lower()
+            if allowed_extensions is not None and extension not in allowed_extensions:
+                row.update(status="rejected", reason="unsupported_extension", extension=extension)
+                counts["rejected"] += 1
+                rows.append(row)
+                continue
+
+            size_bytes = source_path.stat().st_size
+            if max_file_size_bytes is not None and size_bytes > max_file_size_bytes:
+                row.update(status="rejected", reason="file_too_large", size_bytes=size_bytes)
+                counts["rejected"] += 1
+                rows.append(row)
+                continue
+
+            content_hash = sha256_file(source_path)
+            if content_hash in existing_hashes:
+                row.update(status="duplicate", reason="content_hash_already_uploaded", content_hash=content_hash)
+                counts["duplicate"] += 1
+                rows.append(row)
+                continue
+
+            record = intake_uploaded_artefact(workspace, source_path)
+            existing_hashes.add(content_hash)
+            row.update(
+                status="accepted",
+                upload_id=record["upload_id"],
+                renamed_file_name=record["renamed_file_name"],
+            )
+            counts["accepted"] += 1
+            rows.append(row)
+        except Exception as exc:  # per-file isolation: one bad file must not abort the batch
+            row.update(status="failed", reason=str(exc))
+            counts["failed"] += 1
+            rows.append(row)
+
+    report = {"version": 1, "processed": len(source_paths), **counts, "rows": rows}
+    write_yaml(workspace / "outputs" / "validation" / "upload-batch-report.yaml", report)
+    return report
+
+
 def _collision_safe_path(path: Path) -> Path:
     if not path.exists():
         return path

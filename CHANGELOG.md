@@ -4,6 +4,8 @@ All notable changes to ResearchBoss will be documented in this file.
 
 ## Unreleased
 
+- Added `POST /api/v1/artefacts/upload` for batch artefact uploads: multipart file bytes streamed to a bounded-size temp location (never buffered whole in memory), rejecting the whole batch with `400 upload_batch_too_large` before writing anything if it exceeds `RESEARCHBOSS_UPLOAD_MAX_FILES` (default 25), per-file `RESEARCHBOSS_UPLOAD_MAX_FILE_SIZE_MB` (default 50) and extension allow-list enforcement, content-hash duplicate detection, and a per-batch report persisted to `outputs/validation/upload-batch-report.yaml`. Backed by a new `vault.intake_uploaded_artefact_batch` engine function shared with (but not yet exposed by) the CLI.
+- Bumped project version to 0.9.0.
 - Added `RESEARCHBOSS_WORKSPACE_ROOT` so a deployed API instance can be pointed at a mounted volume (e.g. a NAS bind-mount): every `workspace` value must then resolve inside that root, closing a path-traversal gap where any absolute path reachable by the server process was previously accepted as a "workspace." Unset, behavior is unchanged (local-first, any absolute path).
 - Bumped project version to 0.8.4.
 - Added uploaded-artefact intake to the document vault through `researchboss doc upload/uploads`: copies an externally created file into `document_vault/uploads/{originals,renamed}` without ever modifying the upload itself, using a shared `researchboss.engine.filenames` module (extracted from the existing source filename-suggestion logic) for the renamed copy's author/year/title tokens, plus an embedded upload ID that keeps renamed copies collision-free and a numeric-suffix fallback for same-named original copies.

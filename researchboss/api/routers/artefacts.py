@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import os
+import shutil
+import tempfile
 from pathlib import Path
 from typing import Any, Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, File, UploadFile
 from pydantic import BaseModel
 
 from researchboss.api.deps import resolve_workspace
@@ -15,9 +18,14 @@ from researchboss.engine.artefacts import (
     register_artefact,
     set_artefact_review_status,
 )
+from researchboss.engine.sources import ALLOWED_EXTENSIONS
+from researchboss.engine.vault import intake_uploaded_artefact_batch
 
 
 router = APIRouter()
+
+DEFAULT_UPLOAD_MAX_FILES = 25
+DEFAULT_UPLOAD_MAX_FILE_SIZE_MB = 50.0
 
 
 @router.get("")
@@ -94,3 +102,96 @@ def artefacts_review(
 @router.get("/dependencies")
 def artefacts_dependencies(workspace: Path = Depends(resolve_workspace)) -> dict[str, Any]:
     return ok(artefact_dependency_report(workspace))
+
+
+def _int_env(name: str, default: int) -> int:
+    raw = os.environ.get(name)
+    if not raw:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        return default
+
+
+def _float_env(name: str, default: float) -> float:
+    raw = os.environ.get(name)
+    if not raw:
+        return default
+    try:
+        return float(raw)
+    except ValueError:
+        return default
+
+
+async def _spool_upload_to_temp(upload: UploadFile, destination: Path, max_bytes: int) -> None:
+    """Stream the upload to `destination`, writing at most one chunk past `max_bytes`.
+
+    Deliberately does not enforce the size limit here — writing slightly past
+    it lets `intake_uploaded_artefact_batch`'s own file-size check reject the
+    file through the normal per-file batch report, so there is exactly one
+    place that decides what counts as "too large," while still bounding how
+    much of an oversized upload gets written to disk.
+    """
+    written = 0
+    with destination.open("wb") as handle:
+        while written <= max_bytes:
+            chunk = await upload.read(1024 * 1024)
+            if not chunk:
+                break
+            handle.write(chunk)
+            written += len(chunk)
+
+
+@router.post("/upload")
+async def artefacts_upload(
+    files: list[UploadFile] = File(...),
+    workspace: Path = Depends(resolve_workspace),
+) -> dict[str, Any]:
+    """Batch-upload externally created artefacts into the document vault.
+
+    Rejects the whole batch up front (no files written) if it exceeds
+    RESEARCHBOSS_UPLOAD_MAX_FILES, rather than silently processing only
+    some of them. Each file is capped at RESEARCHBOSS_UPLOAD_MAX_FILE_SIZE_MB
+    and must have an extension from the same allow-list used for source
+    scanning; oversized or disallowed files are reported as rejected, not
+    silently dropped.
+    """
+    max_files = _int_env("RESEARCHBOSS_UPLOAD_MAX_FILES", DEFAULT_UPLOAD_MAX_FILES)
+    if len(files) > max_files:
+        raise ApiError(
+            "upload_batch_too_large",
+            f"Batch of {len(files)} files exceeds the configured limit of {max_files} files per batch.",
+            status_code=400,
+        )
+
+    max_size_bytes = int(_float_env("RESEARCHBOSS_UPLOAD_MAX_FILE_SIZE_MB", DEFAULT_UPLOAD_MAX_FILE_SIZE_MB) * 1024 * 1024)
+    temp_dir = Path(tempfile.mkdtemp(prefix="researchboss-upload-"))
+    try:
+        temp_paths = []
+        for index, upload in enumerate(files):
+            # Nest each file in its own index-numbered subdirectory (rather than
+            # prefixing the filename itself) so two uploads in one batch never
+            # collide on disk while the original filename — which becomes the
+            # default title for the renamed vault copy — stays exactly as sent.
+            safe_name = Path(upload.filename or f"upload-{index}").name or f"upload-{index}"
+            file_temp_dir = temp_dir / f"{index:03d}"
+            file_temp_dir.mkdir(parents=True, exist_ok=True)
+            temp_path = file_temp_dir / safe_name
+            await _spool_upload_to_temp(upload, temp_path, max_size_bytes)
+            temp_paths.append(temp_path)
+
+        try:
+            report = intake_uploaded_artefact_batch(
+                workspace,
+                temp_paths,
+                max_files=max_files,
+                max_file_size_bytes=max_size_bytes,
+                allowed_extensions=ALLOWED_EXTENSIONS,
+            )
+        except ValueError as exc:
+            raise ApiError("upload_batch_too_large", str(exc), status_code=400) from exc
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+    return ok(report)

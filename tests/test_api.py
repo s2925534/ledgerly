@@ -948,3 +948,92 @@ def test_resolve_workspace_without_configured_root_keeps_local_first_flexibility
     response = client.get("/api/v1/projects/status", params={"workspace": str(workspace)})
 
     assert response.status_code == 200
+
+
+def test_artefacts_upload_accepts_batch_via_api(client: TestClient, tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+
+    response = client.post(
+        "/api/v1/artefacts/upload",
+        params={"workspace": str(workspace)},
+        files=[
+            ("files", ("notes-one.md", b"# Notes one", "text/markdown")),
+            ("files", ("notes-two.md", b"# Notes two", "text/markdown")),
+        ],
+    )
+
+    assert response.status_code == 200
+    body = response.json()["data"]
+    assert body["processed"] == 2
+    assert body["accepted"] == 2
+    assert body["rejected"] == 0
+    assert {row["file_name"] for row in body["rows"]} == {"notes-one.md", "notes-two.md"}
+    # the original submitted filename (not an internal temp-file name) drives the renamed copy's title
+    renamed_names = [row["renamed_file_name"] for row in body["rows"] if row["status"] == "accepted"]
+    assert any("notes-one" in name for name in renamed_names)
+    assert any("notes-two" in name for name in renamed_names)
+    assert not any(name.startswith(("000-", "001-")) for name in renamed_names)
+    renamed_paths = [Path(name) for name in renamed_names]
+    uploads_dir = workspace / "document_vault" / "uploads" / "renamed"
+    assert {p.name for p in uploads_dir.iterdir()} == {p.name for p in renamed_paths}
+    originals_dir = workspace / "document_vault" / "uploads" / "originals"
+    assert {p.name for p in originals_dir.iterdir()} == {"notes-one.md", "notes-two.md"}
+    report_path = workspace / "outputs" / "validation" / "upload-batch-report.yaml"
+    assert report_path.is_file()
+
+
+def test_artefacts_upload_rejects_disallowed_extension_via_api(client: TestClient, tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+
+    response = client.post(
+        "/api/v1/artefacts/upload",
+        params={"workspace": str(workspace)},
+        files=[("files", ("script.exe", b"binary-ish", "application/octet-stream"))],
+    )
+
+    assert response.status_code == 200
+    body = response.json()["data"]
+    assert body["rejected"] == 1
+    assert body["accepted"] == 0
+    assert body["rows"][0]["reason"] == "unsupported_extension"
+
+
+def test_artefacts_upload_rejects_whole_batch_over_max_files_via_api(
+    client: TestClient, tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.setenv("RESEARCHBOSS_UPLOAD_MAX_FILES", "1")
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+
+    response = client.post(
+        "/api/v1/artefacts/upload",
+        params={"workspace": str(workspace)},
+        files=[
+            ("files", ("a.md", b"content a", "text/markdown")),
+            ("files", ("b.md", b"content b", "text/markdown")),
+        ],
+    )
+
+    assert response.status_code == 400
+    assert response.json()["errors"][0]["code"] == "upload_batch_too_large"
+    uploads_dir = workspace / "document_vault" / "uploads" / "renamed"
+    assert list(uploads_dir.iterdir()) == []  # nothing written for a rejected batch
+
+
+def test_artefacts_upload_enforces_max_file_size_via_api(client: TestClient, tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("RESEARCHBOSS_UPLOAD_MAX_FILE_SIZE_MB", "0.00001")  # ~10 bytes
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+
+    response = client.post(
+        "/api/v1/artefacts/upload",
+        params={"workspace": str(workspace)},
+        files=[("files", ("big.md", b"x" * 5000, "text/markdown"))],
+    )
+
+    assert response.status_code == 200
+    body = response.json()["data"]
+    assert body["rejected"] == 1
+    assert body["rows"][0]["reason"] == "file_too_large"

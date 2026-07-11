@@ -1,6 +1,6 @@
 # ResearchBoss
 
-Current version: 0.8.4
+Current version: 0.9.0
 
 ResearchBoss is a local-first, evidence-first research workspace for managing research context, source files, review state, and project memory without requiring cloud services for the MVP.
 
@@ -463,7 +463,9 @@ researchboss doc uploads --workspace <workspace>
 researchboss serve --host 127.0.0.1 --port 8000
 ```
 
-Every route documented in `docs/api/CONTRACT.md` is implemented except the disabled Future AI Routes section: `GET /health` (no workspace or auth dependency, for deploy/update health checks), `POST /api/v1/auth/login` and `/logout`, plus projects, sources, conversion, metadata, data, research questions, claims, artefacts (including deterministic creation), Zotero (read-only local and Web API, with collection selection written only to the workspace, never to Zotero), document vault, validation, citation plans, guidelines, SQLite sync status, reports, evidence export, backup, and project log (decisions, terminology, feedback, context changelog) routes. Every response uses the envelope `{"ok", "data", "warnings", "errors"}`. Novelty assessment has no deterministic engine path (it's AI-only) and stays out of the contract until it can be added under explicit AI opt-in and privacy-boundary rules, not just a contract addition.
+Every route documented in `docs/api/CONTRACT.md` is implemented except the disabled Future AI Routes section: `GET /health` (no workspace or auth dependency, for deploy/update health checks), `POST /api/v1/auth/login` and `/logout`, plus projects, sources, conversion, metadata, data, research questions, claims, artefacts (including deterministic creation and batch upload), Zotero (read-only local and Web API, with collection selection written only to the workspace, never to Zotero), document vault, validation, citation plans, guidelines, SQLite sync status, reports, evidence export, backup, and project log (decisions, terminology, feedback, context changelog) routes. Every response uses the envelope `{"ok", "data", "warnings", "errors"}`. Novelty assessment has no deterministic engine path (it's AI-only) and stays out of the contract until it can be added under explicit AI opt-in and privacy-boundary rules, not just a contract addition.
+
+`POST /api/v1/artefacts/upload` accepts multipart form data (field name `files`) for batch artefact uploads. It rejects the whole batch with `400 upload_batch_too_large` if it exceeds `RESEARCHBOSS_UPLOAD_MAX_FILES` (default 25) before writing anything, caps each file at `RESEARCHBOSS_UPLOAD_MAX_FILE_SIZE_MB` (default 50), and only accepts extensions from the same allow-list source scanning uses. Uploaded bytes are streamed to a bounded-size temporary file rather than buffered in memory, and the temp directory is always cleaned up. The response is a per-batch report (accepted/duplicate/rejected/failed counts and per-file rows, duplicates detected by content hash), also persisted to `outputs/validation/upload-batch-report.yaml`.
 
 Set `RESEARCHBOSS_API_PASSWORD` (env var or `.env` in the server's working directory) before starting the server. Every `/api/v1` route except `/api/v1/auth/login` requires a valid session and fails closed with `503 auth_not_configured` if no password is set — it never falls back to open access. Log in with `POST /api/v1/auth/login {"password": "..."}` to receive a session (an httponly cookie, and the same token usable as `Authorization: Bearer <token>`); sessions live in server memory only (default 12-hour expiry, `RESEARCHBOSS_API_SESSION_HOURS` to override) and are cleared on server restart. `POST /api/v1/auth/logout` invalidates the current session. There is no public self-registration route.
 
@@ -527,7 +529,7 @@ The detailed living roadmap is maintained in `DETAILED_ROADMAP.md`. Update that 
 6. Add deterministic document validation, guideline handling, citation assistance, and later explicit AI opt-ins for whole-document workflows.
 7. Optional workspace SQLite memory, indexing, and sync complete for deterministic local MVP paths.
 8. Document vault, versioning, restoration, and uploaded-artefact intake complete for deterministic local MVP paths (`researchboss doc version/versions/diff/restore/compare/upload/uploads`); derived-text anchoring and AI edit sessions remain future work.
-9. Local FastAPI backend: every route in `docs/api/CONTRACT.md` implemented via `researchboss serve`, including single-user login protection, validation, citation plans, guidelines, and SQLite sync status, except the disabled Future AI Routes section. Novelty assessment stays out until it can be added under explicit AI opt-in and privacy-boundary rules.
+9. Local FastAPI backend: every route in `docs/api/CONTRACT.md` implemented via `researchboss serve`, including single-user login protection, validation, citation plans, guidelines, SQLite sync status, `RESEARCHBOSS_WORKSPACE_ROOT` containment, and batch artefact upload, except the disabled Future AI Routes section. Novelty assessment and AI-assisted cross-reference stay out until they can be added under explicit AI opt-in and privacy-boundary rules. Deterministic cross-reference routes remain unbuilt (need new engine-level matching logic).
 10. Prepare a cross-platform UI.
 11. Add packaging plans for desktop distribution.
 

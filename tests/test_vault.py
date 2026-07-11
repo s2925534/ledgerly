@@ -11,6 +11,7 @@ from researchboss.engine.vault import (
     diff_document_versions,
     ensure_vault_dirs,
     intake_uploaded_artefact,
+    intake_uploaded_artefact_batch,
     list_document_versions,
     list_uploaded_artefacts,
     restore_document_version,
@@ -314,3 +315,68 @@ def test_intake_uploaded_artefact_rejects_missing_source(tmp_path: Path) -> None
 
     with pytest.raises(ValueError):
         intake_uploaded_artefact(workspace, tmp_path / "does-not-exist.pdf")
+
+
+def test_intake_batch_rejects_whole_batch_when_over_max_files(tmp_path: Path) -> None:
+    workspace = _workspace(tmp_path)
+    incoming = tmp_path / "incoming"
+    incoming.mkdir()
+    paths = []
+    for i in range(3):
+        path = incoming / f"file-{i}.md"
+        path.write_text(f"content {i}", encoding="utf-8")
+        paths.append(path)
+
+    with pytest.raises(ValueError, match="exceeds the configured limit"):
+        intake_uploaded_artefact_batch(workspace, paths, max_files=2)
+
+    assert list_uploaded_artefacts(workspace) == []  # nothing copied
+
+
+def test_intake_batch_classifies_accepted_duplicate_rejected_and_failed(tmp_path: Path) -> None:
+    workspace = _workspace(tmp_path)
+    incoming = tmp_path / "incoming"
+    incoming.mkdir()
+
+    good_file = incoming / "good.md"
+    good_file.write_text("unique content", encoding="utf-8")
+    duplicate_file = incoming / "duplicate.md"
+    duplicate_file.write_text("unique content", encoding="utf-8")  # same bytes as good_file
+    wrong_extension = incoming / "notes.exe"
+    wrong_extension.write_text("binary-ish", encoding="utf-8")
+    too_large = incoming / "big.md"
+    too_large.write_text("x" * 100, encoding="utf-8")
+    missing_file = incoming / "missing.md"
+
+    report = intake_uploaded_artefact_batch(
+        workspace,
+        [good_file, duplicate_file, wrong_extension, too_large, missing_file],
+        max_file_size_bytes=50,
+        allowed_extensions={".md"},
+    )
+
+    assert report["processed"] == 5
+    assert report["accepted"] == 1
+    assert report["duplicate"] == 1
+    assert report["rejected"] == 2
+    assert report["failed"] == 1
+    statuses = {row["file_name"]: row["status"] for row in report["rows"]}
+    assert statuses["good.md"] == "accepted"
+    assert statuses["duplicate.md"] == "duplicate"
+    assert statuses["notes.exe"] == "rejected"
+    assert statuses["big.md"] == "rejected"
+    assert statuses["missing.md"] == "failed"
+    assert len(list_uploaded_artefacts(workspace)) == 1
+
+
+def test_intake_batch_writes_report_to_outputs_validation(tmp_path: Path) -> None:
+    workspace = _workspace(tmp_path)
+    incoming = tmp_path / "incoming"
+    incoming.mkdir()
+    path = incoming / "notes.md"
+    path.write_text("content", encoding="utf-8")
+
+    intake_uploaded_artefact_batch(workspace, [path])
+
+    report_path = workspace / "outputs" / "validation" / "upload-batch-report.yaml"
+    assert report_path.is_file()

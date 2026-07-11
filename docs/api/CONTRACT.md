@@ -18,6 +18,8 @@ The API must be local-first, workspace-scoped, and a thin transport layer over `
 - Whole PDFs, CSV files, SQLite databases, or original documents must not be sent to AI by default.
 - Every `/api/v1` route except `/api/v1/auth/login` must fail closed (`503 auth_not_configured`) when no login password is configured, rather than silently allowing unauthenticated access.
 - The login password must never be returned, printed, or logged, and session tokens are held in server memory only — never written to YAML, SQLite, or git.
+- Upload routes must reject a batch that exceeds its configured file-count limit before writing anything, never silently process a truncated subset. Individual oversized files must be reported as rejected, not silently dropped or partially written without limit.
+- Upload routes must stream uploaded bytes to a bounded-size location rather than buffering an entire (potentially oversized) file in memory, and must always clean up temporary upload storage, including on failure.
 
 ## Authentication
 
@@ -367,6 +369,14 @@ Checks artefact links against accepted sources and approved research questions.
 Engine source:
 
 - `researchboss.engine.artefacts.artefact_dependency_report`
+
+### `POST /api/v1/artefacts/upload` (implemented)
+
+Batch-uploads externally created artefact files (multipart form data, field name `files`) into the document vault. Rejects the whole batch with `400 upload_batch_too_large` if it exceeds `RESEARCHBOSS_UPLOAD_MAX_FILES` (default 25) before writing anything; each file is capped at `RESEARCHBOSS_UPLOAD_MAX_FILE_SIZE_MB` (default 50) and must have an extension from `researchboss.engine.sources.ALLOWED_EXTENSIONS`. Returns a per-batch report (`processed`/`accepted`/`duplicate`/`rejected`/`failed` counts and per-file rows), also persisted to `outputs/validation/upload-batch-report.yaml`. Duplicate detection is by content hash against artefacts already uploaded in the workspace. Uploaded bytes are streamed to a size-bounded temporary file and the temp directory is always removed after the request, whether it succeeds or fails.
+
+Engine source:
+
+- `researchboss.engine.vault.intake_uploaded_artefact_batch`
 
 ## Zotero Routes
 
