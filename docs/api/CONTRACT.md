@@ -1,8 +1,8 @@
 # ResearchBoss Local API Contract
 
-This document defines the planned FastAPI boundary for ResearchBoss before any backend routes are implemented.
+This document defines the FastAPI boundary for ResearchBoss.
 
-Contract status: implementation started in project version `0.7.0`, expanded in `0.7.2` (`researchboss.api`, run with `researchboss serve`). Routes marked `(implemented)` below are live; all other routes remain planned.
+Contract status: implementation started in project version `0.7.0`; every route documented below is now implemented in `researchboss.api` (run with `researchboss serve`) except the disabled Future AI Routes section. New route groups (validation, citation plans, guidelines, SQLite sync status, novelty, AI) need to be added to this contract before they can be implemented, consistent with the reuse-not-duplicate rule below.
 
 The API must be local-first, workspace-scoped, and a thin transport layer over `researchboss.engine` functions. It must not duplicate business logic already implemented in the engine.
 
@@ -155,7 +155,7 @@ Engine source:
 
 ## Conversion And Metadata Routes
 
-### `POST /api/v1/conversion/run`
+### `POST /api/v1/conversion/run` (implemented)
 
 Converts registered sources to local text.
 
@@ -163,7 +163,7 @@ Engine source:
 
 - `researchboss.engine.conversion.convert_sources`
 
-### `POST /api/v1/metadata/extract`
+### `POST /api/v1/metadata/extract` (implemented)
 
 Extracts deterministic citation metadata.
 
@@ -171,7 +171,7 @@ Engine source:
 
 - `researchboss.engine.metadata.extract_citation_metadata`
 
-### `GET /api/v1/metadata/validate`
+### `GET /api/v1/metadata/validate` (implemented)
 
 Returns citation consistency and DOI validation results.
 
@@ -179,7 +179,7 @@ Engine source:
 
 - `researchboss.engine.metadata_quality.citation_consistency_report`
 
-### `GET /api/v1/metadata/duplicates`
+### `GET /api/v1/metadata/duplicates` (implemented)
 
 Returns duplicate metadata candidates.
 
@@ -187,7 +187,7 @@ Engine source:
 
 - `researchboss.engine.metadata_quality.duplicate_metadata_report`
 
-### `POST /api/v1/metadata/index`
+### `POST /api/v1/metadata/index` (implemented)
 
 Builds a local keyword index over converted text.
 
@@ -197,7 +197,7 @@ Engine source:
 
 ## Data Routes
 
-### `POST /api/v1/data/profile`
+### `POST /api/v1/data/profile` (implemented)
 
 Profiles local CSV, SQLite, DB, and JSON sources.
 
@@ -205,7 +205,7 @@ Engine source:
 
 - `researchboss.engine.data.profile_data_sources`
 
-### `GET /api/v1/data`
+### `GET /api/v1/data` (implemented)
 
 Lists local data sources.
 
@@ -213,7 +213,7 @@ Engine source:
 
 - `researchboss.engine.data.list_data_sources`
 
-### `GET /api/v1/data/status`
+### `GET /api/v1/data/status` (implemented)
 
 Returns data profile counts.
 
@@ -265,7 +265,7 @@ Engine source:
 
 ## Claim Routes
 
-### `GET /api/v1/claims`
+### `GET /api/v1/claims` (implemented)
 
 Lists claims.
 
@@ -273,7 +273,7 @@ Engine source:
 
 - `researchboss.engine.claims.list_claims`
 
-### `POST /api/v1/claims`
+### `POST /api/v1/claims` (implemented)
 
 Adds a manual claim.
 
@@ -281,7 +281,7 @@ Engine source:
 
 - `researchboss.engine.claims.add_claim`
 
-### `POST /api/v1/claims/{claim_id}/status`
+### `POST /api/v1/claims/{claim_id}/status` (implemented)
 
 Sets claim review status.
 
@@ -289,7 +289,7 @@ Engine source:
 
 - `researchboss.engine.claims.set_claim_status`
 
-### `GET /api/v1/claims/gaps`
+### `GET /api/v1/claims/gaps` (implemented)
 
 Returns citation gap report data.
 
@@ -297,7 +297,7 @@ Engine source:
 
 - `researchboss.engine.claims.write_citation_gap_report`
 
-### `GET /api/v1/claims/validate`
+### `GET /api/v1/claims/validate` (implemented)
 
 Validates that claims link only to existing accepted sources.
 
@@ -323,7 +323,7 @@ Engine source:
 
 - `researchboss.engine.artefacts.register_artefact`
 
-### `POST /api/v1/artefacts/create`
+### `POST /api/v1/artefacts/create` (implemented)
 
 Creates deterministic non-AI artefacts.
 
@@ -349,7 +349,7 @@ Engine source:
 
 ## Zotero Routes
 
-### `GET /api/v1/zotero/local/collections`
+### `GET /api/v1/zotero/local/collections` (implemented)
 
 Lists collections from local `zotero.sqlite`.
 
@@ -357,7 +357,7 @@ Engine source:
 
 - `researchboss.engine.zotero.list_zotero_collections`
 
-### `GET /api/v1/zotero/local/search`
+### `GET /api/v1/zotero/local/search` (implemented)
 
 Searches local Zotero storage and local metadata.
 
@@ -365,7 +365,7 @@ Engine source:
 
 - `researchboss.engine.zotero.search_zotero_storage`
 
-### `GET /api/v1/zotero/api/test`
+### `GET /api/v1/zotero/api/test` (implemented)
 
 Tests Zotero Web API credentials without exposing the key.
 
@@ -373,7 +373,7 @@ Engine source:
 
 - `researchboss.engine.zotero_api.zotero_api_readiness`
 
-### `GET /api/v1/zotero/api/collections`
+### `GET /api/v1/zotero/api/collections` (implemented)
 
 Lists Zotero Web API collections using read-only credentials.
 
@@ -381,7 +381,7 @@ Engine source:
 
 - `researchboss.engine.zotero_api.zotero_api_collections`
 
-### `POST /api/v1/zotero/api/collections/select`
+### `POST /api/v1/zotero/api/collections/select` (implemented)
 
 Stores selected Zotero Web API collection keys in workspace config.
 
@@ -435,7 +435,7 @@ Engine source:
 
 ## Report And Export Routes
 
-### `GET /api/v1/reports/workspace`
+### `GET /api/v1/reports/workspace` (implemented)
 
 Generates local Markdown workspace report.
 
@@ -443,7 +443,7 @@ Engine source:
 
 - `researchboss.engine.reports.generate_workspace_report`
 
-### `GET /api/v1/reports/timeline`
+### `GET /api/v1/reports/timeline` (implemented)
 
 Generates a local timeline report.
 
@@ -451,7 +451,7 @@ Engine source:
 
 - `researchboss.engine.project_log.timeline_report`
 
-### `POST /api/v1/export/evidence`
+### `POST /api/v1/export/evidence` (implemented)
 
 Creates an offline evidence bundle without original source files by default.
 
@@ -459,7 +459,7 @@ Engine source:
 
 - `researchboss.engine.export.export_evidence_bundle`
 
-### `POST /api/v1/backup`
+### `POST /api/v1/backup` (implemented)
 
 Creates a local backup.
 
@@ -467,7 +467,7 @@ Engine source:
 
 - `researchboss.engine.backup.create_workspace_backup`
 
-### `GET /api/v1/backup/inspect`
+### `GET /api/v1/backup/inspect` (implemented)
 
 Inspects a backup zip without restoring it.
 
@@ -477,7 +477,7 @@ Engine source:
 
 ## Project Log Routes
 
-### `POST /api/v1/decisions`
+### `POST /api/v1/decisions` (implemented)
 
 Adds a structured local decision.
 
@@ -485,7 +485,7 @@ Engine source:
 
 - `researchboss.engine.project_log.add_decision`
 
-### `POST /api/v1/terminology`
+### `POST /api/v1/terminology` (implemented)
 
 Adds or updates a glossary term.
 
@@ -493,7 +493,7 @@ Engine source:
 
 - `researchboss.engine.project_log.add_terminology`
 
-### `POST /api/v1/feedback`
+### `POST /api/v1/feedback` (implemented)
 
 Adds supervisor or stakeholder feedback.
 
@@ -501,7 +501,7 @@ Engine source:
 
 - `researchboss.engine.project_log.add_feedback`
 
-### `POST /api/v1/context/changelog`
+### `POST /api/v1/context/changelog` (implemented)
 
 Adds a context changelog item.
 

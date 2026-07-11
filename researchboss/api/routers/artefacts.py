@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from researchboss.api.deps import resolve_workspace
 from researchboss.api.envelope import ApiError, ok
+from researchboss.engine.artefact_creation import create_deterministic_artefact
 from researchboss.engine.artefacts import (
     artefact_dependency_report,
     list_artefacts,
@@ -45,6 +46,31 @@ def artefacts_register(payload: ArtefactRegisterRequest, workspace: Path = Depen
         requires_user_review=payload.requires_user_review,
     )
     return ok(record)
+
+
+class ArtefactCreateRequest(BaseModel):
+    artefact_type: str
+    title: Optional[str] = None
+    include_maybe: bool = False
+    rq_id: Optional[str] = None
+    overwrite: bool = False
+
+
+@router.post("/create")
+def artefacts_create(payload: ArtefactCreateRequest, workspace: Path = Depends(resolve_workspace)) -> dict[str, Any]:
+    try:
+        result = create_deterministic_artefact(
+            workspace,
+            payload.artefact_type,
+            title=payload.title,
+            include_maybe=payload.include_maybe,
+            rq_id=payload.rq_id,
+            overwrite=payload.overwrite,
+        )
+    except ValueError as exc:
+        status_code = 409 if "already exists" in str(exc) else 400
+        raise ApiError("artefact_creation_failed", str(exc), status_code=status_code) from exc
+    return ok({"record": result.record, "path": str(result.path)})
 
 
 class ArtefactReviewRequest(BaseModel):

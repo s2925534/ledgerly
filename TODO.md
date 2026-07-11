@@ -236,7 +236,9 @@
 - [x] **Done** - **API** - a local FastAPI app (app factory, response envelope, workspace-resolution dependency, error handling, `researchboss serve`) after engine contracts for validation, citation, SQLite sync, and document versioning were tested.
 - [x] **Done** - **API** - `GET /health`, `GET/POST /api/v1/projects/*`, and `POST/GET /api/v1/doc/*` document-versioning routes.
 - [x] **Done** - **API** - `GET/POST /api/v1/sources/*`, `GET/POST /api/v1/artefacts/*`, and `GET/POST /api/v1/rqs/*` routes.
-- [ ] **API** - routes for reports, settings, logs, AI, novelty, validation, citation plans, guidelines, and SQLite sync status.
+- [x] **Done** - **API** - `POST /api/v1/conversion/run`, `GET/POST /api/v1/metadata/*`, and `GET/POST /api/v1/data/*` routes.
+- [x] **Done** - **API** - `GET/POST /api/v1/claims/*`, `POST /api/v1/artefacts/create`, `GET/POST /api/v1/zotero/*` (read-only local and Web API, workspace-only collection selection), `GET /api/v1/reports/*`, `POST /api/v1/export/evidence`, `GET/POST /api/v1/backup*`, and `POST /api/v1/decisions|terminology|feedback|context/changelog` routes. Every route documented in `docs/api/CONTRACT.md` is now implemented except the disabled Future AI Routes section.
+- [ ] **API** - routes for validation, citation plans, guidelines, SQLite sync status, and novelty — none of these are in `docs/api/CONTRACT.md` yet, so the contract needs those route shapes added before implementation.
 - [x] **Done** - **API** - API implementation that reuses engine logic rather than duplicating business logic.
 - [x] **Done** - **API** - API route tests proving workspace-scoped writes and no original-file modification for the routes built so far; no-Zotero-write, no-secret-logging, and explicit-AI-opt-in boundary tests remain as those route groups are added.
 - [ ] **API** - Add `POST /api/v1/artefacts/upload` for batch artefact uploads, reusing document-vault and artefact-registration engine logic rather than duplicating upload handling in the API layer.

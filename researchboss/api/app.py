@@ -5,7 +5,23 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from researchboss.api.envelope import ApiError
-from researchboss.api.routers import artefacts, doc, health, projects, rqs, sources
+from researchboss.api.routers import (
+    artefacts,
+    backup,
+    claims,
+    conversion,
+    data,
+    doc,
+    export,
+    health,
+    metadata,
+    project_log,
+    projects,
+    reports,
+    rqs,
+    sources,
+    zotero,
+)
 
 
 def create_app() -> FastAPI:
@@ -39,9 +55,18 @@ def create_app() -> FastAPI:
     app.include_router(health.router)
     app.include_router(projects.router, prefix="/api/v1/projects", tags=["projects"])
     app.include_router(sources.router, prefix="/api/v1/sources", tags=["sources"])
+    app.include_router(conversion.router, prefix="/api/v1/conversion", tags=["conversion"])
+    app.include_router(metadata.router, prefix="/api/v1/metadata", tags=["metadata"])
+    app.include_router(data.router, prefix="/api/v1/data", tags=["data"])
     app.include_router(artefacts.router, prefix="/api/v1/artefacts", tags=["artefacts"])
+    app.include_router(claims.router, prefix="/api/v1/claims", tags=["claims"])
     app.include_router(rqs.router, prefix="/api/v1/rqs", tags=["research-questions"])
+    app.include_router(zotero.router, prefix="/api/v1/zotero", tags=["zotero"])
     app.include_router(doc.router, prefix="/api/v1/doc", tags=["document-vault"])
+    app.include_router(reports.router, prefix="/api/v1/reports", tags=["reports"])
+    app.include_router(export.router, prefix="/api/v1/export", tags=["export"])
+    app.include_router(backup.router, prefix="/api/v1/backup", tags=["backup"])
+    app.include_router(project_log.router, prefix="/api/v1", tags=["project-log"])
     return app
 
 

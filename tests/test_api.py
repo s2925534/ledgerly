@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 
 from researchboss.api.app import create_app
 from researchboss.core.yamlio import read_yaml
+from researchboss.engine.sources import scan_sources
 from researchboss.engine.workspace import init_workspace
 
 
@@ -326,3 +327,259 @@ def test_rqs_approve_unknown_id_returns_404(client: TestClient, tmp_path: Path) 
 
     assert response.status_code == 404
     assert response.json()["errors"][0]["code"] == "unknown_rq_id"
+
+
+def test_conversion_run_via_api(client: TestClient, tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    source_root = tmp_path / "incoming"
+    source_root.mkdir()
+    (source_root / "notes.txt").write_text("line one\nline two\n", encoding="utf-8")
+    scan_sources(workspace, source_root)
+
+    response = client.post("/api/v1/conversion/run", params={"workspace": str(workspace)}, json={})
+
+    assert response.status_code == 200
+    body = response.json()["data"]
+    assert body["processed"] == 1
+    assert body["converted"] == 1
+    assert body["results"][0]["status"] == "converted"
+    assert (workspace / "sources_text").exists()
+
+
+def test_metadata_extract_validate_duplicates_index_via_api(client: TestClient, tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    source_root = tmp_path / "incoming"
+    source_root.mkdir()
+    (source_root / "notes.txt").write_text("DOI: 10.1000/xyz123\n", encoding="utf-8")
+    scan_sources(workspace, source_root)
+    client.post("/api/v1/conversion/run", params={"workspace": str(workspace)}, json={})
+
+    extract_response = client.post("/api/v1/metadata/extract", params={"workspace": str(workspace)}, json={})
+    assert extract_response.status_code == 200
+    assert extract_response.json()["data"]["processed"] == 1
+
+    validate_response = client.get("/api/v1/metadata/validate", params={"workspace": str(workspace)})
+    assert validate_response.status_code == 200
+    assert validate_response.json()["ok"] is True
+
+    duplicates_response = client.get("/api/v1/metadata/duplicates", params={"workspace": str(workspace)})
+    assert duplicates_response.status_code == 200
+    assert duplicates_response.json()["ok"] is True
+
+    index_response = client.post("/api/v1/metadata/index", params={"workspace": str(workspace)})
+    assert index_response.status_code == 200
+    assert index_response.json()["ok"] is True
+
+
+def test_data_profile_list_status_via_api(client: TestClient, tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    source_root = tmp_path / "incoming"
+    source_root.mkdir()
+    (source_root / "data.csv").write_text("a,b\n1,2\n3,4\n", encoding="utf-8")
+    scan_sources(workspace, source_root)
+
+    list_response = client.get("/api/v1/data", params={"workspace": str(workspace)})
+    assert list_response.status_code == 200
+    assert len(list_response.json()["data"]) == 1
+
+    profile_response = client.post("/api/v1/data/profile", params={"workspace": str(workspace)}, json={})
+    assert profile_response.status_code == 200
+    assert profile_response.json()["data"]["profiled"] == 1
+
+    status_response = client.get("/api/v1/data/status", params={"workspace": str(workspace)})
+    assert status_response.status_code == 200
+    assert status_response.json()["data"]["profiled"] == 1
+
+
+def test_claims_add_status_gaps_and_validate_via_api(client: TestClient, tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+
+    add_response = client.post(
+        "/api/v1/claims",
+        params={"workspace": str(workspace)},
+        json={"text": "Container automation reduces turnaround time.", "linked_sources": ["source-001"]},
+    )
+    assert add_response.status_code == 200
+    claim_id = add_response.json()["data"]["id"]
+
+    list_response = client.get("/api/v1/claims", params={"workspace": str(workspace)})
+    assert list_response.status_code == 200
+    assert len(list_response.json()["data"]) == 1
+
+    status_response = client.post(
+        f"/api/v1/claims/{claim_id}/status",
+        params={"workspace": str(workspace)},
+        json={"status": "needs_evidence"},
+    )
+    assert status_response.status_code == 200
+
+    gaps_response = client.get("/api/v1/claims/gaps", params={"workspace": str(workspace)})
+    assert gaps_response.status_code == 200
+    assert gaps_response.json()["ok"] is True
+
+    validate_response = client.get("/api/v1/claims/validate", params={"workspace": str(workspace)})
+    assert validate_response.status_code == 200
+    assert validate_response.json()["data"]["claims"][0]["issues"][0]["kind"] == "missing_source"
+
+
+def test_claims_status_unknown_id_returns_404(client: TestClient, tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+
+    response = client.post(
+        "/api/v1/claims/does-not-exist/status",
+        params={"workspace": str(workspace)},
+        json={"status": "needs_evidence"},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["errors"][0]["code"] == "invalid_claim_status"
+
+
+def test_artefacts_create_deterministic_artefact_via_api(client: TestClient, tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+
+    response = client.post(
+        "/api/v1/artefacts/create",
+        params={"workspace": str(workspace)},
+        json={"artefact_type": "source-summary-report"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()["data"]
+    assert Path(body["path"]).is_file()
+    assert body["record"]["ai_generated"] is False
+
+    conflict_response = client.post(
+        "/api/v1/artefacts/create",
+        params={"workspace": str(workspace)},
+        json={"artefact_type": "source-summary-report"},
+    )
+    assert conflict_response.status_code == 409
+
+
+def test_zotero_local_routes_require_configuration(client: TestClient, tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+
+    collections_response = client.get("/api/v1/zotero/local/collections", params={"workspace": str(workspace)})
+    assert collections_response.status_code == 400
+    assert collections_response.json()["errors"][0]["code"] == "zotero_not_configured"
+
+    search_response = client.get(
+        "/api/v1/zotero/local/search", params={"workspace": str(workspace), "query": "automation"}
+    )
+    assert search_response.status_code == 400
+    assert search_response.json()["errors"][0]["code"] == "zotero_not_configured"
+
+
+def test_zotero_api_test_fails_without_credentials(client: TestClient, tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.delenv("ZOTERO_API_KEY", raising=False)
+    monkeypatch.delenv("ZOTERO_USER_ID", raising=False)
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+
+    response = client.get("/api/v1/zotero/api/test", params={"workspace": str(workspace)})
+
+    assert response.status_code == 400
+    assert response.json()["errors"][0]["code"] == "zotero_api_error"
+
+
+def test_zotero_api_select_collections_writes_only_workspace_config(client: TestClient, tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+
+    response = client.post(
+        "/api/v1/zotero/api/collections/select",
+        params={"workspace": str(workspace)},
+        json={"collection_keys": ["ABC123"], "include_subcollections": False},
+    )
+
+    assert response.status_code == 200
+    context = read_yaml(workspace / "research-context.yaml")
+    assert context["zotero"]["api_selected_collections"] == [{"key": "ABC123"}]
+    assert context["zotero"]["api_include_subcollections"] is False
+    assert context["zotero"]["api_access"] == "read_only"
+
+
+def test_reports_workspace_and_timeline_via_api(client: TestClient, tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+
+    workspace_response = client.get("/api/v1/reports/workspace", params={"workspace": str(workspace)})
+    assert workspace_response.status_code == 200
+    body = workspace_response.json()["data"]
+    assert Path(body["report_path"]).is_file()
+    assert "Test" in body["markdown"]
+
+    timeline_response = client.get("/api/v1/reports/timeline", params={"workspace": str(workspace)})
+    assert timeline_response.status_code == 200
+    assert timeline_response.json()["ok"] is True
+
+
+def test_export_evidence_and_backup_create_inspect_via_api(client: TestClient, tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+
+    export_response = client.post("/api/v1/export/evidence", params={"workspace": str(workspace)})
+    assert export_response.status_code == 200
+    assert Path(export_response.json()["data"]["bundle_path"]).is_file()
+
+    backup_response = client.post("/api/v1/backup", params={"workspace": str(workspace)}, json={})
+    assert backup_response.status_code == 200
+    backup_path = backup_response.json()["data"]["backup_path"]
+    assert Path(backup_path).is_file()
+
+    inspect_response = client.get("/api/v1/backup/inspect", params={"backup_path": backup_path})
+    assert inspect_response.status_code == 200
+    assert inspect_response.json()["data"]["contains_original_sources"] is False
+
+
+def test_backup_inspect_unknown_path_returns_404(client: TestClient, tmp_path: Path) -> None:
+    response = client.get("/api/v1/backup/inspect", params={"backup_path": str(tmp_path / "missing.zip")})
+
+    assert response.status_code == 404
+    assert response.json()["errors"][0]["code"] == "backup_not_found"
+
+
+def test_project_log_decisions_terminology_feedback_and_changelog_via_api(
+    client: TestClient, tmp_path: Path
+) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+
+    decision_response = client.post(
+        "/api/v1/decisions",
+        params={"workspace": str(workspace)},
+        json={"text": "Use APA7 citation style.", "reason": "Faculty requirement"},
+    )
+    assert decision_response.status_code == 200
+    assert "Use APA7 citation style." in (workspace / "decisions.md").read_text(encoding="utf-8")
+
+    terminology_response = client.post(
+        "/api/v1/terminology",
+        params={"workspace": str(workspace)},
+        json={"term": "berth", "definition": "A docking location for a vessel."},
+    )
+    assert terminology_response.status_code == 200
+
+    feedback_response = client.post(
+        "/api/v1/feedback",
+        params={"workspace": str(workspace)},
+        json={"text": "Tighten the literature review scope.", "source": "Supervisor"},
+    )
+    assert feedback_response.status_code == 200
+
+    changelog_response = client.post(
+        "/api/v1/context/changelog",
+        params={"workspace": str(workspace)},
+        json={"text": "Narrowed research question after supervisor meeting."},
+    )
+    assert changelog_response.status_code == 200
+
+    assert "berth" in read_yaml(workspace / "terminology.yaml")["terms"][0]["term"]

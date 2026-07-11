@@ -4,6 +4,9 @@ All notable changes to ResearchBoss will be documented in this file.
 
 ## Unreleased
 
+- Completed every route documented in `docs/api/CONTRACT.md` (except the disabled Future AI Routes section): conversion, metadata, data, claims, artefact creation, Zotero (read-only local and Web API, with collection selection written only to the workspace), reports, evidence export, backup, and project log routes.
+- Moved Zotero workspace-config resolution (`resolve_zotero_paths`, `configured_source_root`, `configured_zotero`, `write_zotero_config`) from private `cli.py` helpers into `researchboss.engine.zotero` so the CLI and the new Zotero API routes share the same logic instead of duplicating it.
+- Bumped project version to 0.8.0.
 - Added `GET/POST /api/v1/sources/*`, `GET/POST /api/v1/artefacts/*`, and `GET/POST /api/v1/rqs/*` routes to the local FastAPI backend, all reusing existing tested engine functions with 404s for unknown source/artefact/RQ IDs rather than generic 400s.
 - Bumped project version to 0.7.2.
 - Started Phase 9 local FastAPI backend (`researchboss.api`, run with `researchboss serve`): app factory with a shared response envelope and error handling, plus `GET /health` (no workspace/auth dependency), `GET/POST /api/v1/projects/*`, and the `POST/GET /api/v1/doc/*` document-versioning routes, all reusing existing tested engine functions.

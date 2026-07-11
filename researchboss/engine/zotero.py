@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Optional
 
+from researchboss.core.yamlio import read_yaml, write_yaml
+
 
 FULLTEXT_CACHE_NAME = ".zotero-ft-cache"
 MAX_CACHE_CHARS = 200_000
@@ -105,6 +107,50 @@ def zotero_sqlite_path(zotero_root: Path) -> Path:
 
 def zotero_sqlite_exists(zotero_root: Path) -> bool:
     return zotero_sqlite_path(zotero_root).is_file()
+
+
+def configured_source_root(workspace: Path) -> tuple[Optional[Path], str, dict[str, Any]]:
+    ctx = read_yaml(workspace / "research-context.yaml")
+    source_config = ctx.get("sources") or {}
+    cfg_root = source_config.get("root")
+    source_mode = source_config.get("mode") or "local_folder"
+    return (Path(cfg_root) if cfg_root else None), source_mode, source_config
+
+
+def configured_zotero(workspace: Path) -> dict[str, Any]:
+    ctx = read_yaml(workspace / "research-context.yaml")
+    return ctx.get("zotero") or {}
+
+
+def resolve_zotero_paths(workspace: Path, storage: Optional[Path] = None) -> tuple[Path, Optional[Path], dict[str, Any]]:
+    """Resolve the configured Zotero storage and root paths for a workspace.
+
+    Shared by the CLI and the local API so both surfaces derive the same
+    Zotero paths from `research-context.yaml` rather than duplicating the
+    fallback rules (explicit `storage` override, then configured storage,
+    then the configured generic source root).
+    """
+    cfg_root, _source_mode, _source_config = configured_source_root(workspace)
+    zotero_config = configured_zotero(workspace)
+    storage_root = storage or (Path(zotero_config["storage"]) if zotero_config.get("storage") else cfg_root)
+    if not storage_root:
+        raise ValueError("No Zotero storage root configured or provided")
+    zotero_root = Path(zotero_config["root"]) if zotero_config.get("root") else zotero_root_from_storage(storage_root)
+    return storage_root, zotero_root, zotero_config
+
+
+def write_zotero_config(workspace: Path, updates: dict[str, Any]) -> None:
+    """Merge `updates` into the workspace's `zotero` config section only.
+
+    Writes exclusively inside the ResearchBoss workspace; never touches the
+    local Zotero directory itself.
+    """
+    context_path = workspace / "research-context.yaml"
+    ctx = read_yaml(context_path)
+    zotero_config = ctx.get("zotero") or {}
+    zotero_config.update(updates)
+    ctx["zotero"] = zotero_config
+    write_yaml(context_path, ctx)
 
 
 def path_is_within(path: Path, root: Path) -> bool:

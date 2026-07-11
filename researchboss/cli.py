@@ -135,6 +135,8 @@ from researchboss.engine.sources import (
 from researchboss.engine.watch import write_watch_report
 from researchboss.engine.zotero import (
     attachment_health_report,
+    configured_source_root,
+    configured_zotero,
     duplicate_metadata_candidates,
     export_bibtex_from_metadata,
     fulltext_availability_report,
@@ -142,8 +144,10 @@ from researchboss.engine.zotero import (
     keyword_terms,
     list_zotero_collections,
     metadata_quality_report,
+    resolve_zotero_paths,
     search_zotero_storage,
     storage_keys_for_collections,
+    write_zotero_config,
     zotero_metadata_snapshot,
     zotero_readiness_report,
     zotero_root_from_storage,
@@ -487,37 +491,6 @@ def _finish(summary: RunSummary, summary_path: Path, *, next_action: Optional[st
     summary.complete(next_action=next_action)
     write_run_summary(summary_path, summary)
 
-
-def _configured_source_root(workspace: Path) -> tuple[Optional[Path], str, dict]:
-    ctx = read_yaml(workspace / "research-context.yaml")
-    source_config = ctx.get("sources") or {}
-    cfg_root = source_config.get("root")
-    source_mode = source_config.get("mode") or "local_folder"
-    return (Path(cfg_root) if cfg_root else None), source_mode, source_config
-
-
-def _configured_zotero(workspace: Path) -> dict:
-    ctx = read_yaml(workspace / "research-context.yaml")
-    return ctx.get("zotero") or {}
-
-
-def _resolve_zotero_paths(workspace: Path, storage: Optional[Path] = None) -> tuple[Path, Optional[Path], dict]:
-    cfg_root, _source_mode, _source_config = _configured_source_root(workspace)
-    zotero_config = _configured_zotero(workspace)
-    storage_root = storage or (Path(zotero_config["storage"]) if zotero_config.get("storage") else cfg_root)
-    if not storage_root:
-        raise ValueError("No Zotero storage root configured or provided")
-    zotero_root = Path(zotero_config["root"]) if zotero_config.get("root") else zotero_root_from_storage(storage_root)
-    return storage_root, zotero_root, zotero_config
-
-
-def _write_zotero_config(workspace: Path, updates: dict) -> None:
-    context_path = workspace / "research-context.yaml"
-    ctx = read_yaml(context_path)
-    zotero_config = ctx.get("zotero") or {}
-    zotero_config.update(updates)
-    ctx["zotero"] = zotero_config
-    write_yaml(context_path, ctx)
 
 
 def _zotero_filtered_candidates(storage_root: Path, zotero_root: Optional[Path], zotero_config: dict) -> list[Path]:
@@ -1874,7 +1847,7 @@ def scan(
     ws = _resolve_workspace(workspace)
     _slug, logger, summary, summary_path, _log_path = _run_ctx(["scan"], ws, log_level)
 
-    cfg_root, source_mode, source_config = _configured_source_root(ws)
+    cfg_root, source_mode, source_config = configured_source_root(ws)
     initial_status = source_config.get("new_source_status", "pending_review")
     provider = kind or (source_mode if source_mode in {"local_folder", "zotero_storage"} else "local_folder")
     validate_source_provider(provider)
@@ -1891,7 +1864,7 @@ def scan(
         _finish(summary, summary_path, next_action="Fix the path and rerun scan")
         raise typer.Exit(code=2)
 
-    zotero_config = _configured_zotero(ws)
+    zotero_config = configured_zotero(ws)
     zotero_root = Path(zotero_config["root"]) if provider == "zotero_storage" and zotero_config.get("root") else None
     if provider == "zotero_storage":
         candidates = _zotero_filtered_candidates(scan_root, zotero_root, zotero_config)
@@ -3162,7 +3135,7 @@ def zotero_collections(
     """List collections from local zotero.sqlite without using the Zotero API."""
     ws = _resolve_workspace(workspace)
     _slug, logger, summary, summary_path, _log_path = _run_ctx(["zotero", "collections"], ws, log_level)
-    _storage_root, zotero_root, _zotero_config = _resolve_zotero_paths(ws)
+    _storage_root, zotero_root, _zotero_config = resolve_zotero_paths(ws)
     if not zotero_root:
         logger.error("Could not derive Zotero root", operation="zotero_collections")
         summary.errors += 1
@@ -3194,7 +3167,7 @@ def zotero_test(
     """Validate local Zotero storage and SQLite readability without using the Zotero API."""
     ws = _resolve_workspace(workspace)
     _slug, logger, summary, summary_path, _log_path = _run_ctx(["zotero", "test"], ws, log_level)
-    storage_root, zotero_root, _zotero_config = _resolve_zotero_paths(ws, storage=storage)
+    storage_root, zotero_root, _zotero_config = resolve_zotero_paths(ws, storage=storage)
     if not storage_root.exists():
         logger.error("Zotero storage root does not exist", operation="zotero_test", storage_root=str(storage_root))
         summary.errors += 1
@@ -3227,7 +3200,7 @@ def zotero_select_collections(
     """Configure selected local Zotero collections for future scans."""
     ws = _resolve_workspace(workspace)
     _slug, logger, summary, summary_path, _log_path = _run_ctx(["zotero", "select_collections"], ws, log_level)
-    _storage_root, zotero_root, _zotero_config = _resolve_zotero_paths(ws)
+    _storage_root, zotero_root, _zotero_config = resolve_zotero_paths(ws)
     if not zotero_root:
         logger.error("Could not derive Zotero root", operation="zotero_select_collections")
         summary.errors += 1
@@ -3245,7 +3218,7 @@ def zotero_select_collections(
         raise typer.Exit(code=2)
 
     selected = [{"key": key, "name": known[key].name, "path": known[key].path} for key in collection_keys]
-    _write_zotero_config(
+    write_zotero_config(
         ws,
         {
             "mode": "selected_collections",
@@ -3273,7 +3246,7 @@ def zotero_use_entire_library(
     """Configure Zotero scans to use the entire local storage library."""
     ws = _resolve_workspace(workspace)
     _slug, logger, summary, summary_path, _log_path = _run_ctx(["zotero", "use_entire_library"], ws, log_level)
-    _write_zotero_config(ws, {"mode": "entire_library", "selected_collections": []})
+    write_zotero_config(ws, {"mode": "entire_library", "selected_collections": []})
     logger.info("Configured entire Zotero library mode", operation="zotero_use_entire_library")
     _finish(summary, summary_path)
     if not quiet:
@@ -3359,7 +3332,7 @@ def zotero_api_select_collections(
     """Save read-only Zotero Web API collection selection in workspace config."""
     ws = _resolve_workspace(workspace)
     _slug, logger, summary, summary_path, _log_path = _run_ctx(["zotero", "api_select_collections"], ws, log_level)
-    _write_zotero_config(
+    write_zotero_config(
         ws,
         {
             "api_mode": "selected_collections",
@@ -3390,7 +3363,7 @@ def zotero_scan_collection(
     """Scan one local Zotero collection without changing saved collection mode."""
     ws = _resolve_workspace(workspace)
     _slug, logger, summary, summary_path, _log_path = _run_ctx(["zotero", "scan_collection"], ws, log_level)
-    storage_root, zotero_root, _zotero_config = _resolve_zotero_paths(ws)
+    storage_root, zotero_root, _zotero_config = resolve_zotero_paths(ws)
     if not zotero_root:
         logger.error("Could not derive Zotero root", operation="zotero_scan_collection")
         summary.errors += 1
@@ -3438,8 +3411,8 @@ def zotero_search(
     ws = _resolve_workspace(workspace)
     _slug, logger, summary, summary_path, _log_path = _run_ctx(["zotero", "search"], ws, log_level)
 
-    cfg_root, source_mode, _source_config = _configured_source_root(ws)
-    zotero_config = _configured_zotero(ws)
+    cfg_root, source_mode, _source_config = configured_source_root(ws)
+    zotero_config = configured_zotero(ws)
     storage_root = storage or (Path(zotero_config["storage"]) if zotero_config.get("storage") else cfg_root)
     if not storage_root:
         logger.error("No Zotero storage root configured or provided", operation="zotero_search")
@@ -3508,7 +3481,7 @@ def zotero_metadata_report(
     """Report missing local Zotero metadata fields from read-only zotero.sqlite."""
     ws = _resolve_workspace(workspace)
     _slug, logger, summary, summary_path, _log_path = _run_ctx(["zotero", "metadata_report"], ws, log_level)
-    _storage_root, zotero_root, _zotero_config = _resolve_zotero_paths(ws)
+    _storage_root, zotero_root, _zotero_config = resolve_zotero_paths(ws)
     if not zotero_root:
         logger.error("Could not derive Zotero root", operation="zotero_metadata_report")
         summary.errors += 1
@@ -3538,7 +3511,7 @@ def zotero_attachment_health(
     """Compare local Zotero storage files with attachment records in zotero.sqlite."""
     ws = _resolve_workspace(workspace)
     _slug, logger, summary, summary_path, _log_path = _run_ctx(["zotero", "attachment_health"], ws, log_level)
-    storage_root, zotero_root, _zotero_config = _resolve_zotero_paths(ws)
+    storage_root, zotero_root, _zotero_config = resolve_zotero_paths(ws)
     if not zotero_root:
         logger.error("Could not derive Zotero root", operation="zotero_attachment_health")
         summary.errors += 1
@@ -3568,7 +3541,7 @@ def zotero_fulltext_report(
     """Report which local Zotero storage files have `.zotero-ft-cache` available."""
     ws = _resolve_workspace(workspace)
     _slug, logger, summary, summary_path, _log_path = _run_ctx(["zotero", "fulltext_report"], ws, log_level)
-    storage_root, _zotero_root, _zotero_config = _resolve_zotero_paths(ws)
+    storage_root, _zotero_root, _zotero_config = resolve_zotero_paths(ws)
     paths = list(iter_source_files(storage_root))
     report = fulltext_availability_report(storage_root, paths)
     output_path = ws / "outputs" / "validation" / "zotero-fulltext-report.yaml"
@@ -3592,7 +3565,7 @@ def zotero_duplicates(
     """Find possible local Zotero metadata duplicates by DOI or title/year."""
     ws = _resolve_workspace(workspace)
     _slug, logger, summary, summary_path, _log_path = _run_ctx(["zotero", "duplicates"], ws, log_level)
-    _storage_root, zotero_root, _zotero_config = _resolve_zotero_paths(ws)
+    _storage_root, zotero_root, _zotero_config = resolve_zotero_paths(ws)
     if not zotero_root:
         logger.error("Could not derive Zotero root", operation="zotero_duplicates")
         summary.errors += 1
@@ -3619,7 +3592,7 @@ def zotero_snapshot(
     """Write a reproducible local Zotero metadata snapshot into the workspace."""
     ws = _resolve_workspace(workspace)
     _slug, logger, summary, summary_path, _log_path = _run_ctx(["zotero", "snapshot"], ws, log_level)
-    _storage_root, zotero_root, _zotero_config = _resolve_zotero_paths(ws)
+    _storage_root, zotero_root, _zotero_config = resolve_zotero_paths(ws)
     if not zotero_root:
         logger.error("Could not derive Zotero root", operation="zotero_snapshot")
         summary.errors += 1
@@ -3645,7 +3618,7 @@ def zotero_export_bibtex(
     """Export conservative BibTeX from local Zotero SQLite metadata."""
     ws = _resolve_workspace(workspace)
     _slug, logger, summary, summary_path, _log_path = _run_ctx(["zotero", "export_bibtex"], ws, log_level)
-    _storage_root, zotero_root, _zotero_config = _resolve_zotero_paths(ws)
+    _storage_root, zotero_root, _zotero_config = resolve_zotero_paths(ws)
     if not zotero_root:
         logger.error("Could not derive Zotero root", operation="zotero_export_bibtex")
         summary.errors += 1
