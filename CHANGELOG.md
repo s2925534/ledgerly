@@ -4,6 +4,8 @@ All notable changes to ResearchBoss will be documented in this file.
 
 ## Unreleased
 
+- Added `GET/POST /api/v1/sources/*`, `GET/POST /api/v1/artefacts/*`, and `GET/POST /api/v1/rqs/*` routes to the local FastAPI backend, all reusing existing tested engine functions with 404s for unknown source/artefact/RQ IDs rather than generic 400s.
+- Bumped project version to 0.7.2.
 - Started Phase 9 local FastAPI backend (`researchboss.api`, run with `researchboss serve`): app factory with a shared response envelope and error handling, plus `GET /health` (no workspace/auth dependency), `GET/POST /api/v1/projects/*`, and the `POST/GET /api/v1/doc/*` document-versioning routes, all reusing existing tested engine functions.
 - Bumped project version to 0.7.1.
 - Added Phase 8 local document vault, versioning, and restoration through `researchboss doc version/versions/diff/restore/compare`, with a `document-vault.yaml` ledger and a `document_vault/` folder for originals, versions, diffs, and manifests.

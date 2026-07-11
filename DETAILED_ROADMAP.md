@@ -366,12 +366,15 @@ Done:
 - Workspace-resolution dependency requiring an explicit `workspace` query parameter (no interactive discovery, unlike the CLI).
 - `GET /health` outside `/api/v1`, with no workspace or auth dependency.
 - `GET /api/v1/projects/status`, `GET /api/v1/projects/health`, `POST /api/v1/projects/init` (409s rather than silently overwriting an already-initialized workspace).
+- `GET /api/v1/sources`, `POST /api/v1/sources/scan`, `POST /api/v1/sources/{id}/status`, `POST /api/v1/sources/{id}/note`, `POST /api/v1/sources/{id}/tags`, `GET /api/v1/sources/report` (unknown source IDs return 404, not a generic 400).
+- `GET/POST /api/v1/artefacts`, `POST /api/v1/artefacts/{id}/review`, `GET /api/v1/artefacts/dependencies`.
+- `GET /api/v1/rqs`, `POST /api/v1/rqs/check`, `POST /api/v1/rqs/{id}/approve|reject|archive` (unknown RQ IDs return 404).
 - `POST /api/v1/doc/version`, `GET /api/v1/doc/versions`, `GET /api/v1/doc/diff`, `GET /api/v1/doc/compare`, `POST /api/v1/doc/restore`.
 - `researchboss serve` to run the app with uvicorn; route tests via `fastapi.testclient.TestClient`.
 
 Next work:
 
-- Routes for sources, artefacts, research questions, reports, settings, logs, AI, novelty, validation, citation plans, guidelines, and SQLite sync status.
+- Routes for reports, settings, logs, AI, novelty, validation, citation plans, guidelines, and SQLite sync status.
 - Single-user login protection guarding `/api/v1` routes (needs a credential-storage design decision).
 - Artefact upload, batch limits, and cross-reference routes (need new engine-level functions first — none of this exists in `researchboss.engine` yet).
 
@@ -707,7 +710,7 @@ Phase 1 through the currently implemented deterministic Phase 8 work is complete
    - Complexity: high — needs an explicit anchor-ID design decision before implementation.
    - Phase: 8 remainder.
 
-2. Add the remaining Phase 9 route groups: sources, artefacts, research questions, reports, validation, citation plans, guidelines, and SQLite sync status.
+2. Add the remaining Phase 9 route groups: reports, validation, citation plans, guidelines, and SQLite sync status.
    - Why: `docs/api/CONTRACT.md` already specifies these routes; each maps to an existing, tested engine function, so this is mechanical route-wrapping rather than new design.
    - Likely files: new modules under `researchboss/api/routers/`, `researchboss/api/app.py` router registration, tests.
    - Tests: routes call shared engine functions only, workspace-scoped writes, no-Zotero-write boundary, per route group.

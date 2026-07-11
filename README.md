@@ -1,6 +1,6 @@
 # ResearchBoss
 
-Current version: 0.7.1
+Current version: 0.7.2
 
 ResearchBoss is a local-first, evidence-first research workspace for managing research context, source files, review state, and project memory without requiring cloud services for the MVP.
 
@@ -37,7 +37,7 @@ Phase 1 complete:
 - Read-only local Zotero SQLite metadata lookup without Zotero API use
 - Offline Zotero collection listing, selected-collection mode, notes/tags/relations metadata, metadata reports, health reports, snapshots, duplicate checks, and BibTeX export
 - Optional read-only Zotero Web API credential test, collection listing, and collection selection
-- Planned local FastAPI boundary documented in `docs/api/CONTRACT.md`
+- Local FastAPI boundary documented in `docs/api/CONTRACT.md`, with health, projects, sources, artefacts, research question, and document vault routes implemented through `researchboss serve`
 - TXT, MD, DOCX, and page-marked PDF conversion into `sources_text/`
 - Conversion cache keyed by source hash and failed conversion records under `sources_failed/`
 - Deterministic citation metadata extraction without inventing missing fields
@@ -459,7 +459,7 @@ researchboss doc restore <version-id> --workspace <workspace>
 researchboss serve --host 127.0.0.1 --port 8000
 ```
 
-Implemented so far: `GET /health` (no workspace or auth dependency, for deploy/update health checks), `GET /api/v1/projects/status`, `POST /api/v1/projects/init`, `GET /api/v1/projects/health`, and the document vault routes `POST /api/v1/doc/version`, `GET /api/v1/doc/versions`, `GET /api/v1/doc/diff`, `GET /api/v1/doc/compare`, and `POST /api/v1/doc/restore`. Every response uses the envelope `{"ok", "data", "warnings", "errors"}` documented in `docs/api/CONTRACT.md`, which also lists the remaining planned routes. Auth and additional route groups are not implemented yet — do not expose `researchboss serve` on a public interface until login protection lands.
+Implemented so far: `GET /health` (no workspace or auth dependency, for deploy/update health checks); projects (`GET /api/v1/projects/status`, `POST /api/v1/projects/init`, `GET /api/v1/projects/health`); sources (`GET /api/v1/sources`, `POST /api/v1/sources/scan`, `POST /api/v1/sources/{id}/status`, `POST /api/v1/sources/{id}/note`, `POST /api/v1/sources/{id}/tags`, `GET /api/v1/sources/report`); artefacts (`GET/POST /api/v1/artefacts`, `POST /api/v1/artefacts/{id}/review`, `GET /api/v1/artefacts/dependencies`); research questions (`GET /api/v1/rqs`, `POST /api/v1/rqs/check`, `POST /api/v1/rqs/{id}/approve|reject|archive`); and the document vault routes `POST /api/v1/doc/version`, `GET /api/v1/doc/versions`, `GET /api/v1/doc/diff`, `GET /api/v1/doc/compare`, and `POST /api/v1/doc/restore`. Every response uses the envelope `{"ok", "data", "warnings", "errors"}` documented in `docs/api/CONTRACT.md`, which also lists the remaining planned routes. Auth and the remaining route groups are not implemented yet — do not expose `researchboss serve` on a public interface until login protection lands.
 
 ## Abstract Screening and External Candidate Import
 
@@ -519,7 +519,7 @@ The detailed living roadmap is maintained in `DETAILED_ROADMAP.md`. Update that 
 6. Add deterministic document validation, guideline handling, citation assistance, and later explicit AI opt-ins for whole-document workflows.
 7. Optional workspace SQLite memory, indexing, and sync complete for deterministic local MVP paths.
 8. Document vault, versioning, and restoration complete for deterministic local MVP paths (`researchboss doc version/versions/diff/restore/compare`); derived-text anchoring and AI edit sessions remain future work.
-9. Local FastAPI backend started: app skeleton, `researchboss serve`, health/projects/document-vault routes live; sources, artefacts, research questions, AI, validation, citation, and guideline routes remain.
+9. Local FastAPI backend started: app skeleton, `researchboss serve`, health/projects/sources/artefacts/research-question/document-vault routes live; reports, AI, validation, citation, guideline, and SQLite-sync-status routes, plus login protection, remain.
 10. Prepare a cross-platform UI.
 11. Add packaging plans for desktop distribution.
 

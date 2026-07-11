@@ -235,7 +235,8 @@
 
 - [x] **Done** - **API** - a local FastAPI app (app factory, response envelope, workspace-resolution dependency, error handling, `researchboss serve`) after engine contracts for validation, citation, SQLite sync, and document versioning were tested.
 - [x] **Done** - **API** - `GET /health`, `GET/POST /api/v1/projects/*`, and `POST/GET /api/v1/doc/*` document-versioning routes.
-- [ ] **API** - routes for sources, artefacts, research questions, reports, settings, logs, AI, novelty, validation, citation plans, guidelines, and SQLite sync status.
+- [x] **Done** - **API** - `GET/POST /api/v1/sources/*`, `GET/POST /api/v1/artefacts/*`, and `GET/POST /api/v1/rqs/*` routes.
+- [ ] **API** - routes for reports, settings, logs, AI, novelty, validation, citation plans, guidelines, and SQLite sync status.
 - [x] **Done** - **API** - API implementation that reuses engine logic rather than duplicating business logic.
 - [x] **Done** - **API** - API route tests proving workspace-scoped writes and no original-file modification for the routes built so far; no-Zotero-write, no-secret-logging, and explicit-AI-opt-in boundary tests remain as those route groups are added.
 - [ ] **API** - Add `POST /api/v1/artefacts/upload` for batch artefact uploads, reusing document-vault and artefact-registration engine logic rather than duplicating upload handling in the API layer.

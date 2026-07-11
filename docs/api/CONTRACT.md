@@ -2,7 +2,7 @@
 
 This document defines the planned FastAPI boundary for ResearchBoss before any backend routes are implemented.
 
-Contract status: implementation started in project version `0.7.0` (`researchboss.api`, run with `researchboss serve`). Routes marked `(implemented)` below are live; all other routes remain planned.
+Contract status: implementation started in project version `0.7.0`, expanded in `0.7.2` (`researchboss.api`, run with `researchboss serve`). Routes marked `(implemented)` below are live; all other routes remain planned.
 
 The API must be local-first, workspace-scoped, and a thin transport layer over `researchboss.engine` functions. It must not duplicate business logic already implemented in the engine.
 
@@ -94,7 +94,7 @@ Engine source:
 
 ## Source Routes
 
-### `GET /api/v1/sources`
+### `GET /api/v1/sources` (implemented)
 
 Lists sources, optionally filtered by status.
 
@@ -102,7 +102,7 @@ Engine source:
 
 - `researchboss.engine.sources.list_sources`
 
-### `POST /api/v1/sources/scan`
+### `POST /api/v1/sources/scan` (implemented)
 
 Scans local folders or Zotero storage.
 
@@ -115,7 +115,7 @@ Allowed providers:
 - `local_folder`
 - `zotero_storage`
 
-### `POST /api/v1/sources/{source_id}/status`
+### `POST /api/v1/sources/{source_id}/status` (implemented)
 
 Sets source review status.
 
@@ -129,7 +129,7 @@ Allowed statuses:
 - `ignored`
 - `maybe`
 
-### `POST /api/v1/sources/{source_id}/note`
+### `POST /api/v1/sources/{source_id}/note` (implemented)
 
 Sets a local note for a source.
 
@@ -137,7 +137,7 @@ Engine source:
 
 - `researchboss.engine.sources.set_source_note`
 
-### `POST /api/v1/sources/{source_id}/tags`
+### `POST /api/v1/sources/{source_id}/tags` (implemented)
 
 Adds a manual tag to a source.
 
@@ -145,7 +145,7 @@ Engine source:
 
 - `researchboss.engine.sources.add_source_tag`
 
-### `GET /api/v1/sources/report`
+### `GET /api/v1/sources/report` (implemented)
 
 Returns source review report data.
 
@@ -223,7 +223,7 @@ Engine source:
 
 ## Research Question Routes
 
-### `GET /api/v1/rqs`
+### `GET /api/v1/rqs` (implemented)
 
 Lists approved, candidate, and rejected research questions.
 
@@ -231,7 +231,7 @@ Engine source:
 
 - `researchboss.engine.research_questions.list_research_questions`
 
-### `POST /api/v1/rqs/check`
+### `POST /api/v1/rqs/check` (implemented)
 
 Runs deterministic research question readiness checks.
 
@@ -239,7 +239,7 @@ Engine source:
 
 - `researchboss.engine.research_questions.check_research_question_readiness`
 
-### `POST /api/v1/rqs/{rq_id}/approve`
+### `POST /api/v1/rqs/{rq_id}/approve` (implemented)
 
 Approves a candidate research question.
 
@@ -247,7 +247,7 @@ Engine source:
 
 - `researchboss.engine.research_questions.approve_research_question`
 
-### `POST /api/v1/rqs/{rq_id}/reject`
+### `POST /api/v1/rqs/{rq_id}/reject` (implemented)
 
 Rejects a research question.
 
@@ -255,7 +255,7 @@ Engine source:
 
 - `researchboss.engine.research_questions.reject_research_question`
 
-### `POST /api/v1/rqs/{rq_id}/archive`
+### `POST /api/v1/rqs/{rq_id}/archive` (implemented)
 
 Archives a research question.
 
@@ -307,7 +307,7 @@ Engine source:
 
 ## Artefact Routes
 
-### `GET /api/v1/artefacts`
+### `GET /api/v1/artefacts` (implemented)
 
 Lists artefacts.
 
@@ -315,7 +315,7 @@ Engine source:
 
 - `researchboss.engine.artefacts.list_artefacts`
 
-### `POST /api/v1/artefacts`
+### `POST /api/v1/artefacts` (implemented)
 
 Registers a local artefact.
 
@@ -331,7 +331,7 @@ Engine source:
 
 - `researchboss.engine.artefact_creation.create_deterministic_artefact`
 
-### `POST /api/v1/artefacts/{artefact_id}/review`
+### `POST /api/v1/artefacts/{artefact_id}/review` (implemented)
 
 Sets artefact review status.
 
@@ -339,7 +339,7 @@ Engine source:
 
 - `researchboss.engine.artefacts.set_artefact_review_status`
 
-### `GET /api/v1/artefacts/dependencies`
+### `GET /api/v1/artefacts/dependencies` (implemented)
 
 Checks artefact links against accepted sources and approved research questions.
 

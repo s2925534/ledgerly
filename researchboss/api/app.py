@@ -5,7 +5,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from researchboss.api.envelope import ApiError
-from researchboss.api.routers import doc, health, projects
+from researchboss.api.routers import artefacts, doc, health, projects, rqs, sources
 
 
 def create_app() -> FastAPI:
@@ -38,6 +38,9 @@ def create_app() -> FastAPI:
 
     app.include_router(health.router)
     app.include_router(projects.router, prefix="/api/v1/projects", tags=["projects"])
+    app.include_router(sources.router, prefix="/api/v1/sources", tags=["sources"])
+    app.include_router(artefacts.router, prefix="/api/v1/artefacts", tags=["artefacts"])
+    app.include_router(rqs.router, prefix="/api/v1/rqs", tags=["research-questions"])
     app.include_router(doc.router, prefix="/api/v1/doc", tags=["document-vault"])
     return app
 
