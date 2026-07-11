@@ -232,6 +232,29 @@ def test_zotero_storage_candidates_cover_macos_and_windows_defaults(tmp_path: Pa
     assert tmp_path / "Documents" / "Zotero" / "storage" in windows_candidates
 
 
+def test_zotero_storage_candidates_cover_linux_native_and_flatpak_defaults(tmp_path: Path) -> None:
+    linux_candidates = zotero_storage_candidates(home=tmp_path, system="Linux")
+
+    assert tmp_path / "Zotero" / "storage" in linux_candidates
+    assert tmp_path / ".var" / "app" / "org.zotero.Zotero" / "data" / "zotero" / "storage" in linux_candidates
+
+
+def test_zotero_storage_candidates_include_linux_profile_glob_matches(tmp_path: Path) -> None:
+    profile_storage = tmp_path / ".zotero" / "zotero" / "abc123.default" / "zotero" / "storage"
+    profile_storage.mkdir(parents=True)
+
+    linux_candidates = zotero_storage_candidates(home=tmp_path, system="Linux")
+
+    assert profile_storage in linux_candidates
+
+
+def test_find_default_zotero_storage_works_on_linux(tmp_path: Path) -> None:
+    storage = tmp_path / "Zotero" / "storage"
+    storage.mkdir(parents=True)
+
+    assert find_default_zotero_storage(home=tmp_path, system="Linux") == storage
+
+
 def test_find_default_zotero_storage_prefers_user_zotero_storage(tmp_path: Path) -> None:
     storage = tmp_path / "Zotero" / "storage"
     storage.mkdir(parents=True)

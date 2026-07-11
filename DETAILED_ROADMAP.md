@@ -149,9 +149,12 @@ Important folders:
 
 Expected future folders:
 
-- `researchboss/api` for FastAPI.
 - `frontend` or equivalent UI planning folder.
-- `docs/packaging` for desktop packaging notes.
+
+Now exist (this section was written before Phase 9/11 started and was not kept current — see the phase-by-phase audit below for actual status):
+
+- `researchboss/api` for FastAPI (Phase 9).
+- `docs/PACKAGING.md` for desktop packaging notes (Phase 11; a single file, not a `docs/packaging/` folder).
 
 ## 3. Implemented Features
 
@@ -401,13 +404,20 @@ Next work:
 
 ### Phase 11: Packaging
 
-Status: not started.
+Status: planning complete (`docs/PACKAGING.md`); no actual packaged build has been produced or tested yet.
+
+Done:
+
+- Packaging plan covering CLI, local API, workspace SQLite (stdlib `sqlite3`, nothing to bundle), document vault files (plain workspace files, not a packaging concern), and desktop UI (explicitly deferred to Phase 10's still-open UI framework decision).
+- PyInstaller recipe plus two gotchas identified from known uvicorn/PyInstaller interaction patterns rather than verified against a real build yet: uvicorn's dynamic loop/protocol imports and `python-multipart` (only imported at upload-request time) both need explicit `--hidden-import`/`--collect-all` treatment or the packaged binary will fail specifically at `researchboss serve` / file-upload time despite a clean `pyinstaller` exit code.
+- Flutter desktop sidecar notes, written as explicitly conditional on Phase 10 choosing Flutter — reuses the PyInstaller binary as a spawned sidecar rather than embedding a second Python runtime, with a per-launch random `RESEARCHBOSS_API_PASSWORD` and ephemeral port kept internal to the app (not something an end user manages).
+- Fixed a real, concrete gap found while researching platform coverage: `workspace.zotero_storage_candidates()` had no Linux branch at all (fell through to an empty list — `researchboss init` could never auto-detect Zotero on Linux). Added native (`~/Zotero/storage`, `~/.zotero/zotero/*/zotero/storage`) and Flatpak (`~/.var/app/org.zotero.Zotero/data/zotero/storage`) candidates, matching the existing macOS/Windows "first existing candidate wins" pattern. Snap-packaged Zotero left as an explicit known gap rather than guessed at.
+- Confirmed (by reading `ocr_readiness_report()`, not assuming) that OCR fallback depends on system-installed `tesseract`/`pdftoppm` located via `shutil.which()` — external CLI tools PyInstaller cannot bundle. Documented as an explicit end-user prerequisite for packaged builds rather than left to silently report "unavailable."
 
 Next work:
 
-- Packaging plan.
-- PyInstaller or equivalent notes.
-- Windows, macOS, Linux distribution notes.
+- Produce and test an actual PyInstaller build against the two identified gotchas — the plan is unverified against a real binary.
+- Everything else in this phase is blocked on Phase 10's UI decision or is speculative until then.
 
 ## 5. CLI Audit
 
@@ -701,6 +711,7 @@ Implemented:
 - `CHANGELOG.md`
 - `DETAILED_ROADMAP.md`
 - `docs/api/CONTRACT.md`
+- `docs/PACKAGING.md`
 - Setup and test instructions.
 - Initial OpenAI and Zotero notes.
 - Local-first privacy boundaries.
@@ -708,11 +719,10 @@ Implemented:
 Missing:
 
 - Desktop/web/mobile strategy.
-- Packaging documentation.
 
 ## 15. Immediate Next Steps
 
-Phase 1 through the currently implemented deterministic Phase 8 work is complete for the committed items. Every route currently documented in `docs/api/CONTRACT.md` is implemented (Phase 9), including single-user login protection, validation, citation plans, guidelines, and SQLite sync status, except the disabled Future AI Routes section. Remaining work includes derived-text anchoring and AI edit sessions in Phase 8, a properly AI-gated novelty route in Phase 9, AI privacy-boundary work, UI preparation, and packaging.
+Phase 1 through the currently implemented deterministic Phase 8 work is complete for the committed items. Every route currently documented in `docs/api/CONTRACT.md` is implemented (Phase 9), including single-user login protection, validation, citation plans, guidelines, SQLite sync status, batch artefact upload, and deterministic cross-reference candidates, except the disabled Future AI Routes section. Phase 11 packaging planning is complete (`docs/PACKAGING.md`), though no packaged build has actually been produced yet. Remaining work includes derived-text anchoring and AI edit sessions in Phase 8, a properly AI-gated novelty route and cross-reference apply in Phase 9, AI privacy-boundary work, UI preparation (Phase 10), and producing/testing a real PyInstaller build (Phase 11).
 
 1. Add derived text snapshots, section maps, paragraph IDs, claim IDs, reference IDs, and citation insertion anchors per document version.
    - Why: repeatable AI-assisted editing needs stable anchors into a document version rather than re-matching raw text each run.

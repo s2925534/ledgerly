@@ -269,10 +269,10 @@
 
 ## Phase 11: Packaging
 
-- [ ] **Deterministic** - a packaging plan that accounts for the CLI, local API, workspace SQLite, document vault files, and optional desktop UI.
-- [ ] **Deterministic** - PyInstaller or equivalent packaging notes for the Python engine and local API.
-- [ ] **Deterministic** - future Flutter desktop packaging notes if the cross-platform UI plan keeps Flutter as the preferred shell.
-- [ ] **Deterministic** - Windows, macOS, and Linux considerations for Zotero paths, local file permissions, document conversion, OCR dependencies, SQLite, and backups.
+- [x] **Done** - **Deterministic** - a packaging plan that accounts for the CLI, local API, workspace SQLite, document vault files, and optional desktop UI (`docs/PACKAGING.md`).
+- [x] **Done** - **Deterministic** - PyInstaller or equivalent packaging notes for the Python engine and local API, including known uvicorn/`python-multipart` hidden-import gotchas and a "verify the actual binary, not just a clean exit code" step (`docs/PACKAGING.md`).
+- [x] **Done** - **Deterministic** - future Flutter desktop packaging notes if the cross-platform UI plan keeps Flutter as the preferred shell — written as explicitly conditional on that not-yet-made Phase 10 decision, not a commitment to it (`docs/PACKAGING.md`).
+- [x] **Done** - **Deterministic** - Windows, macOS, and Linux considerations for Zotero paths, local file permissions, document conversion, OCR dependencies, SQLite, and backups (`docs/PACKAGING.md`). Found and fixed a real gap while researching this: `zotero_storage_candidates()` had no Linux support at all (returned an empty list); added native and Flatpak default paths. Also found that OCR fallback depends on system-installed `tesseract`/`pdftoppm`, which PyInstaller cannot bundle — documented as an explicit end-user prerequisite rather than left implicit.
 
 ## Phase 12: NAS Deployment (research.veloso.dev)
 

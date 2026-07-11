@@ -1,6 +1,6 @@
 # ResearchBoss
 
-Current version: 0.9.1
+Current version: 0.9.2
 
 ResearchBoss is a local-first, evidence-first research workspace for managing research context, source files, review state, and project memory without requiring cloud services for the MVP.
 
@@ -83,7 +83,7 @@ Phase 1 complete:
 Known gaps:
 
 - OpenAI readiness, safe context preview, AI-assisted review, novelty assessment, and research-question assessment are implemented with explicit `--ai` opt-in and local report outputs.
-- FastAPI requires `RESEARCHBOSS_API_PASSWORD` to be set; every `/api/v1` route fails closed (`503`) until it is configured, and login sessions are in-memory only. UI and packaging are planned but not implemented yet.
+- FastAPI requires `RESEARCHBOSS_API_PASSWORD` to be set; every `/api/v1` route fails closed (`503`) until it is configured, and login sessions are in-memory only. UI is not implemented yet; packaging has a written plan (`docs/PACKAGING.md`) but no built/tested package yet.
 - Zotero support defaults to local filesystem and read-only SQLite. Optional read-only Zotero Web API collection listing and selection are implemented.
 - The source review workflow is implemented for local workspace state. Deterministic artefact creation can consume accepted sources, and AI-assisted review/novelty/RQ assessment can use safe accepted-source context when explicitly enabled with `--ai`.
 - Init stores AI preference metadata and keeps AI disabled by default.
@@ -323,7 +323,7 @@ researchboss artefacts dependencies [--workspace <path>]
 
 For commands that mutate a specific source by ID, passing `--workspace` is still recommended in scripts. In interactive use, omitting `--workspace` triggers the same workspace discovery and default-selection flow.
 
-During `researchboss init`, ResearchBoss looks for a default Zotero storage directory on macOS and Windows. If found, the source prompt defaults to that storage path, for example:
+During `researchboss init`, ResearchBoss looks for a default Zotero storage directory on macOS, Windows, and Linux (native and Flatpak installs). If found, the source prompt defaults to that storage path, for example:
 
 ```text
 Where are your source files? [/Users/<user>/Zotero/storage]:
@@ -533,7 +533,7 @@ The detailed living roadmap is maintained in `DETAILED_ROADMAP.md`. Update that 
 8. Document vault, versioning, restoration, and uploaded-artefact intake complete for deterministic local MVP paths (`researchboss doc version/versions/diff/restore/compare/upload/uploads`); derived-text anchoring and AI edit sessions remain future work.
 9. Local FastAPI backend: every route in `docs/api/CONTRACT.md` implemented via `researchboss serve`, including single-user login protection, validation, citation plans, guidelines, SQLite sync status, `RESEARCHBOSS_WORKSPACE_ROOT` containment, batch artefact upload, and deterministic cross-reference candidates, except the disabled Future AI Routes section. Cross-reference apply (writing reviewed links) needs a design decision — registry metadata vs. document-content insertion — before it can be built. Novelty assessment and AI-assisted cross-reference stay out until they can be added under explicit AI opt-in and privacy-boundary rules.
 10. Prepare a cross-platform UI.
-11. Add packaging plans for desktop distribution.
+11. Packaging plan complete (`docs/PACKAGING.md`): PyInstaller recipe with known uvicorn/`python-multipart` gotchas, conditional Flutter sidecar notes, and platform considerations. No packaged build produced or tested yet.
 
 ## Repository Hygiene
 

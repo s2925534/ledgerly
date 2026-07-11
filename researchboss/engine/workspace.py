@@ -102,6 +102,13 @@ def zotero_storage_candidates(home: Optional[Path] = None, system: Optional[str]
             *sorted(app_data.glob("*/storage")),
         ]
 
+    if os_name == "Linux":
+        return [
+            user_home / "Zotero" / "storage",
+            *sorted((user_home / ".zotero" / "zotero").glob("*/zotero/storage")),
+            user_home / ".var" / "app" / "org.zotero.Zotero" / "data" / "zotero" / "storage",
+        ]
+
     return []
 
 
