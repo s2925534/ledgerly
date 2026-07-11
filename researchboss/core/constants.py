@@ -31,6 +31,8 @@ class WorkspaceFiles:
     app_settings_local: str = "app-settings.local.yaml"
     gitignore: str = ".gitignore"
 
+    document_vault_ledger: str = "document-vault.yaml"
+
 
 WORKSPACE_FILES = WorkspaceFiles()
 
@@ -67,6 +69,13 @@ WORKSPACE_DIRS: list[str] = [
     "guidelines/snapshots",
     "guidelines/text",
     "context_versions",
+    "document_vault",
+    "document_vault/originals",
+    "document_vault/versions",
+    "document_vault/derived_text",
+    "document_vault/diffs",
+    "document_vault/manifests",
+    "document_vault/ai_edit_sessions",
 ]
 
 

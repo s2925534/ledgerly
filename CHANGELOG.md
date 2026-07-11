@@ -4,6 +4,10 @@ All notable changes to ResearchBoss will be documented in this file.
 
 ## Unreleased
 
+- Added Phase 8 local document vault, versioning, and restoration through `researchboss doc version/versions/diff/restore/compare`, with a `document-vault.yaml` ledger and a `document_vault/` folder for originals, versions, diffs, and manifests.
+- Added automatic pre/post-change document version snapshots to `researchboss cite apply`, linking each applied citation copy to its source snapshot, validation report ID, and citation plan ID.
+- Added `document_versions` SQLite sync so `researchboss db sync` indexes document vault version history.
+- Bumped project version to 0.7.0.
 - Added explicit SQLite tables for validation runs, evidence matches, citation plans, guideline registrations, search query history, and document version metadata.
 - Bumped project version to 0.6.1.
 - Added Phase 7 workspace SQLite memory, indexing, and sync through `researchboss db init/sync/status/rebuild`.

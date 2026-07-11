@@ -340,12 +340,21 @@ Implemented:
 
 ### Phase 8: Document Vault, Versioning, and Restoration
 
-Status: not started.
+Status: deterministic MVP paths complete.
+
+Done:
+
+- Local document vault layout (`document_vault/originals`, `versions`, `derived_text`, `diffs`, `manifests`, `ai_edit_sessions`) created at workspace init.
+- Document version records (version ID, parent version ID, content hash, creation reason, source command, model metadata, guideline IDs, validation report ID, citation plan ID) through `researchboss doc version`/`doc versions`.
+- Text diff (`doc diff`) and validation-based version comparison (`doc compare`) reports.
+- Restore-as-copy behavior (`doc restore`) that never overwrites the current document or deletes newer versions.
+- Automatic pre/post-change snapshots wired into `cite apply`, the only current command that creates a modified document copy.
+- `document_versions` SQLite sync and document vault inclusion in local backups.
 
 Next work:
 
-- Add a local document vault layout.
-- Add document version metadata, snapshots, diffs, manifests, and restore commands.
+- Derived text snapshots, section maps, paragraph IDs, claim IDs, reference IDs, and citation insertion anchors for repeatable AI-assisted editing.
+- AI edit sessions as reviewable operations (AI-tagged; needs explicit opt-in and privacy-boundary tests first).
 
 ### Phase 9: FastAPI Local Backend
 
@@ -679,28 +688,21 @@ Missing:
 
 ## 15. Immediate Next Steps
 
-Phase 1 through the currently implemented deterministic Phase 7 work is complete for the committed items. Remaining work includes Phase 8 document vault/versioning, API/backend work, AI privacy-boundary work, UI preparation, and packaging.
+Phase 1 through the currently implemented deterministic Phase 8 work is complete for the committed items. Remaining work includes derived-text anchoring and AI edit sessions in Phase 8, API/backend work, AI privacy-boundary work, UI preparation, and packaging.
 
-1. Add richer PDF extraction using an optional local dependency.
-   - Why: current PDF support is intentionally conservative for simple uncompressed streams.
-   - Likely files: conversion engine, docs, tests.
-   - Tests: realistic PDF fixture.
-   - Complexity: medium.
-   - Phase: 2 enhancement, not blocking Phase 2 completion.
+1. Add derived text snapshots, section maps, paragraph IDs, claim IDs, reference IDs, and citation insertion anchors per document version.
+   - Why: repeatable AI-assisted editing needs stable anchors into a document version rather than re-matching raw text each run.
+   - Likely files: document vault engine module, conversion engine, tests.
+   - Tests: anchor stability across re-runs, anchor-to-version linkage, unknown-anchor handling for unsupported formats.
+   - Complexity: high — needs an explicit anchor-ID design decision before implementation.
+   - Phase: 8 remainder.
 
-2. Add guideline defaults, priorities, and command integration.
-   - Why: guideline registration and scopes now exist, but commands do not yet apply default guideline sets.
-   - Likely files: guideline engine, workspace config, CLI, tests.
-   - Tests: default guideline selection, precedence, and `--no-default-guidelines`.
-   - Complexity: medium.
-   - Phase: 6.
-
-3. Start document vault and versioning.
-   - Why: citation application, AI-assisted editing, and restoration need explicit document versions before any workflow modifies generated copies.
-   - Likely files: new document vault engine module, CLI commands, tests, workspace folders.
-   - Tests: version creation, snapshot hashes, diff metadata, restore-copy behavior, Zotero no-write boundary.
+2. Add a minimal local FastAPI app skeleton and the first read-only routes.
+   - Why: validation, citation, SQLite sync, and document-vault engine contracts are now tested, satisfying the AGENTS.md gate on starting Phase 9.
+   - Likely files: new `researchboss/api` package, `docs/api/CONTRACT.md` cross-checks, tests.
+   - Tests: routes call shared engine functions only, workspace-scoped writes, no-Zotero-write boundary.
    - Complexity: high.
-   - Phase: 8.
+   - Phase: 9.
 
 ## 15a. Useful Ideas Learned From `../pdf-merge`
 
@@ -725,7 +727,7 @@ Not suitable for MVP right now:
 
 ## 16. Recommended Resume Point
 
-Resume with Phase 8 document vault, versioning, and restoration. FastAPI remains Phase 9 and should wait until validation, citation, SQLite, and document-vault engine contracts are stable. AI work remains intentionally separated behind explicit opt-in and privacy-boundary tests.
+Deterministic Phase 8 document vault, versioning, and restoration is complete. Resume with either the remaining Phase 8 derived-text/anchor work or Phase 9 FastAPI, now that validation, citation, SQLite, and document-vault engine contracts are stable. AI work remains intentionally separated behind explicit opt-in and privacy-boundary tests.
 
 ## 17. Maintenance Rule
 

@@ -88,7 +88,17 @@ def test_apply_citation_plan_creates_revised_copy_for_accepted_insertions(tmp_pa
     assert "evidence (Smith, 2024)." in revised
     assert "## References" in revised
     assert result.applied == 1
-    assert read_yaml(result.report_path)["original_document_modified"] is False
+    report = read_yaml(result.report_path)
+    assert report["original_document_modified"] is False
+    assert report["document_version_id"] == result.version_id
+    assert report["source_snapshot_version_id"] == result.source_snapshot_version_id
+
+    versions = read_yaml(workspace / "document-vault.yaml")["versions"]
+    applied_record = next(v for v in versions if v["version_id"] == result.version_id)
+    assert applied_record["parent_version_id"] == result.source_snapshot_version_id
+    assert applied_record["creation_reason"] == "citation_apply"
+    assert applied_record["citation_plan_id"] == plan.yaml_path.stem
+    assert applied_record["validation_report_id"] == Path(str(plan_data["validation_report"])).stem
 
 
 def test_citation_plan_blocks_candidate_sources_by_default(tmp_path: Path) -> None:

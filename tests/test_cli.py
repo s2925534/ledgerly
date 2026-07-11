@@ -1748,3 +1748,53 @@ def test_cli_workspace_prompt_retries_invalid_selection(tmp_path: Path, monkeypa
     assert result.exit_code == 0, result.output
     assert "Please enter a number from 1 to 2." in result.output
     assert "Invalid value" not in result.output
+
+
+def test_cli_doc_version_versions_diff_and_restore(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test Project", project_type="M.Phil", topic="")
+    target_path = workspace / "artefacts" / "notes" / "draft.md"
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    target_path.write_text("line one\n", encoding="utf-8")
+
+    first = runner.invoke(app, ["doc", "version", str(target_path), "--workspace", str(workspace), "--quiet"])
+    assert first.exit_code == 0, first.output
+
+    target_path.write_text("line one\nline two\n", encoding="utf-8")
+    second = runner.invoke(app, ["doc", "version", str(target_path), "--workspace", str(workspace), "--quiet"])
+    assert second.exit_code == 0, second.output
+
+    versions = read_yaml(workspace / "document-vault.yaml")["versions"]
+    assert [v["version_id"] for v in versions] == ["docv-001", "docv-002"]
+
+    list_result = runner.invoke(app, ["doc", "versions", str(target_path), "--workspace", str(workspace), "--quiet"])
+    assert list_result.exit_code == 0, list_result.output
+
+    diff_result = runner.invoke(
+        app, ["doc", "diff", "docv-001", "docv-002", "--workspace", str(workspace), "--quiet"]
+    )
+    assert diff_result.exit_code == 0, diff_result.output
+
+    restore_result = runner.invoke(
+        app, ["doc", "restore", "docv-001", "--workspace", str(workspace), "--quiet"]
+    )
+    assert restore_result.exit_code == 0, restore_result.output
+    restored_versions = read_yaml(workspace / "document-vault.yaml")["versions"]
+    assert restored_versions[-1]["creation_reason"] == "restore"
+    assert target_path.read_text(encoding="utf-8") == "line one\nline two\n"
+
+
+def test_cli_doc_compare_reports_not_comparable_without_validation_links(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test Project", project_type="M.Phil", topic="")
+    target_path = workspace / "artefacts" / "notes" / "draft.md"
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    target_path.write_text("line one\n", encoding="utf-8")
+    runner.invoke(app, ["doc", "version", str(target_path), "--workspace", str(workspace), "--quiet"])
+    target_path.write_text("line one\nline two\n", encoding="utf-8")
+    runner.invoke(app, ["doc", "version", str(target_path), "--workspace", str(workspace), "--quiet"])
+
+    result = runner.invoke(app, ["doc", "compare", "docv-001", "docv-002", "--workspace", str(workspace)])
+
+    assert result.exit_code == 0, result.output
+    assert "Not comparable" in result.output

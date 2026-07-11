@@ -1,6 +1,6 @@
 # ResearchBoss
 
-Current version: 0.6.1
+Current version: 0.7.0
 
 ResearchBoss is a local-first, evidence-first research workspace for managing research context, source files, review state, and project memory without requiring cloud services for the MVP.
 
@@ -437,6 +437,20 @@ researchboss cite apply <target> --workspace <workspace>
 
 `cite plan` is deterministic and writes `outputs/citation-plans/citation-plan-<target>.yaml` and `.md`. `cite ai-plan` is the AI-assisted equivalent behind explicit `--ai`, and only sends the full target document text with an additional `--full-target-document-ai` opt-in. Both plan commands only suggest citations from `accepted` sources unless `--allow-candidate-citations` is passed. `cite apply` reads a reviewed plan (from `--plan` or the default plan path) and writes the accepted insertions to a revised output copy — it never edits the original document in place.
 
+## Document Vault
+
+`document-vault.yaml` tracks version history for generated artefacts and user-selected target documents inside a local `document_vault/` folder (`originals/`, `versions/`, `diffs/`, `manifests/`). Original files are never modified in place; every command that creates a modified document copy — including `cite apply` — automatically snapshots the document before and after the change.
+
+```bash
+researchboss doc version <target> --workspace <workspace>
+researchboss doc versions <target> --workspace <workspace>
+researchboss doc diff <version-id-a> <version-id-b> --workspace <workspace>
+researchboss doc compare <version-id-a> <version-id-b> --workspace <workspace>
+researchboss doc restore <version-id> --workspace <workspace>
+```
+
+`doc version` snapshots a target (path, artefact ID/title, alias, or artefact type) into the vault, recording its content hash, parent version, creation reason, source command, and — when applicable — the linked validation report and citation plan IDs. `doc diff` shows a unified text diff between two versions (Markdown/TXT only; other formats report `diff_supported: false` rather than guessing). `doc compare` shows how a target's validation strengths, weaknesses, unsupported claims, and references changed between two versions, when both carry a linked validation report. `doc restore` always writes a new, separate copy rather than overwriting the current document or deleting newer versions.
+
 ## Abstract Screening and External Candidate Import
 
 Legacy or externally sourced abstracts can be imported into a reviewable local candidate register before they become workspace sources:
@@ -494,7 +508,7 @@ The detailed living roadmap is maintained in `DETAILED_ROADMAP.md`. Update that 
 5. Add optional OpenAI features with strict privacy boundaries.
 6. Add deterministic document validation, guideline handling, citation assistance, and later explicit AI opt-ins for whole-document workflows.
 7. Optional workspace SQLite memory, indexing, and sync complete for deterministic local MVP paths.
-8. Add a local document vault with versions, manifests, and restoration workflows.
+8. Document vault, versioning, and restoration complete for deterministic local MVP paths (`researchboss doc version/versions/diff/restore/compare`); derived-text anchoring and AI edit sessions remain future work.
 9. Add a local FastAPI backend.
 10. Prepare a cross-platform UI.
 11. Add packaging plans for desktop distribution.

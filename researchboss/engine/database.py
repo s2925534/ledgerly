@@ -136,6 +136,7 @@ def sync_database(workspace: Path) -> DbCommandResult:
         _sync_guideline_registrations(conn, workspace, now)
         _sync_validation_runs(conn, workspace, now)
         _sync_citation_plans(conn, workspace, now)
+        _sync_document_versions(conn, workspace, now)
         _sync_fts_indexes(conn, workspace, now)
         _set_meta(conn, "last_sync_at", now)
 
@@ -619,6 +620,52 @@ def _sync_citation_plans(conn: sqlite3.Connection, workspace: Path, now: str) ->
                 len([item for item in plan.get("insertions", []) if isinstance(item, dict)]),
                 str(plan.get("plan_status") or "unknown"),
                 now,
+            ),
+        )
+
+
+def _sync_document_versions(conn: sqlite3.Connection, workspace: Path, now: str) -> None:
+    ledger_path = workspace / "document-vault.yaml"
+    if not ledger_path.is_file():
+        return
+    try:
+        ledger = read_yaml(ledger_path)
+    except Exception:
+        return
+    for record in ledger.get("versions", []):
+        if not isinstance(record, dict) or not record.get("version_id"):
+            continue
+        conn.execute(
+            """
+            insert into document_versions (
+                version_id, target_path, parent_version_id, content_hash, creation_reason,
+                source_command, model_metadata_json, guideline_ids_json, validation_report_id,
+                citation_plan_id, created_at
+            )
+            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            on conflict(version_id) do update set
+                target_path = excluded.target_path,
+                parent_version_id = excluded.parent_version_id,
+                content_hash = excluded.content_hash,
+                creation_reason = excluded.creation_reason,
+                source_command = excluded.source_command,
+                model_metadata_json = excluded.model_metadata_json,
+                guideline_ids_json = excluded.guideline_ids_json,
+                validation_report_id = excluded.validation_report_id,
+                citation_plan_id = excluded.citation_plan_id
+            """,
+            (
+                str(record.get("version_id")),
+                str(record.get("target_path") or ""),
+                record.get("parent_version_id"),
+                record.get("content_hash"),
+                record.get("creation_reason"),
+                record.get("source_command"),
+                json.dumps(record.get("model_metadata") or {}, sort_keys=True),
+                json.dumps(record.get("guideline_ids") or [], sort_keys=True),
+                record.get("validation_report_id"),
+                record.get("citation_plan_id"),
+                str(record.get("created_at") or now),
             ),
         )
 

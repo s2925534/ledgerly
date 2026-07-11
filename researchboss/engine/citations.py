@@ -11,6 +11,7 @@ from researchboss.core.yamlio import read_yaml, write_yaml
 from researchboss.engine.conversion import extract_text
 from researchboss.engine.doc_validation import validate_document
 from researchboss.engine.document_targets import resolve_document_target
+from researchboss.engine.vault import create_document_version
 
 
 WORD_NAMESPACE = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
@@ -30,6 +31,8 @@ class CitationApplyRun:
     skipped: int
     output_path: Path
     report_path: Path
+    version_id: str
+    source_snapshot_version_id: str
 
 
 def create_citation_plan(
@@ -153,6 +156,28 @@ def apply_citation_plan(
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text(revised, encoding="utf-8")
 
+    validation_report_ref = plan.get("validation_report")
+    validation_report_id = Path(str(validation_report_ref)).stem if validation_report_ref else None
+    citation_plan_id = plan_yaml.stem
+
+    source_snapshot = create_document_version(
+        workspace,
+        str(resolved_target.path),
+        creation_reason="pre_citation_apply_snapshot",
+        source_command="cite apply",
+        cwd=cwd,
+    )
+    applied_version = create_document_version(
+        workspace,
+        str(output_path),
+        creation_reason="citation_apply",
+        source_command="cite apply",
+        parent_version_id=source_snapshot["version_id"],
+        validation_report_id=validation_report_id,
+        citation_plan_id=citation_plan_id,
+        cwd=cwd,
+    )
+
     report = {
         "version": 1,
         "target": str(resolved_target.path),
@@ -163,10 +188,19 @@ def apply_citation_plan(
         "original_document_modified": False,
         "applied_insertions": applied,
         "skipped_insertions": len(insertions) - applied,
+        "document_version_id": applied_version["version_id"],
+        "source_snapshot_version_id": source_snapshot["version_id"],
     }
     report_path = _applied_report_path(workspace, resolved_target.path)
     write_yaml(report_path, report)
-    return CitationApplyRun(applied=applied, skipped=len(insertions) - applied, output_path=output_path, report_path=report_path)
+    return CitationApplyRun(
+        applied=applied,
+        skipped=len(insertions) - applied,
+        output_path=output_path,
+        report_path=report_path,
+        version_id=applied_version["version_id"],
+        source_snapshot_version_id=source_snapshot["version_id"],
+    )
 
 
 def _apply_to_text(text: str, insertions: list[dict[str, Any]]) -> tuple[str, int]:

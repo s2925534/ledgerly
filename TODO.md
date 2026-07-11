@@ -218,16 +218,18 @@
 
 ## Phase 8: Document Vault, Versioning, and Restoration
 
-- [ ] **Deterministic** - a local document vault layout for originals, generated documents, derived text, document versions, diffs, manifests, and AI edit sessions without modifying original user files by default.
-- [ ] **Deterministic** - document versions for generated artefacts and user-selected target documents, storing version IDs, parent version IDs, file paths, content hashes, creation reason, source command, model metadata, guideline IDs, validation report IDs, and citation plan IDs.
-- [ ] **Deterministic** - automatic document snapshots before AI citation insertion, AI rewriting, deterministic overwrite, restoration, or any other command that creates a modified document copy.
-- [ ] **Deterministic** - document version commands such as `researchboss doc version`, `researchboss doc versions`, `researchboss doc diff`, and `researchboss doc restore`.
-- [ ] **Deterministic** - restoration behavior that creates a restored copy by default rather than deleting newer versions or overwriting the current document without explicit approval.
+- [x] **Done** - **Deterministic** - a local document vault layout for originals, generated documents, derived text, document versions, diffs, manifests, and AI edit sessions without modifying original user files by default.
+- [x] **Done** - **Deterministic** - document versions for generated artefacts and user-selected target documents, storing version IDs, parent version IDs, file paths, content hashes, creation reason, source command, model metadata, guideline IDs, validation report IDs, and citation plan IDs.
+- [x] **Done** - **Deterministic** - automatic document snapshots before AI citation insertion, AI rewriting, deterministic overwrite, restoration, or any other command that creates a modified document copy.
+- [x] **Done** - **Deterministic** - document version commands such as `researchboss doc version`, `researchboss doc versions`, `researchboss doc diff`, and `researchboss doc restore`.
+- [x] **Done** - **Deterministic** - restoration behavior that creates a restored copy by default rather than deleting newer versions or overwriting the current document without explicit approval.
 - [ ] **Deterministic** - derived text snapshots, section maps, paragraph IDs, claim IDs, reference IDs, and citation insertion anchors for each editable document version to support repeatable AI-assisted editing.
 - [ ] **AI** - structured AI edit sessions as reviewable operations before applying proposed changes to Markdown, TXT, DOCX, or derived editable outputs.
-- [ ] **Deterministic** - version-conscious citation application so each citation insertion creates a new document version linked to the evidence sources, confidence report, and references generated for that run.
-- [ ] **Deterministic** - version comparison reports that show how document strengths, weaknesses, unsupported claims, and references changed between two versions.
-- [ ] **Deterministic** - document vault versions, manifests, and SQLite metadata into local backups without copying Zotero-owned originals into the workspace unless explicitly requested.
+- [x] **Done** - **Deterministic** - version-conscious citation application so each citation insertion creates a new document version linked to the evidence sources, confidence report, and references generated for that run.
+- [x] **Done** - **Deterministic** - version comparison reports that show how document strengths, weaknesses, unsupported claims, and references changed between two versions.
+- [x] **Done** - **Deterministic** - document vault versions, manifests, and SQLite metadata into local backups without copying Zotero-owned originals into the workspace unless explicitly requested.
+- [ ] **Deterministic** - an uploaded-artefact intake path in the document vault for externally created artefacts, storing the original uploaded file, a sanitized renamed vault copy, and the mapping between them without modifying the uploaded file in place.
+- [ ] **Deterministic** - deterministic renamed-copy generation for uploaded artefacts reusing the existing title/author/year/source-id filename-suggestion pattern, with collision-safe suffixes when two uploads would otherwise produce the same name.
 
 ## Phase 9: FastAPI Local Backend
 
@@ -235,6 +237,17 @@
 - [ ] **API** - routes for projects, sources, artefacts, research questions, reports, settings, logs, AI, novelty, validation, citation plans, guidelines, SQLite sync status, and document versions.
 - [ ] **API** - API implementation that reuses engine logic rather than duplicating business logic.
 - [ ] **API** - API route tests that preserve local-first, no-Zotero-write, no-secret-logging, and explicit-AI-opt-in boundaries.
+- [ ] **API** - Add `POST /api/v1/artefacts/upload` for batch artefact uploads, reusing document-vault and artefact-registration engine logic rather than duplicating upload handling in the API layer.
+- [ ] **API** - Add configurable batch-upload limits (max files per batch, max file size, allowed extensions reused from source scanning) with a clear rejection response when a batch exceeds limits, rather than silently truncating it.
+- [ ] **API** - Add a per-batch upload report (accepted, renamed, duplicate, rejected, failed) mirroring the existing source review report pattern.
+- [ ] **API** - Add `GET /api/v1/artefacts/cross-reference` to return proposed links between an uploaded artefact and existing artefacts, methodology documents, sources, or claims, based on deterministic filename, title, source ID, and keyword matches, without writing the links until reviewed.
+- [ ] **API** - Add `POST /api/v1/artefacts/cross-reference/apply` to write reviewed artefact cross-reference links into methodology or other artefact documents, following the same review-before-apply pattern used for citation plans.
+- [ ] **AI** - Add optional AI-assisted cross-reference suggestions between uploaded artefacts and existing artefacts, methodology documents, and claims from safe context only, gated by `--ai`, proposing additional candidate links for review rather than writing them automatically.
+- [ ] **API** - Add single-user login protection (username/password or token-based session) guarding every `/api/v1` route, since a deployed instance holds one researcher's private workspace data rather than serving multiple tenants.
+- [ ] **API** - Add `POST /api/v1/auth/login` and `POST /api/v1/auth/logout` routes with secure, expiring session handling and no public self-registration route.
+- [ ] **Deterministic** - Add login credential handling that keeps passwords, session secrets, and tokens out of git, logs, and the SQLite database, consistent with the existing `OPENAI_API_KEY` non-disclosure rules.
+- [ ] **API** - Add a `GET /health` route with no workspace or auth dependency so NAS deploy/update health checks succeed independently of login state.
+- [ ] **API** - Add a `RESEARCHBOSS_WORKSPACE_ROOT` environment setting so a deployed instance resolves workspaces from a mounted NAS volume path instead of a container-local path, preserving workspace-scoped rules in the deployed environment.
 
 ## Phase 10: Cross-Platform UI Preparation
 
@@ -242,6 +255,12 @@
 - [x] **Done** - **API** - Define a clear API contract in `docs/api/CONTRACT.md`.
 - [ ] **API** - a frontend folder or explicit planned UI structure once the backend boundary is stable.
 - [ ] **API** - UI architecture guidance that keeps UI logic out of the core engine and routes all workspace mutations through tested engine/API contracts.
+- [ ] **API** - Add a minimal web UI login page with no public sign-up flow, gating access to workspace data before any other view loads.
+- [ ] **Deterministic** - Add the MIT license notice, no-warranty statement, and this project's existing developer/contact information (matching the README) to a footer or About page in the web UI.
+- [ ] **API** - Add a web upload view supporting drag-and-drop and multi-select batch selection of externally created artefact files, surfacing batch-size and file-type limits before submission rather than after failure.
+- [ ] **API** - Add a batch-upload progress and results view showing accepted, renamed, duplicate, and rejected files per upload run, linking each entry back to its vault copy and original filename.
+- [ ] **API** - Add a popup overlay (modal) file preview for uploaded artefacts supporting PDF, image, text, and Markdown previews, dismissible by escape key, close control, or click-outside, without navigating away from the artefact list.
+- [ ] **API** - Add an overlay review view for proposed cross-reference links and suggested renamed filenames, requiring explicit per-item approval before artefacts are cross-referenced into methodology or other artefact documents.
 
 ## Phase 11: Packaging
 
@@ -249,3 +268,12 @@
 - [ ] **Deterministic** - PyInstaller or equivalent packaging notes for the Python engine and local API.
 - [ ] **Deterministic** - future Flutter desktop packaging notes if the cross-platform UI plan keeps Flutter as the preferred shell.
 - [ ] **Deterministic** - Windows, macOS, and Linux considerations for Zotero paths, local file permissions, document conversion, OCR dependencies, SQLite, and backups.
+
+## Phase 12: NAS Deployment (research.veloso.dev)
+
+- [ ] **API** - Add a Dockerfile and `docker-compose.yml` for the ResearchBoss FastAPI backend and web UI so `../synology-site-deployer`'s existing `deploy` command can upload and start it as-is, with no changes to that project's functionality.
+- [ ] **API** - Add a persistent NAS volume/bind-mount for the workspace root directory so per-research workspace YAML, Markdown, SQLite, and document vault files survive container restarts and image updates, and are never baked into the deployed image.
+- [ ] **Deterministic** - Add NAS deployment setup notes for running `researchboss init` (or its future API equivalent) once per research project against the mounted workspace volume, so each research setup gets its own isolated workspace folder on the NAS, matching the project's existing per-workspace scoping rules.
+- [ ] **API** - Deploy the ResearchBoss backend and web UI to the NAS as `research.veloso.dev` using `synology-site deploy research.veloso.dev --compose-file ... --port ...` from `../synology-site-deployer`, without modifying that project.
+- [ ] **Deterministic** - Add deploy documentation covering the Compose file, required `.env` values, the mounted workspace volume path, login credential setup, and update/rollback steps via `synology-site update research.veloso.dev`.
+- [ ] **Deterministic** - Confirm the MIT license, no-warranty statement, and developer/contact information stay consistent between this project's README and the publicly reachable `research.veloso.dev` deployment.

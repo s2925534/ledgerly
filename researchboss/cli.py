@@ -113,6 +113,13 @@ from researchboss.engine.research_questions import (
 from researchboss.engine.report_schemas import export_report_schemas
 from researchboss.engine.reports import generate_workspace_report
 from researchboss.engine.sidecars import import_sidecar_metadata
+from researchboss.engine.vault import (
+    compare_document_versions,
+    create_document_version,
+    diff_document_versions,
+    list_document_versions,
+    restore_document_version,
+)
 from researchboss.engine.sources import (
     ScanResult,
     iter_source_files,
@@ -181,6 +188,7 @@ guidelines_app = typer.Typer(help="Local guideline registration commands.")
 cite_app = typer.Typer(help="Citation planning commands.")
 abstracts_app = typer.Typer(help="Local abstract import and screening commands.")
 db_app = typer.Typer(help="Workspace SQLite index and memory commands.")
+doc_app = typer.Typer(help="Document vault version, diff, and restore commands.")
 
 app.add_typer(sources_app, name="sources")
 app.add_typer(config_app, name="config")
@@ -200,6 +208,7 @@ app.add_typer(guidelines_app, name="guidelines")
 app.add_typer(cite_app, name="cite")
 app.add_typer(abstracts_app, name="abstracts")
 app.add_typer(db_app, name="db")
+app.add_typer(doc_app, name="doc")
 
 console = Console()
 DEFAULT_WORKSPACES_DIR = "workspaces"
@@ -911,6 +920,7 @@ def cite_apply(
         console.print(f"[green]Revised citation copy:[/green] {result.output_path}")
         console.print(f"Applied insertions: {result.applied}")
         console.print(f"Skipped insertions: {result.skipped}")
+        console.print(f"Document vault version: {result.version_id}")
 
 
 @config_app.command("validate")
@@ -2508,6 +2518,181 @@ def db_privacy(
         console.print(f"[yellow]Needs review[/yellow] issues={result.report['issue_count']}")
         for issue in result.report["issues"]:
             console.print(f"- {issue['issue']} in {issue.get('table')}.{issue.get('column')}")
+
+
+@doc_app.command("version")
+def doc_version(
+    target: str = typer.Argument(..., help="Document target: path, artefact ID/title, alias, or artefact type."),
+    reason: str = typer.Option("manual_snapshot", "--reason", help="Creation reason recorded on the version."),
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Snapshot a target document into the local document vault."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["doc", "version"], ws, log_level)
+    try:
+        record = create_document_version(
+            ws,
+            target,
+            creation_reason=reason,
+            source_command="doc version",
+            cwd=Path.cwd(),
+        )
+    except ValueError as e:
+        logger.error("Document version snapshot failed", operation="doc_version", target=target, error=str(e))
+        summary.errors += 1
+        _finish(summary, summary_path)
+        raise typer.Exit(code=2)
+
+    logger.info(
+        "Wrote document version",
+        operation="doc_version",
+        target=target,
+        version_id=record["version_id"],
+        parent_version_id=record.get("parent_version_id"),
+    )
+    _finish(summary, summary_path, next_action=f"Run `researchboss doc versions {target}` to see version history.")
+    if not quiet:
+        console.print(f"[green]Version:[/green] {record['version_id']}")
+        console.print(f"Stored copy: {record['stored_path']}")
+
+
+@doc_app.command("versions")
+def doc_versions(
+    target: Optional[str] = typer.Argument(None, help="Optional document target to filter by."),
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """List document versions stored in the local document vault."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["doc", "versions"], ws, log_level)
+    rows = list_document_versions(ws, target)
+    logger.info("Listed document versions", operation="doc_versions", target=target, count=len(rows))
+    _finish(summary, summary_path)
+    if quiet:
+        return
+    table = Table(title="Document versions")
+    table.add_column("version_id")
+    table.add_column("parent")
+    table.add_column("reason")
+    table.add_column("target_path")
+    table.add_column("created_at")
+    for row in rows:
+        table.add_row(
+            str(row.get("version_id")),
+            str(row.get("parent_version_id") or "-"),
+            str(row.get("creation_reason")),
+            str(row.get("target_path")),
+            str(row.get("created_at")),
+        )
+    console.print(table)
+
+
+@doc_app.command("diff")
+def doc_diff(
+    version_id_a: str = typer.Argument(...),
+    version_id_b: str = typer.Argument(...),
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Compare two document vault versions."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["doc", "diff"], ws, log_level)
+    try:
+        report = diff_document_versions(ws, version_id_a, version_id_b)
+    except ValueError as e:
+        logger.error("Document diff failed", operation="doc_diff", error=str(e))
+        summary.errors += 1
+        _finish(summary, summary_path)
+        raise typer.Exit(code=2)
+
+    logger.info(
+        "Wrote document diff",
+        operation="doc_diff",
+        version_id_a=version_id_a,
+        version_id_b=version_id_b,
+        diff_supported=report["diff_supported"],
+    )
+    _finish(summary, summary_path)
+    if quiet:
+        return
+    if not report["diff_supported"]:
+        console.print(f"[yellow]Diff not supported:[/yellow] {report['reason']}")
+        return
+    for line in report["lines"]:
+        console.print(line)
+
+
+@doc_app.command("restore")
+def doc_restore(
+    version_id: str = typer.Argument(...),
+    output: Optional[Path] = typer.Option(None, "--output", help="Restored copy destination (default: alongside the original)."),
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Restore a document vault version as a new copy without overwriting the current document."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["doc", "restore"], ws, log_level)
+    try:
+        record = restore_document_version(ws, version_id, output_path=output)
+    except ValueError as e:
+        logger.error("Document restore failed", operation="doc_restore", version_id=version_id, error=str(e))
+        summary.errors += 1
+        _finish(summary, summary_path)
+        raise typer.Exit(code=2)
+
+    logger.info(
+        "Restored document version",
+        operation="doc_restore",
+        version_id=version_id,
+        restored_to_path=record["restored_to_path"],
+        new_version_id=record["version_id"],
+    )
+    _finish(summary, summary_path, next_action="Review the restored copy before replacing the current document.")
+    if not quiet:
+        console.print(f"[green]Restored:[/green] {record['restored_to_path']}")
+        console.print(f"New version: {record['version_id']}")
+
+
+@doc_app.command("compare")
+def doc_compare(
+    version_id_a: str = typer.Argument(...),
+    version_id_b: str = typer.Argument(...),
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Compare how document strengths, weaknesses, unsupported claims, and references changed between two versions."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["doc", "compare"], ws, log_level)
+    try:
+        report = compare_document_versions(ws, version_id_a, version_id_b)
+    except ValueError as e:
+        logger.error("Document version comparison failed", operation="doc_compare", error=str(e))
+        summary.errors += 1
+        _finish(summary, summary_path)
+        raise typer.Exit(code=2)
+
+    logger.info(
+        "Wrote document version comparison",
+        operation="doc_compare",
+        version_id_a=version_id_a,
+        version_id_b=version_id_b,
+        comparable=report["comparable"],
+    )
+    _finish(summary, summary_path)
+    if quiet:
+        return
+    if not report["comparable"]:
+        console.print(f"[yellow]Not comparable:[/yellow] {report['reason']}")
+        return
+    for section in ("strengths", "weaknesses", "unsupported_claims", "weakly_supported_claims", "references"):
+        change = report[section]
+        console.print(f"[bold]{section}[/bold] added={len(change['added'])} removed={len(change['removed'])}")
 
 
 @rqs_app.command("list")

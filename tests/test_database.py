@@ -153,6 +153,31 @@ def test_database_indexes_validation_citation_and_guidelines(tmp_path: Path) -> 
     assert status.report["counts"]["document_versions"] == 0
 
 
+def test_database_syncs_document_versions_from_vault_ledger(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    target_path = workspace / "artefacts" / "notes" / "draft.md"
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    target_path.write_text("Draft v1\n", encoding="utf-8")
+
+    from researchboss.engine.vault import create_document_version
+
+    record = create_document_version(workspace, str(target_path))
+    sync_database(workspace)
+    status = database_status(workspace)
+
+    with sqlite3.connect(database_path(workspace)) as conn:
+        row = conn.execute(
+            "select target_path, parent_version_id, creation_reason from document_versions where version_id = ?",
+            (record["version_id"],),
+        ).fetchone()
+
+    assert row[0] == record["target_path"]
+    assert row[1] is None
+    assert row[2] == "manual_snapshot"
+    assert status.report["counts"]["document_versions"] == 1
+
+
 def test_database_pending_changes_are_reviewed_before_apply(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")

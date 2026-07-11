@@ -385,6 +385,48 @@ Rules:
 - It must not modify Zotero.
 - It must not call Zotero write endpoints.
 
+## Document Vault Routes
+
+### `POST /api/v1/doc/version`
+
+Snapshots a target document into the local document vault.
+
+Engine source:
+
+- `researchboss.engine.vault.create_document_version`
+
+### `GET /api/v1/doc/versions`
+
+Lists document vault versions, optionally filtered by target.
+
+Engine source:
+
+- `researchboss.engine.vault.list_document_versions`
+
+### `GET /api/v1/doc/diff`
+
+Compares two document vault versions.
+
+Engine source:
+
+- `researchboss.engine.vault.diff_document_versions`
+
+### `POST /api/v1/doc/restore`
+
+Restores a document vault version as a new copy without overwriting the current document.
+
+Engine source:
+
+- `researchboss.engine.vault.restore_document_version`
+
+### `GET /api/v1/doc/compare`
+
+Compares how document strengths, weaknesses, unsupported claims, and references changed between two versions, when both versions have a linked validation report.
+
+Engine source:
+
+- `researchboss.engine.vault.compare_document_versions`
+
 ## Report And Export Routes
 
 ### `GET /api/v1/reports/workspace`
