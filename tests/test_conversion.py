@@ -60,6 +60,30 @@ def test_convert_sources_converts_md_to_plain_text(tmp_path: Path) -> None:
     assert "https://example.test" not in output
 
 
+def test_markdown_heading_blockquote_and_list_stripping_preserves_blank_line_separators(tmp_path: Path) -> None:
+    # Regression test: the leading-whitespace class in these stripping
+    # regexes must be [ \t] (same-line indentation), not \s. \s also
+    # matches newlines, which let the match start at a preceding blank
+    # line's own line-start position and reach forward across it into the
+    # marker -- silently deleting the blank line and merging the marked
+    # block into the previous paragraph.
+    heading_file = tmp_path / "heading.md"
+    heading_file.write_text("Paragraph one.\n\n## Heading Two\n\nParagraph two.\n", encoding="utf-8")
+    assert extract_text(heading_file) == "Paragraph one.\n\nHeading Two\n\nParagraph two.\n"
+
+    blockquote_file = tmp_path / "blockquote.md"
+    blockquote_file.write_text("Paragraph one.\n\n> Quoted text\n", encoding="utf-8")
+    assert extract_text(blockquote_file) == "Paragraph one.\n\nQuoted text\n"
+
+    bullet_file = tmp_path / "bullet.md"
+    bullet_file.write_text("Paragraph one.\n\n- item one\n- item two\n", encoding="utf-8")
+    assert extract_text(bullet_file) == "Paragraph one.\n\nitem one\nitem two\n"
+
+    numbered_file = tmp_path / "numbered.md"
+    numbered_file.write_text("Paragraph one.\n\n1. item one\n2. item two\n", encoding="utf-8")
+    assert extract_text(numbered_file) == "Paragraph one.\n\nitem one\nitem two\n"
+
+
 def test_convert_sources_converts_docx_to_plain_text(tmp_path: Path) -> None:
     workspace = make_workspace(tmp_path)
     source_root = tmp_path / "sources"

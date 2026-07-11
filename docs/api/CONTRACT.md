@@ -480,6 +480,14 @@ Engine source:
 
 - `researchboss.engine.vault.compare_document_versions`
 
+### `POST /api/v1/doc/derive-text/{version_id}` (implemented)
+
+Builds (or rebuilds) a derived text snapshot for a document version: sections (from `.md` heading structure only — see engine source docstring for why `.txt`/`.docx`/`.pdf` get no section detection rather than a guessed one), paragraphs with character offsets, and sentences with a `citation_insertion_anchor`, `claim_ids` (claims whose text appears in the sentence), and `reference_ids` (source IDs from this version's linked validation report, when one exists). Anchors are derived fresh from this version's content and are not correlated with any other version's anchors, but are deterministic and stable across repeated calls for the same version. Written to `document_vault/derived_text/<version_id>.yaml`.
+
+Engine source:
+
+- `researchboss.engine.derived_text.build_derived_text_snapshot`
+
 ## Validation Routes
 
 ### `POST /api/v1/validation/run` (implemented)

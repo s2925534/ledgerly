@@ -1144,3 +1144,31 @@ def test_artefacts_cross_reference_apply_requires_candidates_first_via_api(
 
     assert response.status_code == 400
     assert response.json()["errors"][0]["code"] == "cross_reference_apply_failed"
+
+
+def test_derived_text_build_via_api(client: TestClient, tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    target = workspace / "artefacts" / "papers" / "draft.md"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("# Intro\n\nContainer automation reduces delays. It also helps safety.\n", encoding="utf-8")
+    client.post("/api/v1/doc/version", params={"workspace": str(workspace)}, json={"target": str(target)})
+
+    response = client.post("/api/v1/doc/derive-text/docv-001", params={"workspace": str(workspace)})
+
+    assert response.status_code == 200
+    body = response.json()["data"]
+    assert body["section_count"] == 1
+    assert body["paragraph_count"] == 1
+    assert len(body["paragraphs"][0]["sentences"]) == 2
+    assert target.read_text(encoding="utf-8") == "# Intro\n\nContainer automation reduces delays. It also helps safety.\n"
+
+
+def test_derived_text_build_unknown_version_returns_404(client: TestClient, tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+
+    response = client.post("/api/v1/doc/derive-text/docv-999", params={"workspace": str(workspace)})
+
+    assert response.status_code == 404
+    assert response.json()["errors"][0]["code"] == "derived_text_build_failed"

@@ -12,6 +12,8 @@ from researchboss.engine.document_targets import DocumentTarget, resolve_documen
 from researchboss.engine.guidelines import resolve_guidelines
 from researchboss.engine.references import apa7_reference
 from researchboss.engine.sources import list_sources
+from researchboss.engine.text_analysis import has_inline_citation as _has_inline_citation
+from researchboss.engine.text_analysis import split_sentences as _sentences
 
 
 VALIDATION_STOP_WORDS = {
@@ -242,16 +244,6 @@ def _sentence_source_match(terms: list[str], source: dict[str, Any]) -> dict[str
     }
 
 
-def _sentences(text: str) -> list[str]:
-    normalized = " ".join(text.replace("\n", " ").split())
-    return [part.strip() for part in re.split(r"(?<=[.!?])\s+", normalized) if part.strip()]
-
-
-def _has_inline_citation(sentence: str) -> bool:
-    return bool(
-        re.search(r"\([A-Z][A-Za-z'-]+(?: et al\.)?,\s*\d{4}[a-z]?\)", sentence)
-        or re.search(r"\[[0-9,\s-]+\]", sentence)
-    )
 
 
 def _strengths(comparisons: list[dict[str, Any]], sentence_checks: list[dict[str, Any]]) -> list[dict[str, Any]]:

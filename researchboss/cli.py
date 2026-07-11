@@ -52,6 +52,7 @@ from researchboss.engine.database import (
     sync_database,
     pending_changes_report,
 )
+from researchboss.engine.derived_text import build_derived_text_snapshot
 from researchboss.engine.doc_validation import validate_document
 from researchboss.engine.export import export_accepted_source_corpus, export_evidence_bundle
 from researchboss.engine.external_search import (
@@ -2743,6 +2744,37 @@ def doc_uploads(
             str(row.get("renamed_file_name")),
         )
     console.print(table)
+
+
+@doc_app.command("derive-text")
+def doc_derive_text(
+    version_id: str = typer.Argument(...),
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Build a derived text snapshot with paragraph/sentence anchors for a document version."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["doc", "derive-text"], ws, log_level)
+    try:
+        snapshot = build_derived_text_snapshot(ws, version_id)
+    except ValueError as e:
+        logger.error("Derived text extraction failed", operation="doc_derive_text", version_id=version_id, error=str(e))
+        summary.errors += 1
+        _finish(summary, summary_path)
+        raise typer.Exit(code=2)
+
+    logger.info(
+        "Wrote derived text snapshot",
+        operation="doc_derive_text",
+        version_id=version_id,
+        section_count=snapshot["section_count"],
+        paragraph_count=snapshot["paragraph_count"],
+    )
+    _finish(summary, summary_path)
+    if not quiet:
+        console.print(f"[green]Derived text:[/green] {snapshot['derived_text_path']}")
+        console.print(f"Sections: {snapshot['section_count']}  Paragraphs: {snapshot['paragraph_count']}")
 
 
 @rqs_app.command("list")

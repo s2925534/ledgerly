@@ -1,6 +1,6 @@
 # ResearchBoss
 
-Current version: 0.9.4
+Current version: 0.9.5
 
 ResearchBoss is a local-first, evidence-first research workspace for managing research context, source files, review state, and project memory without requiring cloud services for the MVP.
 
@@ -449,11 +449,14 @@ researchboss doc compare <version-id-a> <version-id-b> --workspace <workspace>
 researchboss doc restore <version-id> --workspace <workspace>
 researchboss doc upload <path> [--title <title>] [--author <author>] [--year <year>] --workspace <workspace>
 researchboss doc uploads --workspace <workspace>
+researchboss doc derive-text <version-id> --workspace <workspace>
 ```
 
 `doc version` snapshots a target (path, artefact ID/title, alias, or artefact type) into the vault, recording its content hash, parent version, creation reason, source command, and — when applicable — the linked validation report and citation plan IDs. `doc diff` shows a unified text diff between two versions (Markdown/TXT only; other formats report `diff_supported: false` rather than guessing). `doc compare` shows how a target's validation strengths, weaknesses, unsupported claims, and references changed between two versions, when both carry a linked validation report. `doc restore` always writes a new, separate copy rather than overwriting the current document or deleting newer versions.
 
 `doc upload` copies an externally created artefact into the vault: an untouched copy under its original filename (collision-safe suffixed if that name was already used) plus a renamed working copy following the same author/year/title filename-suggestion pattern as source filename suggestions, with the upload ID embedded to keep the renamed copy collision-free. The uploaded file itself is never modified or moved. `doc uploads` lists everything brought in this way.
+
+`doc derive-text` builds a derived text snapshot for a version: paragraphs with character offsets, sentences with a `citation_insertion_anchor`, and — where they exist — matching `claim_ids` and `reference_ids` (from that version's linked validation report). Section maps only work for `.md` targets, recovered by matching the raw `#`-heading text against extracted paragraphs in order, since `extract_text()` strips markdown heading syntax and other formats have no structural heading marker to detect at all; `.txt`/`.docx`/`.pdf` targets get no section detection rather than a guessed one. Anchors are derived fresh per version (not correlated across versions) but deterministic and stable across repeated calls for the same version — this is the anchor infrastructure future AI-assisted editing needs, built ahead of the AI feature itself.
 
 ## Local API
 
@@ -532,7 +535,7 @@ The detailed living roadmap is maintained in `DETAILED_ROADMAP.md`. Update that 
 5. Add optional OpenAI features with strict privacy boundaries.
 6. Add deterministic document validation, guideline handling, citation assistance, and later explicit AI opt-ins for whole-document workflows.
 7. Optional workspace SQLite memory, indexing, and sync complete for deterministic local MVP paths.
-8. Document vault, versioning, restoration, and uploaded-artefact intake complete for deterministic local MVP paths (`researchboss doc version/versions/diff/restore/compare/upload/uploads`); derived-text anchoring and AI edit sessions remain future work.
+8. Document vault, versioning, restoration, uploaded-artefact intake, and derived-text/anchor extraction complete for deterministic local MVP paths (`researchboss doc version/versions/diff/restore/compare/upload/uploads/derive-text`); AI edit sessions remain future work, gated on AI opt-in/privacy-boundary design rather than anchoring infrastructure.
 9. Local FastAPI backend: every route in `docs/api/CONTRACT.md` implemented via `researchboss serve`, including single-user login protection, validation, citation plans, guidelines, SQLite sync status, `RESEARCHBOSS_WORKSPACE_ROOT` containment, batch artefact upload, and deterministic cross-reference candidates plus apply, except the disabled Future AI Routes section. Novelty assessment and AI-assisted cross-reference stay out until they can be added under explicit AI opt-in and privacy-boundary rules.
 10. Prepare a cross-platform UI.
 11. Packaging plan complete (`docs/PACKAGING.md`): PyInstaller recipe with known uvicorn/`python-multipart` gotchas, conditional Flutter sidecar notes, and platform considerations. No packaged build produced or tested yet.

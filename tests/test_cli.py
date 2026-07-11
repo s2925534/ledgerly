@@ -1828,3 +1828,20 @@ def test_cli_doc_upload_and_uploads(tmp_path: Path) -> None:
 
     ledger = read_yaml(workspace / "document-vault.yaml")
     assert ledger["uploads"][0]["upload_id"] == "upload-001"
+
+
+def test_cli_doc_derive_text(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test Project", project_type="M.Phil", topic="")
+    target_path = workspace / "artefacts" / "papers" / "draft.md"
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    target_path.write_text("# Intro\n\nContainer automation reduces delays.\n", encoding="utf-8")
+    runner.invoke(app, ["doc", "version", str(target_path), "--workspace", str(workspace), "--quiet"])
+
+    result = runner.invoke(app, ["doc", "derive-text", "docv-001", "--workspace", str(workspace)])
+
+    assert result.exit_code == 0, result.output
+    assert "Sections: 1" in result.output
+    assert "Paragraphs: 1" in result.output
+    snapshot_path = workspace / "document_vault" / "derived_text" / "docv-001.yaml"
+    assert snapshot_path.is_file()

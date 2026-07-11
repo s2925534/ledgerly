@@ -15,6 +15,7 @@ from researchboss.api.routers import (
     conversion,
     data,
     db,
+    derived_text,
     doc,
     export,
     guidelines,
@@ -72,6 +73,9 @@ def create_app() -> FastAPI:
     app.include_router(rqs.router, prefix="/api/v1/rqs", tags=["research-questions"], dependencies=protected)
     app.include_router(zotero.router, prefix="/api/v1/zotero", tags=["zotero"], dependencies=protected)
     app.include_router(doc.router, prefix="/api/v1/doc", tags=["document-vault"], dependencies=protected)
+    app.include_router(
+        derived_text.router, prefix="/api/v1/doc/derive-text", tags=["document-vault"], dependencies=protected
+    )
     app.include_router(reports.router, prefix="/api/v1/reports", tags=["reports"], dependencies=protected)
     app.include_router(export.router, prefix="/api/v1/export", tags=["export"], dependencies=protected)
     app.include_router(backup.router, prefix="/api/v1/backup", tags=["backup"], dependencies=protected)

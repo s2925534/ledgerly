@@ -61,10 +61,16 @@ def _markdown_to_text(markdown: str) -> str:
     text = re.sub(r"`([^`]+)`", r"\1", text)
     text = re.sub(r"!\[([^\]]*)\]\([^)]+\)", r"\1", text)
     text = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", text)
-    text = re.sub(r"^\s{0,3}#{1,6}\s*", "", text, flags=re.MULTILINE)
-    text = re.sub(r"^\s{0,3}>\s?", "", text, flags=re.MULTILINE)
-    text = re.sub(r"^\s*[-*+]\s+", "", text, flags=re.MULTILINE)
-    text = re.sub(r"^\s*\d+\.\s+", "", text, flags=re.MULTILINE)
+    # Leading whitespace here is deliberately [ \t] (same-line indentation
+    # only), not \s (which also matches newlines). \s{0,3} would let the
+    # match start at a preceding blank line's own line-start position and
+    # reach forward across it into the marker, silently deleting the blank
+    # line that separates this block from the previous paragraph and
+    # merging the two into one block downstream.
+    text = re.sub(r"^[ \t]{0,3}#{1,6}[ \t]*", "", text, flags=re.MULTILINE)
+    text = re.sub(r"^[ \t]{0,3}>[ \t]?", "", text, flags=re.MULTILINE)
+    text = re.sub(r"^[ \t]*[-*+]\s+", "", text, flags=re.MULTILINE)
+    text = re.sub(r"^[ \t]*\d+\.\s+", "", text, flags=re.MULTILINE)
     text = text.replace("**", "").replace("__", "").replace("*", "").replace("_", "")
     return text
 

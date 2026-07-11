@@ -354,11 +354,12 @@ Done:
 - Automatic pre/post-change snapshots wired into `cite apply`, the only current command that creates a modified document copy.
 - `document_versions` SQLite sync and document vault inclusion in local backups.
 - Uploaded-artefact intake (`doc upload`/`doc uploads`, `vault.intake_uploaded_artefact`): copies an externally created file into `uploads/originals` (collision-safe suffix) and a renamed `uploads/renamed` copy (author/year/title tokens plus an embedded upload ID for guaranteed uniqueness) without ever touching the uploaded file. The author/year/title tokenizing helpers moved out of `metadata_quality.py` into a shared `researchboss.engine.filenames` module so both source filename suggestions and upload renaming use the same logic.
+- Derived text snapshots with paragraph/sentence anchors (`researchboss.engine.derived_text`, `doc derive-text`, `POST /api/v1/doc/derive-text/{version_id}`): paragraphs with character offsets, sentences with a `citation_insertion_anchor` (matching `citations._insert_citation`'s actual "before final punctuation" behavior), `claim_ids` (claims whose text appears in the sentence), and `reference_ids` (source IDs from a linked validation report's `sentence_checks`, joined by exact normalized sentence text rather than positional index — more robust to reordering). Section maps only work for `.md` targets: headings are recovered by scanning the *raw* source for `#`-prefixed lines (since `extract_text()` strips heading syntax entirely) and matching each heading's surviving text against extracted paragraphs in order; `.txt`/`.docx`/`.pdf` get no section detection rather than a guessed one, since DOCX heading styles aren't preserved by `_extract_docx_text` and plain text/PDF text has no structural marker at all. `text_analysis.py` extracted from `doc_validation.py`'s private `_sentences`/`_has_inline_citation` (mirroring the `filenames.py` extraction pattern) so both modules share one sentence-splitting/citation-detection implementation.
+- Found and fixed a real pre-existing bug in `conversion._markdown_to_text` while building the above (not something the new feature caused — it affects all markdown conversion): the heading/blockquote/list-stripping regexes used `\s` for leading same-line indentation, which also matches newlines. A match could therefore start at a preceding *blank* line's own line-start position and reach forward across it into the marker, silently deleting the blank line and merging that block into the previous paragraph in every downstream blank-line-based paragraph split. Fixed to `[ \t]` (same-line indentation only); added a dedicated regression test covering all four affected patterns (heading, blockquote, bullet list, numbered list). Full existing test suite re-run to confirm nothing depended on the buggy behavior — it didn't.
 
 Next work:
 
-- Derived text snapshots, section maps, paragraph IDs, claim IDs, reference IDs, and citation insertion anchors for repeatable AI-assisted editing.
-- AI edit sessions as reviewable operations (AI-tagged; needs explicit opt-in and privacy-boundary tests first).
+- AI edit sessions as reviewable operations (AI-tagged; needs explicit opt-in and privacy-boundary tests first — the anchor infrastructure they need now exists).
 
 ### Phase 9: FastAPI Local Backend
 
@@ -739,21 +740,24 @@ Missing:
 
 ## 15. Immediate Next Steps
 
-Phase 1 through the currently implemented deterministic Phase 8 work is complete for the committed items. Every route currently documented in `docs/api/CONTRACT.md` is implemented (Phase 9), including single-user login protection, validation, citation plans, guidelines, SQLite sync status, batch artefact upload, and deterministic cross-reference candidates, except the disabled Future AI Routes section. Phase 11 packaging planning is complete (`docs/PACKAGING.md`), though no packaged build has actually been produced yet. Remaining work includes derived-text anchoring and AI edit sessions in Phase 8, a properly AI-gated novelty route and cross-reference apply in Phase 9, AI privacy-boundary work, UI preparation (Phase 10), and producing/testing a real PyInstaller build (Phase 11).
+Every deterministic item across Phases 8, 9, and 11 that did not require either a live infrastructure credential or a product decision on AI cost/privacy tradeoffs is now complete: Phase 8 (document vault, versioning, restoration, uploaded-artefact intake, derived-text/anchor extraction), Phase 9 (every route in `docs/api/CONTRACT.md` except the disabled Future AI Routes section — including login protection, validation, citation plans, guidelines, SQLite sync status, `RESEARCHBOSS_WORKSPACE_ROOT` containment, batch artefact upload, and cross-reference candidates/apply), and Phase 11 planning (`docs/PACKAGING.md`) plus the Phase 12 deployment artifacts (`Dockerfile`, `docker-compose.yml`, `docs/DEPLOY.md` — written but not deployed, since that needs real NAS/Cloudflare credentials).
 
-1. Add derived text snapshots, section maps, paragraph IDs, claim IDs, reference IDs, and citation insertion anchors per document version.
-   - Why: repeatable AI-assisted editing needs stable anchors into a document version rather than re-matching raw text each run.
-   - Likely files: document vault engine module, conversion engine, tests.
-   - Tests: anchor stability across re-runs, anchor-to-version linkage, unknown-anchor handling for unsupported formats.
-   - Complexity: high — needs an explicit anchor-ID design decision before implementation.
-   - Phase: 8 remainder.
+What's left is genuinely blocked, not just undone:
 
-2. Add a novelty assessment route under explicit AI opt-in.
-   - Why: unlike the other Phase 9 route groups, novelty assessment has no deterministic engine path — `researchboss.engine.ai.ai_novelty_assessment` always calls OpenAI, so a route needs the same per-request AI opt-in, cost-awareness, and privacy-boundary rules as the Future AI Routes section, not just mechanical route-wrapping.
+1. A novelty assessment route under explicit AI opt-in.
+   - Why: unlike every other Phase 9 route group, novelty assessment has no deterministic engine path — `researchboss.engine.ai.ai_novelty_assessment` always calls OpenAI, so a route needs the same per-request AI opt-in, cost-awareness, and privacy-boundary rules as the Future AI Routes section, not just mechanical route-wrapping.
    - Likely files: `docs/api/CONTRACT.md` additions under Future AI Routes, new `researchboss/api/routers/ai.py`, tests proving the AI opt-in and safe-context boundaries.
    - Tests: route requires explicit opt-in, never sends whole documents by default, API key never returned/logged.
    - Complexity: medium — mostly gated by the explicit-AI-opt-in design already used elsewhere, not new design.
    - Phase: 9 (Future AI Routes).
+
+2. AI edit sessions (Phase 8) and AI-assisted cross-reference suggestions (Phase 9).
+   - Why: both are AI-tagged and need the same explicit opt-in/privacy-boundary treatment as novelty above. The anchor infrastructure AI edit sessions need (paragraph/sentence IDs, citation insertion anchors) is now built — this is purely an AI-design gate, not missing engine work.
+   - Phase: 8/9.
+
+3. Phase 10 UI strategy (framework choice: React/Vue/Flutter/other) and Phase 12's actual `synology-site deploy` run.
+   - Why: both need a decision or credential this environment does not have and should not make/use unattended — a UI framework is a long-term commitment with real switching costs, and a live deployment needs real NAS/Cloudflare access.
+   - Phase: 10, 12.
 
 ## 15a. Useful Ideas Learned From `../pdf-merge`
 
@@ -778,7 +782,7 @@ Not suitable for MVP right now:
 
 ## 16. Recommended Resume Point
 
-Deterministic Phase 8 document vault, versioning, and restoration is complete. Phase 9 FastAPI now implements every route in `docs/api/CONTRACT.md` — including single-user login protection, validation, citation plans, guidelines, and SQLite sync status — except the disabled Future AI Routes section. Resume with the remaining Phase 8 derived-text/anchor work, or an explicitly AI-gated novelty route in Phase 9. AI work remains intentionally separated behind explicit opt-in and privacy-boundary tests.
+Phase 8 (document vault, versioning, restoration, uploaded-artefact intake, derived-text/anchor extraction) is complete. Phase 9 FastAPI implements every route in `docs/api/CONTRACT.md` except the disabled Future AI Routes section. Phase 11 planning and Phase 12's deployment artifacts are written but not executed. Everything genuinely actionable without either an AI cost/privacy decision, a UI framework decision, or live infrastructure credentials is done. Resume with: an explicitly AI-gated novelty route (Phase 9), AI edit sessions (Phase 8, anchor infrastructure already built), a Phase 10 UI framework decision, or actually running the Phase 12 NAS deployment. AI work remains intentionally separated behind explicit opt-in and privacy-boundary tests.
 
 ## 17. Maintenance Rule
 
