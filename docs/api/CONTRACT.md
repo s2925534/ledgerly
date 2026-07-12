@@ -2,7 +2,7 @@
 
 This document defines the FastAPI boundary for ResearchBoss.
 
-Contract status: implementation started in project version `0.7.0`; every route documented below is now implemented in `researchboss.api` (run with `researchboss serve`) except the disabled Future AI Routes section. Novelty assessment has no deterministic engine path (`researchboss.engine.ai.ai_novelty_assessment` is AI-only) and stays out of this contract until it can be added under the same AI opt-in and privacy-boundary rules as the Future AI Routes section — it is not simply a missing route shape.
+Contract status: implementation started in project version `0.7.0`; every route documented below is now implemented in `researchboss.api` (run with `researchboss serve`) except the disabled Future AI Routes section, which is a shape-only planning sketch (see that section) covering `POST /api/v1/ai/{test,review,novelty,rqs/assess}`. Novelty assessment has no deterministic engine path (`researchboss.engine.ai.ai_novelty_assessment` is AI-only) — it belongs at `POST /api/v1/ai/novelty` under the same AI opt-in and privacy-boundary rules as the rest of that section, not as a separate `/api/v1/novelty` route implying a deterministic path that doesn't exist.
 
 The API must be local-first, workspace-scoped, and a thin transport layer over `researchboss.engine` functions. It must not duplicate business logic already implemented in the engine.
 
@@ -690,22 +690,54 @@ Engine source:
 
 ## Future AI Routes
 
-AI routes are contract placeholders only and must remain disabled until explicit implementation and privacy-boundary tests exist.
+**Not implemented.** The route shapes below are a planning sketch only, modeled directly on the equivalent CLI commands and their `researchboss.engine.ai` functions (which already exist and are exercised by the CLI today) so that a future implementation has no ambiguity to resolve at build time. Adding these routes for real still requires: (1) an explicit product decision on how a *web* client performs the CLI's per-invocation `--ai` opt-in (sketched below as a required `"ai": true` request-body field, mirroring the CLI rather than introducing a session-wide or workspace-wide AI toggle), and (2) the privacy-boundary tests listed under "Required Tests Before Implementation." Until both exist, these routes must stay disabled/unregistered — do not wire them into `researchboss/api/app.py`.
 
-Future routes:
+Every route in this section shares the same server-side credential rule: the OpenAI API key is resolved server-side only, the same way the CLI resolves it (`OPENAI_API_KEY` env var, or `.env` in the workspace via `engine.ai.openai_credentials`). **No route may accept an API key in the request body or from the client** — that would hand a browser client the ability to exfiltrate or misuse server-side credentials, which is a straight OWASP-relevant boundary violation, not just a style preference. If the key is missing, the route must return the same "not configured" failure the CLI raises (`OpenAiError("Missing OPENAI_API_KEY")`), not a generic 500.
 
-- `POST /api/v1/ai/test`
-- `POST /api/v1/ai/review`
-- `POST /api/v1/ai/novelty`
-- `POST /api/v1/ai/rqs/assess`
+Every route also shares the same safe-context boundary already enforced by `engine.ai.build_safe_context`: original files, whole PDFs/CSVs/SQLite databases, and full documents are excluded by construction — only per-source excerpts capped at `max_excerpt_chars` are sent. None of the four sketched routes needs a `--full-file-ai`/`--directory-ai`-style extra opt-in, because none of their CLI equivalents (`ai test`, `ai review`, `assess-novelty`, `rqs assess`) use one; a future route that *did* need whole-file or directory context (there is none planned) would need the matching extra opt-in field, not just `ai: true`.
 
-Rules:
+Common response envelope fields all four routes would share (already returned by every `engine.ai` function): `version`, `kind`, `provider` (`"openai"`), `model`, `ai_used: true`, `requires_user_review: true`, `safe_context_policy` (echoes `build_safe_context`'s `policy` block), `limits` (echoes `max_sources`/`max_excerpt_chars` actually applied), `source_count`, `response_id` (the OpenAI response id, for audit trail — never the raw response body). None of these routes modify any artefact, source, or claim document; where the CLI equivalent writes a side-effect file (novelty ledger), the sketch below says so explicitly.
 
-- Disabled by default.
-- Must require explicit AI enablement.
-- Must never log API keys.
-- Must never upload whole PDFs, CSVs, SQLite databases, or original documents unless the user has explicitly opted into that scope.
+### `POST /api/v1/ai/test` (not implemented — shape only)
+
+CLI equivalent: `researchboss ai test`. Engine source: `engine.ai.openai_readiness`.
+
+Request body: `{"ai": bool = false}` — `ai: true` additionally performs a live `GET /models` credential check against OpenAI (mirrors the CLI's `--ai` flag meaning "allow a live check", not "allow AI use" in this one case, since checking readiness doesn't send any workspace content). `ai: false` (or omitted) checks key/config presence only, with no outbound request.
+
+Response `data`: `{key_loaded, key_exposed: false, workspace_ai_enabled, openai_provider_enabled, default_model, live_request_performed, policy: "explicit_ai_flag_required"}`, plus `api_reachable` and `model_count` when `live_request_performed` is true.
+
+### `POST /api/v1/ai/review` (not implemented — shape only)
+
+CLI equivalent: `researchboss ai review --ai`. Engine source: `engine.ai.ai_assisted_review`.
+
+Request body: `{"ai": true, "max_sources": int = 10, "max_excerpt_chars": int = 1200}`. `400 ai_not_enabled` if `ai` is not `true`.
+
+Response `data`: common envelope fields above, plus `review` (markdown text with sections Scope, Useful Signals, Evidence Gaps, Source Follow-up, Human Review Required). No side-effect file — the CLI writes `outputs/validation/openai-review.yaml`; an API caller receives the same content in the response body and decides whether to persist it.
+
+### `POST /api/v1/ai/novelty` (not implemented — shape only)
+
+CLI equivalent: `researchboss assess-novelty --ai`. Engine source: `engine.ai.ai_novelty_assessment`. This is the route that resolves the "novelty assessment has no deterministic engine path" note at the top of this document — `ai_novelty_assessment` is AI-only, so novelty assessment belongs under `/api/v1/ai/`, not as a separate `/api/v1/novelty` route implying a deterministic engine path that doesn't exist.
+
+Request body: `{"ai": true, "max_sources": int = 10, "max_excerpt_chars": int = 1200}`. `400 ai_not_enabled` if `ai` is not `true`.
+
+Response `data`: common envelope fields, plus `novelty_not_proven: true` (the assessment must never be presented as proof of novelty), `research_question_count`, `assessment` (markdown text). Side effect: like the CLI, appends a record to `novelty-ledger.yaml` (`id`, `kind`, `provider`, `model`, `response_id`, `requires_user_review`, `novelty_not_proven`, `source_count`, `research_question_count`, `assessment`) — this is a workspace-state write and must be covered by the same workspace-scoped-write test every other mutating route has.
+
+### `POST /api/v1/ai/rqs/assess` (not implemented — shape only)
+
+CLI equivalent: `researchboss rqs assess --ai [--rq <id>]`. Engine source: `engine.ai.ai_research_question_assessment`.
+
+Request body: `{"ai": true, "rq_id": Optional[str] = None, "max_sources": int = 10, "max_excerpt_chars": int = 1200}`. `400 ai_not_enabled` if `ai` is not `true`. `404 unknown_research_question` if `rq_id` is supplied but matches no approved or candidate research question (mirrors `OpenAiError(f"Unknown research question: {rq_id}")`).
+
+Response `data`: common envelope fields, plus `novelty_not_proven: true`, `research_question_count` (count actually assessed — all approved+candidate questions when `rq_id` is omitted, else the one matched question), `rq_id` (echoes the request), `assessment` (markdown text, one section per assessed research question plus a final Human Review Required section).
+
+Rules (all four routes):
+
+- Disabled by default — not registered in `researchboss/api/app.py` until implemented.
+- Must require the per-request `ai: true` opt-in described above; there is no workspace-level or session-level AI toggle that bypasses it.
+- Must never log or echo the API key.
+- Must never upload whole PDFs, CSVs, SQLite databases, or original documents — only `build_safe_context` excerpts, capped at the requested `max_excerpt_chars`.
 - Must preserve the Zotero no-write boundary.
+- Must return the response's `requires_user_review: true` field on every success response — these are advisory outputs, never auto-applied.
 
 ## Forbidden Routes
 
