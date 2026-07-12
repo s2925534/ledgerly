@@ -390,7 +390,7 @@ CLI equivalent: `researchboss doc cross-reference <upload_id>`.
 
 ### `POST /api/v1/artefacts/cross-reference/candidate-review` (implemented)
 
-Sets one candidate's `review_status` (`needs_human_review`/`accepted`/`approved`/`rejected`, identified by `target_kind`+`target_id` in the JSON body, `upload_id` as a query param) in the persisted candidates report. `cross_reference_candidates`/`apply_cross_reference_links` were designed around a human hand-editing the report YAML on disk, which a browser-based reviewer has no way to do — found missing during Phase 10 UI planning for the cross-reference review overlay (see the Phase 10 TODO items), and the identical gap exists for citation plans (`POST /api/v1/citations/plan`'s insertions use the same hand-edit-then-apply pattern) but is not yet addressed there. `404 cross_reference_review_failed` for an unknown `upload_id` or an unmatched candidate; `400 cross_reference_review_failed` for an invalid `review_status` value.
+Sets one candidate's `review_status` (`needs_human_review`/`accepted`/`approved`/`rejected`, identified by `target_kind`+`target_id` in the JSON body, `upload_id` as a query param) in the persisted candidates report. `cross_reference_candidates`/`apply_cross_reference_links` were designed around a human hand-editing the report YAML on disk, which a browser-based reviewer has no way to do — found missing during Phase 10 UI planning for the cross-reference review overlay (see the Phase 10 TODO items). Citation plans had the identical gap; see `POST /api/v1/citations/plan/insertion-review` below, added the same way. `404 cross_reference_review_failed` for an unknown `upload_id` or an unmatched candidate; `400 cross_reference_review_failed` for an invalid `review_status` value.
 
 Named `candidate-review`, not `review` — `POST /api/v1/artefacts/cross-reference/review` would have satisfied `POST /api/v1/artefacts/{artefact_id}/review`'s path pattern (`artefact_id` literally `"cross-reference"`), and since that route is registered first, FastAPI would validate against the wrong request body (`ArtefactReviewRequest`) and never reach this handler. Caught by a live smoke test returning an unexpected `422`, not by a naming preference.
 
@@ -543,6 +543,18 @@ Creates a reviewable, non-destructive citation insertion plan from a validation 
 Engine source:
 
 - `researchboss.engine.citations.create_citation_plan`
+
+CLI equivalent: `researchboss cite plan <target>`.
+
+### `POST /api/v1/citations/plan/insertion-review` (implemented)
+
+Sets one citation-plan insertion's `review_status` (`needs_human_review`/`accepted`/`approved`/`rejected`, identified by `sentence_index`+`source_id` — the same pair `create_citation_plan` builds each insertion from) in the persisted plan file, without hand-editing it. Mirrors `POST /api/v1/artefacts/cross-reference/candidate-review` — same gap (a browser-based reviewer has no filesystem access to hand-edit the plan YAML), same fix. `404 citation_insertion_review_failed` for an unknown target/plan or an unmatched insertion; `400 citation_insertion_review_failed` for an invalid `review_status` value.
+
+Engine source:
+
+- `researchboss.engine.citations.set_citation_plan_insertion_review_status`
+
+CLI equivalent: `researchboss cite review <target> <sentence_index> <source_id> <review_status>`.
 
 ### `POST /api/v1/citations/apply` (implemented)
 

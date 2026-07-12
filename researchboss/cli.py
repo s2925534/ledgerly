@@ -41,7 +41,7 @@ from researchboss.engine.claims import (
     write_citation_gap_report,
 )
 from researchboss.engine.conversion import convert_sources, extract_text, ocr_readiness_report, processing_issue_report
-from researchboss.engine.citations import apply_citation_plan, create_citation_plan
+from researchboss.engine.citations import apply_citation_plan, create_citation_plan, set_citation_plan_insertion_review_status
 from researchboss.engine.data import data_source_counts, list_data_sources, profile_data_sources
 from researchboss.engine.database import (
     apply_pending_changes,
@@ -877,6 +877,51 @@ def cite_ai_plan(
     if not quiet:
         console.print(f"[green]AI citation plan:[/green] {deterministic.markdown_path}")
         console.print("[yellow]Original document was not modified. Human review is required.[/yellow]")
+
+
+@cite_app.command("review")
+def cite_review(
+    target: str = typer.Argument(..., help="Same document target used for `cite plan`."),
+    sentence_index: int = typer.Argument(...),
+    source_id: str = typer.Argument(...),
+    review_status: str = typer.Argument(..., help="needs_human_review|accepted|approved|rejected"),
+    plan_path: Optional[Path] = typer.Option(None, "--plan", help="Optional citation plan YAML path."),
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path."),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Set one citation-plan insertion's review_status without hand-editing the plan file."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["cite", "review"], ws, log_level)
+
+    try:
+        insertion = set_citation_plan_insertion_review_status(
+            ws, target, sentence_index, source_id, review_status, plan_path=plan_path, cwd=Path.cwd()
+        )
+        logger.info(
+            "Citation plan insertion review status updated",
+            operation="cite_review",
+            target=target,
+            sentence_index=sentence_index,
+            source_id=source_id,
+            review_status=review_status,
+        )
+        _finish(summary, summary_path)
+    except Exception as e:
+        logger.error(
+            "Citation plan insertion review update failed",
+            operation="cite_review",
+            target=target,
+            sentence_index=sentence_index,
+            source_id=source_id,
+            error=str(e),
+        )
+        summary.errors += 1
+        _finish(summary, summary_path)
+        raise
+
+    if not quiet:
+        console.print(f"[green]Updated:[/green] sentence {insertion['sentence_index']}/{insertion['source_id']} -> {insertion['review_status']}")
 
 
 @cite_app.command("apply")

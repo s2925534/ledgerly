@@ -1,6 +1,6 @@
 # ResearchBoss
 
-Current version: 0.9.9
+Current version: 0.10.0
 
 ResearchBoss is a local-first, evidence-first research workspace for managing research context, source files, review state, and project memory without requiring cloud services for the MVP.
 
@@ -244,6 +244,7 @@ researchboss guidelines conflicts [--workspace <path>]
 researchboss guidelines ai-context --ai [--workspace <path>] [--full-guidelines-ai] [--max-excerpt-chars <n>]
 researchboss cite plan <target> [--workspace <path>] [--source-path <path>] [--guidelines <guideline-id>] [--no-default-guidelines] [--allow-candidate-citations]
 researchboss cite ai-plan <target> --ai [--workspace <path>] [--full-target-document-ai] [--source-path <path>] [--allow-candidate-citations]
+researchboss cite review <target> <sentence_index> <source_id> <review_status> [--plan <plan.yaml>] [--workspace <path>]
 researchboss cite apply <target> [--plan <plan.yaml>] [--workspace <path>]
 researchboss ai test [--workspace <path>] [--ai]
 researchboss ai context-preview --ai [--workspace <path>]
@@ -435,7 +436,7 @@ researchboss cite ai-plan <target> --ai --workspace <workspace>
 researchboss cite apply <target> --workspace <workspace>
 ```
 
-`cite plan` is deterministic and writes `outputs/citation-plans/citation-plan-<target>.yaml` and `.md`. `cite ai-plan` is the AI-assisted equivalent behind explicit `--ai`, and only sends the full target document text with an additional `--full-target-document-ai` opt-in. Both plan commands only suggest citations from `accepted` sources unless `--allow-candidate-citations` is passed. `cite apply` reads a reviewed plan (from `--plan` or the default plan path) and writes the accepted insertions to a revised output copy — it never edits the original document in place.
+`cite plan` is deterministic and writes `outputs/citation-plans/citation-plan-<target>.yaml` and `.md`. `cite ai-plan` is the AI-assisted equivalent behind explicit `--ai`, and only sends the full target document text with an additional `--full-target-document-ai` opt-in. Both plan commands only suggest citations from `accepted` sources unless `--allow-candidate-citations` is passed. `cite review` sets one insertion's `review_status` (identified by its `sentence_index` and `source_id`) in the plan file directly, so a web UI (or a script) doesn't need filesystem access to hand-edit it — the same effect as opening the YAML and changing that field by hand. `cite apply` reads a reviewed plan (from `--plan` or the default plan path) and writes the accepted insertions to a revised output copy — it never edits the original document in place.
 
 ## Document Vault
 

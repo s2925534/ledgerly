@@ -16,6 +16,7 @@ from researchboss.engine.vault import create_document_version
 
 WORD_NAMESPACE = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 WORD = f"{{{WORD_NAMESPACE}}}"
+CITATION_INSERTION_REVIEW_STATUSES = {"needs_human_review", "accepted", "approved", "rejected"}
 
 
 @dataclass(frozen=True)
@@ -113,6 +114,49 @@ def create_citation_plan(
     write_yaml(yaml_path, plan)
     markdown_path.write_text(_markdown_plan(plan), encoding="utf-8")
     return CitationPlanRun(plan=plan, yaml_path=yaml_path, markdown_path=markdown_path)
+
+
+def set_citation_plan_insertion_review_status(
+    workspace: Path,
+    target: str,
+    sentence_index: int,
+    source_id: str,
+    review_status: str,
+    *,
+    plan_path: Path | None = None,
+    cwd: Path | None = None,
+) -> dict[str, Any]:
+    """Set a single citation-plan insertion's review_status in the persisted plan file.
+
+    `create_citation_plan`/`apply_citation_plan` were designed around a
+    human hand-editing the plan YAML on disk — fine for CLI/filesystem
+    access, but a browser-based reviewer has no way to do that. This is the
+    missing API-reachable equivalent, mirroring
+    `cross_reference.set_cross_reference_candidate_review_status`. Only
+    touches the one insertion matched by (sentence_index, source_id) —
+    the same pair `create_citation_plan` builds each insertion from — so
+    reviewing one insertion never clobbers a sibling insertion's already-
+    recorded decision.
+    """
+    if review_status not in CITATION_INSERTION_REVIEW_STATUSES:
+        allowed = ", ".join(sorted(CITATION_INSERTION_REVIEW_STATUSES))
+        raise ValueError(f"Invalid review_status '{review_status}'. Must be one of: {allowed}")
+
+    resolved_target = resolve_document_target(workspace, target, cwd=cwd)
+    plan_yaml = plan_path or _plan_path(workspace, resolved_target.path, ".yaml")
+    if not plan_yaml.exists():
+        raise ValueError(f"Citation plan does not exist: {plan_yaml}")
+
+    plan = read_yaml(plan_yaml)
+    insertions = [item for item in plan.get("insertions", []) if isinstance(item, dict)]
+    for insertion in insertions:
+        if insertion.get("sentence_index") == sentence_index and str(insertion.get("source_id")) == str(source_id):
+            insertion["review_status"] = review_status
+            plan["insertions"] = insertions
+            write_yaml(plan_yaml, plan)
+            return insertion
+
+    raise ValueError(f"No insertion found for sentence_index={sentence_index}, source_id={source_id}")
 
 
 def apply_citation_plan(

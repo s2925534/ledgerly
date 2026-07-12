@@ -1,8 +1,14 @@
 import zipfile
 from pathlib import Path
 
+import pytest
+
 from researchboss.core.yamlio import read_yaml, write_yaml
-from researchboss.engine.citations import apply_citation_plan, create_citation_plan
+from researchboss.engine.citations import (
+    apply_citation_plan,
+    create_citation_plan,
+    set_citation_plan_insertion_review_status,
+)
 from researchboss.engine.conversion import extract_text
 from researchboss.engine.workspace import init_workspace
 
@@ -46,6 +52,75 @@ def test_create_citation_plan_writes_reviewable_plan_without_editing_target(tmp_
     assert plan["insertions"][0]["source_id"] == "source-001"
     assert plan["insertions"][0]["suggested_inline_citation"] == "(Smith, 2024)"
     assert plan["insertions"][0]["review_status"] == "needs_human_review"
+
+
+def _citation_plan_fixture(tmp_path: Path):
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test Project", project_type="M.Phil", topic="")
+    target = workspace / "artefacts" / "papers" / "draft.md"
+    target.write_text("Container terminal automation uses berth planning evidence.", encoding="utf-8")
+    source_text = workspace / "sources_text" / "source-001.txt"
+    source_text.write_text("Berth planning evidence supports container terminal automation.", encoding="utf-8")
+    write_yaml(
+        workspace / "source-register.yaml",
+        {
+            "version": 1,
+            "sources": [
+                {
+                    "source_id": "source-001",
+                    "status": "accepted",
+                    "provider": "local_folder",
+                    "file_name": "paper.pdf",
+                    "conversion": {"status": "converted", "output_path": str(source_text)},
+                    "citation_metadata": {"title": "Accepted Source", "authors": ["Smith, A."], "year": 2024},
+                }
+            ],
+        },
+    )
+    return workspace, target
+
+
+def test_set_citation_plan_insertion_review_status_updates_one_insertion(tmp_path: Path) -> None:
+    workspace, target = _citation_plan_fixture(tmp_path)
+    plan = create_citation_plan(workspace, str(target))
+    insertion = plan.plan["insertions"][0]
+
+    updated = set_citation_plan_insertion_review_status(
+        workspace, str(target), insertion["sentence_index"], insertion["source_id"], "accepted"
+    )
+
+    assert updated["review_status"] == "accepted"
+    persisted = read_yaml(plan.yaml_path)
+    assert persisted["insertions"][0]["review_status"] == "accepted"
+
+    result = apply_citation_plan(workspace, str(target))
+    assert result.applied == 1
+
+
+def test_set_citation_plan_insertion_review_status_rejects_invalid_status(tmp_path: Path) -> None:
+    workspace, target = _citation_plan_fixture(tmp_path)
+    plan = create_citation_plan(workspace, str(target))
+    insertion = plan.plan["insertions"][0]
+
+    with pytest.raises(ValueError, match="Invalid review_status"):
+        set_citation_plan_insertion_review_status(
+            workspace, str(target), insertion["sentence_index"], insertion["source_id"], "maybe-later"
+        )
+
+
+def test_set_citation_plan_insertion_review_status_rejects_unknown_insertion(tmp_path: Path) -> None:
+    workspace, target = _citation_plan_fixture(tmp_path)
+    create_citation_plan(workspace, str(target))
+
+    with pytest.raises(ValueError, match="No insertion found"):
+        set_citation_plan_insertion_review_status(workspace, str(target), 999, "source-999", "accepted")
+
+
+def test_set_citation_plan_insertion_review_status_requires_plan_first(tmp_path: Path) -> None:
+    workspace, target = _citation_plan_fixture(tmp_path)
+
+    with pytest.raises(ValueError, match="does not exist"):
+        set_citation_plan_insertion_review_status(workspace, str(target), 0, "source-001", "accepted")
 
 
 def test_apply_citation_plan_creates_revised_copy_for_accepted_insertions(tmp_path: Path) -> None:

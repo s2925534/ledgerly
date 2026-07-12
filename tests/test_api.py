@@ -800,6 +800,93 @@ def test_citations_plan_and_apply_via_api(client: TestClient, tmp_path: Path) ->
     assert target.read_text(encoding="utf-8") == original_text  # original still untouched after apply
 
 
+def test_citations_plan_insertion_review_sets_status_without_hand_editing_via_api(
+    client: TestClient, tmp_path: Path
+) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    target = workspace / "artefacts" / "papers" / "draft.md"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("Container terminal automation uses berth planning evidence.", encoding="utf-8")
+    source_text = workspace / "sources_text" / "source-001.txt"
+    source_text.write_text("Berth planning evidence supports container terminal automation.", encoding="utf-8")
+    write_yaml(
+        workspace / "source-register.yaml",
+        {
+            "version": 1,
+            "sources": [
+                {
+                    "source_id": "source-001",
+                    "status": "accepted",
+                    "provider": "local_folder",
+                    "file_name": "paper.pdf",
+                    "conversion": {"status": "converted", "output_path": str(source_text)},
+                    "citation_metadata": {"title": "Accepted Source", "authors": ["Smith, A."], "year": 2024},
+                }
+            ],
+        },
+    )
+    plan_response = client.post(
+        "/api/v1/citations/plan", params={"workspace": str(workspace)}, json={"target": str(target)}
+    )
+    insertion = plan_response.json()["data"]["plan"]["insertions"][0]
+
+    review_response = client.post(
+        "/api/v1/citations/plan/insertion-review",
+        params={"workspace": str(workspace)},
+        json={
+            "target": str(target),
+            "sentence_index": insertion["sentence_index"],
+            "source_id": insertion["source_id"],
+            "review_status": "accepted",
+        },
+    )
+
+    assert review_response.status_code == 200
+    assert review_response.json()["data"]["review_status"] == "accepted"
+
+    apply_response = client.post(
+        "/api/v1/citations/apply", params={"workspace": str(workspace)}, json={"target": str(target)}
+    )
+    assert apply_response.json()["data"]["applied"] == 1
+
+
+def test_citations_plan_insertion_review_rejects_invalid_status_via_api(client: TestClient, tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    target = workspace / "artefacts" / "papers" / "draft.md"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("Container terminal automation uses berth planning evidence.", encoding="utf-8")
+    source_text = workspace / "sources_text" / "source-001.txt"
+    source_text.write_text("Berth planning evidence supports container terminal automation.", encoding="utf-8")
+    write_yaml(
+        workspace / "source-register.yaml",
+        {
+            "version": 1,
+            "sources": [
+                {
+                    "source_id": "source-001",
+                    "status": "accepted",
+                    "provider": "local_folder",
+                    "file_name": "paper.pdf",
+                    "conversion": {"status": "converted", "output_path": str(source_text)},
+                    "citation_metadata": {"title": "Accepted Source", "authors": ["Smith, A."], "year": 2024},
+                }
+            ],
+        },
+    )
+    client.post("/api/v1/citations/plan", params={"workspace": str(workspace)}, json={"target": str(target)})
+
+    response = client.post(
+        "/api/v1/citations/plan/insertion-review",
+        params={"workspace": str(workspace)},
+        json={"target": str(target), "sentence_index": 0, "source_id": "source-001", "review_status": "maybe-later"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["errors"][0]["code"] == "citation_insertion_review_failed"
+
+
 def test_guidelines_register_list_defaults_and_conflicts_via_api(client: TestClient, tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
