@@ -8,6 +8,7 @@ import researchboss.cli as cli
 from researchboss import __version__
 from researchboss.cli import app
 from researchboss.core.yamlio import read_yaml, write_yaml
+from researchboss.engine.artefacts import register_artefact
 from researchboss.engine.sources import scan_sources, set_source_status
 from researchboss.engine.workspace import init_workspace
 
@@ -1845,3 +1846,49 @@ def test_cli_doc_derive_text(tmp_path: Path) -> None:
     assert "Paragraphs: 1" in result.output
     snapshot_path = workspace / "document_vault" / "derived_text" / "docv-001.yaml"
     assert snapshot_path.is_file()
+
+
+def test_cli_doc_cross_reference_and_apply(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test Project", project_type="M.Phil", topic="")
+
+    artefact_path = workspace / "artefacts" / "transformer-notes.md"
+    artefact_path.parent.mkdir(parents=True, exist_ok=True)
+    artefact_path.write_text("# Transformer Notes\n\nExisting artefact about transformers.\n", encoding="utf-8")
+    register_artefact(workspace, title="Transformer Notes", artefact_type="notes", path=artefact_path, linked_sources=[], linked_research_questions=[])
+
+    upload_source = tmp_path / "incoming" / "transformer-findings.md"
+    upload_source.parent.mkdir(parents=True, exist_ok=True)
+    upload_source.write_text("# Transformer Findings", encoding="utf-8")
+    runner.invoke(
+        app,
+        ["doc", "upload", str(upload_source), "--title", "Transformer Findings", "--workspace", str(workspace)],
+    )
+
+    candidates_result = runner.invoke(app, ["doc", "cross-reference", "upload-001", "--workspace", str(workspace)])
+    assert candidates_result.exit_code == 0, candidates_result.output
+    assert "Candidates: 1" in candidates_result.output
+    report_path = workspace / "outputs" / "recommendations" / "cross-reference-upload-001.yaml"
+    assert report_path.is_file()
+
+    report = read_yaml(report_path)
+    report["candidates"][0]["review_status"] = "accepted"
+    write_yaml(report_path, report)
+
+    apply_result = runner.invoke(app, ["doc", "cross-reference-apply", "upload-001", "--workspace", str(workspace)])
+    assert apply_result.exit_code == 0, apply_result.output
+    assert "Links: 1" in apply_result.output
+
+    ledger = read_yaml(workspace / "document-vault.yaml")
+    assert ledger["uploads"][0]["cross_references"][0]["target_kind"] == "artefact"
+
+
+def test_cli_doc_cross_reference_unknown_upload_id(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test Project", project_type="M.Phil", topic="")
+
+    result = runner.invoke(app, ["doc", "cross-reference", "bogus-id", "--workspace", str(workspace)])
+    assert result.exit_code == 2
+
+    apply_result = runner.invoke(app, ["doc", "cross-reference-apply", "bogus-id", "--workspace", str(workspace)])
+    assert apply_result.exit_code == 2

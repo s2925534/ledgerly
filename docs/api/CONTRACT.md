@@ -386,9 +386,13 @@ Engine source:
 
 - `researchboss.engine.cross_reference.cross_reference_candidates`
 
+CLI equivalent: `researchboss doc cross-reference <upload_id>`.
+
 ### `POST /api/v1/artefacts/cross-reference/apply` (implemented)
 
 Writes reviewed cross-reference candidates as metadata on the *upload* record — a `cross_references` list, mirroring how artefact records already track `linked_sources`/`linked_research_questions` — following the same review-before-apply pattern citation plans use: only candidates whose `review_status` in the persisted candidates report has been hand-edited to `accepted`/`approved` are applied. Deliberately does not insert text into any artefact, source, or claim document's content (the other reading of "write the link" this contract previously left open): a keyword-overlap match is weaker evidence than a validated missing-citation match, so auto-inserting text on that basis would be a worse default than recording it as reviewable metadata. Content insertion analogous to `cite apply` (needing per-format `.md`/`.docx`/`.pdf` handling) was considered and deliberately not chosen. Idempotent — re-applying does not duplicate already-recorded links.
+
+CLI equivalent: `researchboss doc cross-reference-apply <upload_id>`.
 
 Engine source:
 

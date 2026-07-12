@@ -52,6 +52,7 @@ from researchboss.engine.database import (
     sync_database,
     pending_changes_report,
 )
+from researchboss.engine.cross_reference import apply_cross_reference_links, cross_reference_candidates
 from researchboss.engine.derived_text import build_derived_text_snapshot
 from researchboss.engine.doc_validation import validate_document
 from researchboss.engine.export import export_accepted_source_corpus, export_evidence_bundle
@@ -2775,6 +2776,67 @@ def doc_derive_text(
     if not quiet:
         console.print(f"[green]Derived text:[/green] {snapshot['derived_text_path']}")
         console.print(f"Sections: {snapshot['section_count']}  Paragraphs: {snapshot['paragraph_count']}")
+
+
+@doc_app.command("cross-reference")
+def doc_cross_reference(
+    upload_id: str = typer.Argument(...),
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Propose deterministic cross-reference candidates for an uploaded artefact (read-only)."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["doc", "cross-reference"], ws, log_level)
+    try:
+        report = cross_reference_candidates(ws, upload_id)
+    except ValueError as e:
+        logger.error("Cross-reference candidate generation failed", operation="doc_cross_reference", upload_id=upload_id, error=str(e))
+        summary.errors += 1
+        _finish(summary, summary_path)
+        raise typer.Exit(code=2)
+
+    logger.info(
+        "Wrote cross-reference candidates",
+        operation="doc_cross_reference",
+        upload_id=upload_id,
+        candidate_count=len(report.get("candidates", [])),
+    )
+    _finish(summary, summary_path, next_action="Hand-edit review_status to accepted/approved, then run `doc cross-reference-apply`.")
+    if not quiet:
+        report_path = ws / "outputs" / "recommendations" / f"cross-reference-{upload_id}.yaml"
+        console.print(f"[green]Candidates report:[/green] {report_path}")
+        console.print(f"Candidates: {len(report.get('candidates', []))}")
+
+
+@doc_app.command("cross-reference-apply")
+def doc_cross_reference_apply(
+    upload_id: str = typer.Argument(...),
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Write reviewed (accepted/approved) cross-reference candidates onto the upload record."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["doc", "cross-reference-apply"], ws, log_level)
+    try:
+        result = apply_cross_reference_links(ws, upload_id)
+    except ValueError as e:
+        logger.error("Cross-reference apply failed", operation="doc_cross_reference_apply", upload_id=upload_id, error=str(e))
+        summary.errors += 1
+        _finish(summary, summary_path)
+        raise typer.Exit(code=2)
+
+    logger.info(
+        "Applied cross-reference links",
+        operation="doc_cross_reference_apply",
+        upload_id=upload_id,
+        applied_count=len(result.get("cross_references", [])),
+    )
+    _finish(summary, summary_path)
+    if not quiet:
+        console.print(f"[green]Applied links to upload:[/green] {upload_id}")
+        console.print(f"Links: {len(result.get('cross_references', []))}")
 
 
 @rqs_app.command("list")
