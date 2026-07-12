@@ -19,7 +19,11 @@ from researchboss.engine.artefacts import (
     register_artefact,
     set_artefact_review_status,
 )
-from researchboss.engine.cross_reference import apply_cross_reference_links, cross_reference_candidates
+from researchboss.engine.cross_reference import (
+    apply_cross_reference_links,
+    cross_reference_candidates,
+    set_cross_reference_candidate_review_status,
+)
 from researchboss.engine.sources import ALLOWED_EXTENSIONS
 from researchboss.engine.vault import intake_uploaded_artefact_batch, list_uploaded_artefacts, resolve_uploaded_artefact_file
 
@@ -231,6 +235,46 @@ def artefacts_cross_reference(
     return ok(report)
 
 
+class CrossReferenceReviewRequest(BaseModel):
+    target_kind: str
+    target_id: str
+    review_status: str
+
+
+@router.post("/cross-reference/candidate-review")
+def artefacts_cross_reference_candidate_review(
+    payload: CrossReferenceReviewRequest,
+    upload_id: str = Query(...),
+    workspace: Path = Depends(resolve_workspace),
+) -> dict[str, Any]:
+    """Set a single cross-reference candidate's review_status via the API.
+
+    `cross_reference_candidates`/`cross_reference_candidates_apply` were
+    designed around a human hand-editing the persisted report YAML on disk,
+    which works for CLI/filesystem access but gives a browser-based
+    reviewer no way to record a decision. This route is that missing API
+    equivalent: it flips one candidate's `review_status` in place (identified
+    by `target_kind`/`target_id`, not list position, since candidate order
+    is not guaranteed stable across regenerations) without touching any
+    other candidate in the report.
+
+    Named `candidate-review`, not `review`, to avoid an exact path collision
+    with `POST /api/v1/artefacts/{artefact_id}/review` — `/cross-reference/review`
+    would satisfy that route's `{artefact_id}` pattern (with `artefact_id`
+    literally equal to `"cross-reference"`) and, since that route is
+    registered first, FastAPI would validate the request body against
+    `ArtefactReviewRequest` instead of ever reaching this handler.
+    """
+    try:
+        candidate = set_cross_reference_candidate_review_status(
+            workspace, upload_id, payload.target_kind, payload.target_id, payload.review_status
+        )
+    except ValueError as exc:
+        status_code = 404 if "No cross-reference candidates found" in str(exc) or "No candidate found" in str(exc) else 400
+        raise ApiError("cross_reference_review_failed", str(exc), status_code=status_code) from exc
+    return ok(candidate)
+
+
 class CrossReferenceApplyRequest(BaseModel):
     upload_id: str
 
@@ -243,9 +287,10 @@ def artefacts_cross_reference_apply(
 
     Only applies candidates whose `review_status` in the persisted report
     (`outputs/recommendations/cross-reference-<upload_id>.yaml`) has been
-    hand-edited to "accepted" or "approved" — the same review-before-apply
-    pattern citation plans use. Never modifies any artefact, source, or
-    claim document's content; see docs/api/CONTRACT.md for why registry
+    set to "accepted" or "approved" — via `POST .../cross-reference/candidate-review`
+    or by hand-editing the report file directly — the same review-before-
+    apply pattern citation plans use. Never modifies any artefact, source,
+    or claim document's content; see docs/api/CONTRACT.md for why registry
     metadata was chosen over document-content insertion.
     """
     try:

@@ -52,7 +52,11 @@ from researchboss.engine.database import (
     sync_database,
     pending_changes_report,
 )
-from researchboss.engine.cross_reference import apply_cross_reference_links, cross_reference_candidates
+from researchboss.engine.cross_reference import (
+    apply_cross_reference_links,
+    cross_reference_candidates,
+    set_cross_reference_candidate_review_status,
+)
 from researchboss.engine.derived_text import build_derived_text_snapshot
 from researchboss.engine.doc_validation import validate_document
 from researchboss.engine.export import export_accepted_source_corpus, export_evidence_bundle
@@ -2802,11 +2806,56 @@ def doc_cross_reference(
         upload_id=upload_id,
         candidate_count=len(report.get("candidates", [])),
     )
-    _finish(summary, summary_path, next_action="Hand-edit review_status to accepted/approved, then run `doc cross-reference-apply`.")
+    _finish(
+        summary,
+        summary_path,
+        next_action="Run `doc cross-reference-review` per candidate (or hand-edit review_status), then `doc cross-reference-apply`.",
+    )
     if not quiet:
         report_path = ws / "outputs" / "recommendations" / f"cross-reference-{upload_id}.yaml"
         console.print(f"[green]Candidates report:[/green] {report_path}")
         console.print(f"Candidates: {len(report.get('candidates', []))}")
+
+
+@doc_app.command("cross-reference-review")
+def doc_cross_reference_review(
+    upload_id: str = typer.Argument(...),
+    target_kind: str = typer.Argument(..., help="artefact|source|claim"),
+    target_id: str = typer.Argument(...),
+    review_status: str = typer.Argument(..., help="needs_human_review|accepted|approved|rejected"),
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Set one cross-reference candidate's review_status without hand-editing the report file."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["doc", "cross-reference-review"], ws, log_level)
+    try:
+        candidate = set_cross_reference_candidate_review_status(ws, upload_id, target_kind, target_id, review_status)
+    except ValueError as e:
+        logger.error(
+            "Cross-reference review update failed",
+            operation="doc_cross_reference_review",
+            upload_id=upload_id,
+            target_kind=target_kind,
+            target_id=target_id,
+            error=str(e),
+        )
+        summary.errors += 1
+        _finish(summary, summary_path)
+        raise typer.Exit(code=2)
+
+    logger.info(
+        "Updated cross-reference candidate review status",
+        operation="doc_cross_reference_review",
+        upload_id=upload_id,
+        target_kind=target_kind,
+        target_id=target_id,
+        review_status=review_status,
+    )
+    _finish(summary, summary_path)
+    if not quiet:
+        console.print(f"[green]Updated:[/green] {candidate['target_kind']}/{candidate['target_id']} -> {candidate['review_status']}")
 
 
 @doc_app.command("cross-reference-apply")

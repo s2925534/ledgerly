@@ -5,7 +5,11 @@ import pytest
 from researchboss.core.yamlio import read_yaml, write_yaml
 from researchboss.engine.claims import add_claim
 from researchboss.engine.artefacts import register_artefact
-from researchboss.engine.cross_reference import apply_cross_reference_links, cross_reference_candidates
+from researchboss.engine.cross_reference import (
+    apply_cross_reference_links,
+    cross_reference_candidates,
+    set_cross_reference_candidate_review_status,
+)
 from researchboss.engine.vault import intake_uploaded_artefact, list_uploaded_artefacts
 from researchboss.engine.workspace import init_workspace
 
@@ -177,3 +181,93 @@ def test_apply_cross_reference_links_requires_candidates_report_first(tmp_path: 
 
     with pytest.raises(ValueError, match="Run cross_reference_candidates first"):
         apply_cross_reference_links(workspace, upload["upload_id"])
+
+
+def test_set_cross_reference_candidate_review_status_updates_one_candidate(tmp_path: Path) -> None:
+    workspace = _workspace(tmp_path)
+    upload_source = tmp_path / "berth-planning-notes.md"
+    upload_source.write_text("notes", encoding="utf-8")
+    upload = intake_uploaded_artefact(workspace, upload_source, title="Berth Planning Notes")
+    artefact_path = workspace / "artefacts" / "reports" / "summary.md"
+    artefact_path.parent.mkdir(parents=True, exist_ok=True)
+    artefact_path.write_text("# Summary", encoding="utf-8")
+    register_artefact(workspace, title="Berth Planning Summary", artefact_type="report", path=artefact_path)
+    report = cross_reference_candidates(workspace, upload["upload_id"])
+    candidate = report["candidates"][0]
+
+    updated = set_cross_reference_candidate_review_status(
+        workspace, upload["upload_id"], candidate["target_kind"], candidate["target_id"], "accepted"
+    )
+
+    assert updated["review_status"] == "accepted"
+    report_path = workspace / "outputs" / "recommendations" / f"cross-reference-{upload['upload_id']}.yaml"
+    persisted = read_yaml(report_path)
+    assert persisted["candidates"][0]["review_status"] == "accepted"
+
+    # applying now picks up the API-set status, same as a hand-edited file would
+    result = apply_cross_reference_links(workspace, upload["upload_id"])
+    assert result["applied_count"] == 1
+
+
+def test_set_cross_reference_candidate_review_status_only_touches_matched_candidate(tmp_path: Path) -> None:
+    workspace = _workspace(tmp_path)
+    upload_source = tmp_path / "berth-planning-notes.md"
+    upload_source.write_text("notes", encoding="utf-8")
+    upload = intake_uploaded_artefact(workspace, upload_source, title="Berth Planning Notes")
+    for name in ("summary-one", "summary-two"):
+        artefact_path = workspace / "artefacts" / "reports" / f"{name}.md"
+        artefact_path.parent.mkdir(parents=True, exist_ok=True)
+        artefact_path.write_text("# Summary", encoding="utf-8")
+        register_artefact(workspace, title=f"Berth Planning {name}", artefact_type="report", path=artefact_path)
+    report = cross_reference_candidates(workspace, upload["upload_id"])
+    assert len(report["candidates"]) == 2
+    first, second = report["candidates"]
+
+    set_cross_reference_candidate_review_status(
+        workspace, upload["upload_id"], first["target_kind"], first["target_id"], "accepted"
+    )
+
+    report_path = workspace / "outputs" / "recommendations" / f"cross-reference-{upload['upload_id']}.yaml"
+    persisted = read_yaml(report_path)
+    statuses = {c["target_id"]: c["review_status"] for c in persisted["candidates"]}
+    assert statuses[first["target_id"]] == "accepted"
+    assert statuses[second["target_id"]] == "needs_human_review"
+
+
+def test_set_cross_reference_candidate_review_status_rejects_invalid_status(tmp_path: Path) -> None:
+    workspace = _workspace(tmp_path)
+    upload_source = tmp_path / "berth-planning-notes.md"
+    upload_source.write_text("notes", encoding="utf-8")
+    upload = intake_uploaded_artefact(workspace, upload_source, title="Berth Planning Notes")
+    artefact_path = workspace / "artefacts" / "reports" / "summary.md"
+    artefact_path.parent.mkdir(parents=True, exist_ok=True)
+    artefact_path.write_text("# Summary", encoding="utf-8")
+    register_artefact(workspace, title="Berth Planning Summary", artefact_type="report", path=artefact_path)
+    report = cross_reference_candidates(workspace, upload["upload_id"])
+    candidate = report["candidates"][0]
+
+    with pytest.raises(ValueError, match="Invalid review_status"):
+        set_cross_reference_candidate_review_status(
+            workspace, upload["upload_id"], candidate["target_kind"], candidate["target_id"], "maybe-later"
+        )
+
+
+def test_set_cross_reference_candidate_review_status_rejects_unknown_candidate(tmp_path: Path) -> None:
+    workspace = _workspace(tmp_path)
+    upload_source = tmp_path / "notes.md"
+    upload_source.write_text("notes", encoding="utf-8")
+    upload = intake_uploaded_artefact(workspace, upload_source, title="Notes")
+    cross_reference_candidates(workspace, upload["upload_id"])
+
+    with pytest.raises(ValueError, match="No candidate found"):
+        set_cross_reference_candidate_review_status(workspace, upload["upload_id"], "artefact", "bogus-id", "accepted")
+
+
+def test_set_cross_reference_candidate_review_status_requires_candidates_report_first(tmp_path: Path) -> None:
+    workspace = _workspace(tmp_path)
+    upload_source = tmp_path / "notes.md"
+    upload_source.write_text("notes", encoding="utf-8")
+    upload = intake_uploaded_artefact(workspace, upload_source, title="Notes")
+
+    with pytest.raises(ValueError, match="Run cross_reference_candidates first"):
+        set_cross_reference_candidate_review_status(workspace, upload["upload_id"], "artefact", "artefact-001", "accepted")

@@ -1892,3 +1892,52 @@ def test_cli_doc_cross_reference_unknown_upload_id(tmp_path: Path) -> None:
 
     apply_result = runner.invoke(app, ["doc", "cross-reference-apply", "bogus-id", "--workspace", str(workspace)])
     assert apply_result.exit_code == 2
+
+
+def test_cli_doc_cross_reference_review_sets_status_without_hand_editing(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test Project", project_type="M.Phil", topic="")
+
+    artefact_path = workspace / "artefacts" / "transformer-notes.md"
+    artefact_path.parent.mkdir(parents=True, exist_ok=True)
+    artefact_path.write_text("# Transformer Notes\n\nExisting artefact about transformers.\n", encoding="utf-8")
+    register_artefact(workspace, title="Transformer Notes", artefact_type="notes", path=artefact_path, linked_sources=[], linked_research_questions=[])
+
+    upload_source = tmp_path / "incoming" / "transformer-findings.md"
+    upload_source.parent.mkdir(parents=True, exist_ok=True)
+    upload_source.write_text("# Transformer Findings", encoding="utf-8")
+    runner.invoke(app, ["doc", "upload", str(upload_source), "--title", "Transformer Findings", "--workspace", str(workspace)])
+    runner.invoke(app, ["doc", "cross-reference", "upload-001", "--workspace", str(workspace)])
+
+    report_path = workspace / "outputs" / "recommendations" / "cross-reference-upload-001.yaml"
+    candidate = read_yaml(report_path)["candidates"][0]
+
+    review_result = runner.invoke(
+        app,
+        [
+            "doc",
+            "cross-reference-review",
+            "upload-001",
+            candidate["target_kind"],
+            candidate["target_id"],
+            "accepted",
+            "--workspace",
+            str(workspace),
+        ],
+    )
+    assert review_result.exit_code == 0, review_result.output
+    assert "accepted" in review_result.output
+
+    apply_result = runner.invoke(app, ["doc", "cross-reference-apply", "upload-001", "--workspace", str(workspace)])
+    assert "Links: 1" in apply_result.output
+
+
+def test_cli_doc_cross_reference_review_invalid_status_exits_nonzero(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test Project", project_type="M.Phil", topic="")
+
+    result = runner.invoke(
+        app,
+        ["doc", "cross-reference-review", "bogus-upload", "artefact", "bogus-id", "accepted", "--workspace", str(workspace)],
+    )
+    assert result.exit_code == 2

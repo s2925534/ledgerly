@@ -1146,6 +1146,68 @@ def test_artefacts_cross_reference_apply_requires_candidates_first_via_api(
     assert response.json()["errors"][0]["code"] == "cross_reference_apply_failed"
 
 
+def test_artefacts_cross_reference_review_sets_status_without_hand_editing_via_api(
+    client: TestClient, tmp_path: Path
+) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+
+    upload_response = client.post(
+        "/api/v1/artefacts/upload",
+        params={"workspace": str(workspace)},
+        files=[("files", ("berth-planning-notes.md", b"notes", "text/markdown"))],
+    )
+    upload_id = upload_response.json()["data"]["rows"][0]["upload_id"]
+
+    artefact_path = workspace / "artefacts" / "reports" / "summary.md"
+    artefact_path.parent.mkdir(parents=True, exist_ok=True)
+    artefact_path.write_text("# Summary", encoding="utf-8")
+    client.post(
+        "/api/v1/artefacts",
+        params={"workspace": str(workspace)},
+        json={"title": "Berth Planning Summary", "artefact_type": "report", "path": str(artefact_path)},
+    )
+    candidates = client.get(
+        "/api/v1/artefacts/cross-reference", params={"workspace": str(workspace), "upload_id": upload_id}
+    ).json()["data"]["candidates"]
+    candidate = candidates[0]
+
+    review_response = client.post(
+        "/api/v1/artefacts/cross-reference/candidate-review",
+        params={"workspace": str(workspace), "upload_id": upload_id},
+        json={"target_kind": candidate["target_kind"], "target_id": candidate["target_id"], "review_status": "accepted"},
+    )
+
+    assert review_response.status_code == 200
+    assert review_response.json()["data"]["review_status"] == "accepted"
+
+    apply_response = client.post(
+        "/api/v1/artefacts/cross-reference/apply", params={"workspace": str(workspace)}, json={"upload_id": upload_id}
+    )
+    assert apply_response.json()["data"]["applied_count"] == 1
+
+
+def test_artefacts_cross_reference_review_rejects_invalid_status_via_api(client: TestClient, tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    upload_response = client.post(
+        "/api/v1/artefacts/upload",
+        params={"workspace": str(workspace)},
+        files=[("files", ("berth-planning-notes.md", b"notes", "text/markdown"))],
+    )
+    upload_id = upload_response.json()["data"]["rows"][0]["upload_id"]
+    client.get("/api/v1/artefacts/cross-reference", params={"workspace": str(workspace), "upload_id": upload_id})
+
+    response = client.post(
+        "/api/v1/artefacts/cross-reference/candidate-review",
+        params={"workspace": str(workspace), "upload_id": upload_id},
+        json={"target_kind": "artefact", "target_id": "bogus-id", "review_status": "maybe-later"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["errors"][0]["code"] == "cross_reference_review_failed"
+
+
 def test_artefacts_uploads_lists_previously_uploaded_artefacts_via_api(client: TestClient, tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")

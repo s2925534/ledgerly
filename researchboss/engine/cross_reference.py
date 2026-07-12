@@ -18,6 +18,7 @@ STOP_WORDS = {
 }
 MIN_TITLE_OR_FILENAME_OVERLAP = 1
 MIN_CLAIM_TEXT_OVERLAP = 2
+CANDIDATE_REVIEW_STATUSES = {"needs_human_review", "accepted", "approved", "rejected"}
 
 
 def cross_reference_candidates(workspace: Path, upload_id: str) -> dict[str, Any]:
@@ -51,6 +52,39 @@ def cross_reference_candidates(workspace: Path, upload_id: str) -> dict[str, Any
     }
     write_yaml(workspace / "outputs" / "recommendations" / f"cross-reference-{upload_id}.yaml", report)
     return report
+
+
+def set_cross_reference_candidate_review_status(
+    workspace: Path, upload_id: str, target_kind: str, target_id: str, review_status: str
+) -> dict[str, Any]:
+    """Set a single candidate's review_status in the persisted candidates report.
+
+    Exists because `apply_cross_reference_links` was designed around a human
+    hand-editing the YAML report on disk (fine for CLI/filesystem access),
+    which a browser-based reviewer has no way to do — a web UI needs an API
+    call that produces the same effect. Only touches the one candidate
+    matched by (target_kind, target_id); every other candidate in the report
+    is left untouched, so reviewing candidates one at a time never clobbers
+    a sibling candidate's already-recorded decision.
+    """
+    if review_status not in CANDIDATE_REVIEW_STATUSES:
+        allowed = ", ".join(sorted(CANDIDATE_REVIEW_STATUSES))
+        raise ValueError(f"Invalid review_status '{review_status}'. Must be one of: {allowed}")
+
+    report_path = workspace / "outputs" / "recommendations" / f"cross-reference-{upload_id}.yaml"
+    if not report_path.is_file():
+        raise ValueError(f"No cross-reference candidates found for {upload_id}. Run cross_reference_candidates first.")
+
+    report = read_yaml(report_path)
+    candidates = [item for item in report.get("candidates", []) if isinstance(item, dict)]
+    for candidate in candidates:
+        if candidate.get("target_kind") == target_kind and candidate.get("target_id") == target_id:
+            candidate["review_status"] = review_status
+            report["candidates"] = candidates
+            write_yaml(report_path, report)
+            return candidate
+
+    raise ValueError(f"No candidate found for upload_id={upload_id} with target_kind={target_kind}, target_id={target_id}")
 
 
 def _find_upload(workspace: Path, upload_id: str) -> dict[str, Any]:

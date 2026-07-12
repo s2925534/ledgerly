@@ -388,9 +388,21 @@ Engine source:
 
 CLI equivalent: `researchboss doc cross-reference <upload_id>`.
 
+### `POST /api/v1/artefacts/cross-reference/candidate-review` (implemented)
+
+Sets one candidate's `review_status` (`needs_human_review`/`accepted`/`approved`/`rejected`, identified by `target_kind`+`target_id` in the JSON body, `upload_id` as a query param) in the persisted candidates report. `cross_reference_candidates`/`apply_cross_reference_links` were designed around a human hand-editing the report YAML on disk, which a browser-based reviewer has no way to do — found missing during Phase 10 UI planning for the cross-reference review overlay (see the Phase 10 TODO items), and the identical gap exists for citation plans (`POST /api/v1/citations/plan`'s insertions use the same hand-edit-then-apply pattern) but is not yet addressed there. `404 cross_reference_review_failed` for an unknown `upload_id` or an unmatched candidate; `400 cross_reference_review_failed` for an invalid `review_status` value.
+
+Named `candidate-review`, not `review` — `POST /api/v1/artefacts/cross-reference/review` would have satisfied `POST /api/v1/artefacts/{artefact_id}/review`'s path pattern (`artefact_id` literally `"cross-reference"`), and since that route is registered first, FastAPI would validate against the wrong request body (`ArtefactReviewRequest`) and never reach this handler. Caught by a live smoke test returning an unexpected `422`, not by a naming preference.
+
+Engine source:
+
+- `researchboss.engine.cross_reference.set_cross_reference_candidate_review_status`
+
+CLI equivalent: `researchboss doc cross-reference-review <upload_id> <target_kind> <target_id> <review_status>`.
+
 ### `POST /api/v1/artefacts/cross-reference/apply` (implemented)
 
-Writes reviewed cross-reference candidates as metadata on the *upload* record — a `cross_references` list, mirroring how artefact records already track `linked_sources`/`linked_research_questions` — following the same review-before-apply pattern citation plans use: only candidates whose `review_status` in the persisted candidates report has been hand-edited to `accepted`/`approved` are applied. Deliberately does not insert text into any artefact, source, or claim document's content (the other reading of "write the link" this contract previously left open): a keyword-overlap match is weaker evidence than a validated missing-citation match, so auto-inserting text on that basis would be a worse default than recording it as reviewable metadata. Content insertion analogous to `cite apply` (needing per-format `.md`/`.docx`/`.pdf` handling) was considered and deliberately not chosen. Idempotent — re-applying does not duplicate already-recorded links.
+Writes reviewed cross-reference candidates as metadata on the *upload* record — a `cross_references` list, mirroring how artefact records already track `linked_sources`/`linked_research_questions` — following the same review-before-apply pattern citation plans use: only candidates whose `review_status` in the persisted candidates report has been set to `accepted`/`approved` (via `candidate-review` above, or by hand-editing the report file directly) are applied. Deliberately does not insert text into any artefact, source, or claim document's content (the other reading of "write the link" this contract previously left open): a keyword-overlap match is weaker evidence than a validated missing-citation match, so auto-inserting text on that basis would be a worse default than recording it as reviewable metadata. Content insertion analogous to `cite apply` (needing per-format `.md`/`.docx`/`.pdf` handling) was considered and deliberately not chosen. Idempotent — re-applying does not duplicate already-recorded links.
 
 CLI equivalent: `researchboss doc cross-reference-apply <upload_id>`.
 
