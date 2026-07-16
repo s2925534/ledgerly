@@ -1825,3 +1825,213 @@ def test_derived_text_build_unknown_version_returns_404(client: TestClient, tmp_
 
     assert response.status_code == 404
     assert response.json()["errors"][0]["code"] == "derived_text_build_failed"
+
+
+class FakeOpenAiResponse:
+    def __init__(self, data: dict) -> None:
+        import json
+
+        self.data = json.dumps(data).encode("utf-8")
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args):
+        return False
+
+    def read(self) -> bytes:
+        return self.data
+
+
+def _mock_openai(monkeypatch, output_text: str = "AI output") -> None:
+    import ledgerly.engine.ai as ai_module
+
+    def fake_urlopen(request):
+        return FakeOpenAiResponse({"id": "resp_test", "output_text": output_text})
+
+    monkeypatch.setattr(ai_module, "urlopen", fake_urlopen)
+
+
+def test_ai_test_route_checks_readiness_without_live_request_by_default(
+    client: TestClient, tmp_path: Path, monkeypatch
+) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+
+    response = client.post("/api/v1/ai/test", params={"workspace": str(workspace)}, json={})
+
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["key_loaded"] is True
+    assert data["live_request_performed"] is False
+    assert "sk-test" not in str(data)
+
+
+def test_ai_test_route_returns_503_when_not_configured(client: TestClient, tmp_path: Path, monkeypatch) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    # openai_credentials also falls back to a `.env` in Path.cwd(); chdir away
+    # from the repo root so this test isn't sensitive to a real dev `.env`.
+    monkeypatch.chdir(tmp_path)
+
+    response = client.post("/api/v1/ai/test", params={"workspace": str(workspace)}, json={})
+
+    assert response.status_code == 503
+    assert response.json()["errors"][0]["code"] == "openai_not_configured"
+
+
+def test_ai_review_requires_explicit_ai_opt_in(client: TestClient, tmp_path: Path, monkeypatch) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+
+    response = client.post("/api/v1/ai/review", params={"workspace": str(workspace)}, json={"ai": False})
+
+    assert response.status_code == 400
+    assert response.json()["errors"][0]["code"] == "ai_not_enabled"
+
+
+def test_ai_review_returns_insufficient_evidence_without_network_call(
+    client: TestClient, tmp_path: Path, monkeypatch
+) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+
+    def fail_if_called(request):
+        raise AssertionError("must not call OpenAI when there is no evidence to ground a response in")
+
+    import ledgerly.engine.ai as ai_module
+
+    monkeypatch.setattr(ai_module, "urlopen", fail_if_called)
+
+    response = client.post("/api/v1/ai/review", params={"workspace": str(workspace)}, json={"ai": True})
+
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["insufficient_evidence"] is True
+    assert data["ai_used"] is False
+
+
+def test_ai_review_returns_grounded_result_with_mocked_openai(client: TestClient, tmp_path: Path, monkeypatch) -> None:
+    workspace = tmp_path / "workspace"
+    source_root = tmp_path / "sources"
+    source_root.mkdir()
+    (source_root / "paper.txt").write_text("bounded evidence text", encoding="utf-8")
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+
+    scan_sources(workspace, source_root)
+    source_id = read_yaml(workspace / "source-register.yaml")["sources"][0]["source_id"]
+    client.post(f"/api/v1/sources/{source_id}/status", params={"workspace": str(workspace)}, json={"new_status": "accepted"})
+    client.post("/api/v1/conversion/run", params={"workspace": str(workspace)}, json={})
+    _mock_openai(monkeypatch, "Review result")
+
+    response = client.post("/api/v1/ai/review", params={"workspace": str(workspace)}, json={"ai": True})
+
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["ai_used"] is True
+    assert data["review"] == "Review result"
+    assert data["requires_user_review"] is True
+
+
+def test_ai_novelty_route_writes_ledger(client: TestClient, tmp_path: Path, monkeypatch) -> None:
+    workspace = tmp_path / "workspace"
+    source_root = tmp_path / "sources"
+    source_root.mkdir()
+    (source_root / "paper.txt").write_text("bounded novelty context", encoding="utf-8")
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+
+    scan_sources(workspace, source_root)
+    source_id = read_yaml(workspace / "source-register.yaml")["sources"][0]["source_id"]
+    client.post(f"/api/v1/sources/{source_id}/status", params={"workspace": str(workspace)}, json={"new_status": "accepted"})
+    client.post("/api/v1/conversion/run", params={"workspace": str(workspace)}, json={})
+    _mock_openai(monkeypatch, "Novelty assessment")
+
+    response = client.post("/api/v1/ai/novelty", params={"workspace": str(workspace)}, json={"ai": True})
+
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["novelty_not_proven"] is True
+    assert data["assessment"] == "Novelty assessment"
+    ledger = read_yaml(workspace / "novelty-ledger.yaml")
+    assert ledger["assessments"][0]["kind"] == "ai_assisted_novelty_assessment"
+
+
+def test_ai_rqs_assess_route_rejects_unknown_rq_id(client: TestClient, tmp_path: Path, monkeypatch) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+
+    response = client.post(
+        "/api/v1/ai/rqs/assess", params={"workspace": str(workspace)}, json={"ai": True, "rq_id": "rq-999"}
+    )
+
+    assert response.status_code == 404
+    assert response.json()["errors"][0]["code"] == "ai_rq_assessment_failed"
+
+
+@pytest.mark.parametrize(
+    "route,kind",
+    [
+        ("/api/v1/ai/corpus-summary", "corpus_summary"),
+        ("/api/v1/ai/claim-check", "claim_checking"),
+        ("/api/v1/ai/citation-gaps", "citation_gaps"),
+        ("/api/v1/ai/artefact-cross-reference", "artefact_cross_reference"),
+        ("/api/v1/ai/source-relevance", "source_relevance"),
+        ("/api/v1/ai/abstract-screening", "abstract_screening"),
+    ],
+)
+def test_ai_workspace_report_routes_require_ai_opt_in(
+    client: TestClient, tmp_path: Path, monkeypatch, route: str, kind: str
+) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+
+    response = client.post(route, params={"workspace": str(workspace)}, json={"ai": False})
+
+    assert response.status_code == 400
+    assert response.json()["errors"][0]["code"] == "ai_not_enabled"
+
+
+def test_ai_query_plan_requires_ai_and_external_search_opt_in(client: TestClient, tmp_path: Path, monkeypatch) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+
+    ai_only = client.post("/api/v1/search/ai-query-plan", params={"workspace": str(workspace)}, json={"ai": True})
+    assert ai_only.status_code == 400
+    assert ai_only.json()["errors"][0]["code"] == "external_search_not_enabled"
+
+    neither = client.post("/api/v1/search/ai-query-plan", params={"workspace": str(workspace)}, json={})
+    assert neither.status_code == 400
+    assert neither.json()["errors"][0]["code"] == "ai_not_enabled"
+
+
+def test_ai_candidate_review_route_reports_full_text_mode(client: TestClient, tmp_path: Path, monkeypatch) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+
+    def fail_if_called(request):
+        raise AssertionError("must not call OpenAI when there is no evidence to ground a response in")
+
+    import ledgerly.engine.ai as ai_module
+
+    monkeypatch.setattr(ai_module, "urlopen", fail_if_called)
+
+    response = client.post(
+        "/api/v1/search/ai-candidate-review",
+        params={"workspace": str(workspace)},
+        json={"ai": True, "external_search": True},
+    )
+
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["full_text_mode"] == "metadata_and_abstracts_only"
+    assert data["full_source_document_ai_opt_in"] is False

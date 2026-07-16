@@ -89,6 +89,40 @@
   </section>
 
   <section class="panel">
+    <h2>AI-assisted features</h2>
+    <p class="muted small">Optional. Sends bounded excerpts of accepted sources (never original files, whole documents, CSVs, or SQLite databases) to OpenAI for the single action you run — never automatically, never in the background. Requires <code>OPENAI_API_KEY</code> configured server-side. Every result requires your review before use; nothing is applied automatically.</p>
+    <div class="zotero-link-actions">
+      <button id="ai-readiness-btn" type="button" class="secondary">Check AI readiness</button>
+    </div>
+    <p id="ai-readiness-message" class="small" hidden></p>
+
+    <div class="source-scan-form">
+      <label class="field-label" for="ai-action-select">AI action</label>
+      <select id="ai-action-select">
+        <option value="review">Review corpus</option>
+        <option value="corpus-summary">Corpus summary</option>
+        <option value="claim-check">Claim-checking assistance</option>
+        <option value="citation-gaps">Citation-gap recommendations</option>
+        <option value="artefact-cross-reference">Artefact cross-reference</option>
+        <option value="source-relevance">Source relevance recommendations</option>
+        <option value="abstract-screening">Abstract screening</option>
+        <option value="novelty">Novelty assessment</option>
+        <option value="rqs-assess">Research question assessment</option>
+      </select>
+      <label class="field-label" for="ai-rq-id-input">Research question ID (only used for RQ assessment; leave blank for all)</label>
+      <input id="ai-rq-id-input" type="text" placeholder="e.g. rq-001">
+      <label class="field-label">
+        <input id="ai-opt-in-checkbox" type="checkbox"> I explicitly consent to sending bounded source excerpts to OpenAI for this action
+      </label>
+      <div class="zotero-link-actions">
+        <button id="ai-run-btn" type="button">Run</button>
+      </div>
+      <p id="ai-run-message" class="small" hidden></p>
+      <div id="ai-run-result"></div>
+    </div>
+  </section>
+
+  <section class="panel">
     <h2>Sources</h2>
 
     <details id="source-scan-details" class="detail-box">

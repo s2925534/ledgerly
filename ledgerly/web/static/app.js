@@ -593,6 +593,73 @@ async function compareWorkspaces() {
   }
 }
 
+// --- AI-assisted features (explicit per-action opt-in, mirrors the CLI's --ai flag) ---
+
+const AI_ACTION_ROUTES = {
+  review: "/api/v1/ai/review",
+  "corpus-summary": "/api/v1/ai/corpus-summary",
+  "claim-check": "/api/v1/ai/claim-check",
+  "citation-gaps": "/api/v1/ai/citation-gaps",
+  "artefact-cross-reference": "/api/v1/ai/artefact-cross-reference",
+  "source-relevance": "/api/v1/ai/source-relevance",
+  "abstract-screening": "/api/v1/ai/abstract-screening",
+  novelty: "/api/v1/ai/novelty",
+  "rqs-assess": "/api/v1/ai/rqs/assess",
+};
+
+async function checkAiReadiness() {
+  const messageEl = document.getElementById("ai-readiness-message");
+  messageEl.hidden = false;
+  messageEl.className = "small";
+  messageEl.textContent = "Checking...";
+  try {
+    const result = await api("POST", "/api/v1/ai/test", { json: { ai: false } });
+    messageEl.textContent =
+      `Key loaded: ${result.key_loaded}. Default model: ${result.default_model}. ` +
+      "No live request was made (readiness check only, no workspace content sent).";
+  } catch (err) {
+    messageEl.textContent = err.message;
+    messageEl.classList.add("error");
+  }
+}
+
+async function runAiAction() {
+  const messageEl = document.getElementById("ai-run-message");
+  const resultEl = document.getElementById("ai-run-result");
+  const action = document.getElementById("ai-action-select").value;
+  const optedIn = document.getElementById("ai-opt-in-checkbox").checked;
+  const rqId = document.getElementById("ai-rq-id-input").value.trim();
+  resultEl.innerHTML = "";
+  messageEl.hidden = false;
+  messageEl.className = "small";
+  if (!optedIn) {
+    messageEl.textContent = "Check the consent box to run this AI action.";
+    messageEl.classList.add("error");
+    return;
+  }
+  messageEl.textContent = "Running (this sends bounded excerpts to OpenAI)...";
+  const body = { ai: true };
+  if (action === "rqs-assess" && rqId) body.rq_id = rqId;
+  try {
+    const result = await api("POST", AI_ACTION_ROUTES[action], { json: body });
+    if (result.insufficient_evidence) {
+      messageEl.textContent = `Insufficient evidence. ${result.insufficient_evidence_reason}`;
+      return;
+    }
+    messageEl.hidden = true;
+    const text = result.review || result.assessment || result.report || "";
+    resultEl.innerHTML = `<pre class="code-block"></pre>`;
+    resultEl.querySelector("pre").textContent = text;
+    // Re-require the consent checkbox for the next action — a deliberate
+    // per-action opt-in, not a session-wide toggle, matching the CLI's
+    // per-invocation --ai flag.
+    document.getElementById("ai-opt-in-checkbox").checked = false;
+  } catch (err) {
+    messageEl.textContent = err.message;
+    messageEl.classList.add("error");
+  }
+}
+
 // --- sources ---
 
 state.sourceStatusFilter = "";
@@ -2646,6 +2713,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.getElementById("theme-toggle-btn").addEventListener("click", toggleTheme);
   document.getElementById("compare-workspaces-btn").addEventListener("click", compareWorkspaces);
+  document.getElementById("ai-readiness-btn").addEventListener("click", checkAiReadiness);
+  document.getElementById("ai-run-btn").addEventListener("click", runAiAction);
   document.getElementById("corpus-search-btn").addEventListener("click", searchCorpus);
   document.getElementById("corpus-search-input").addEventListener("keydown", (event) => {
     if (event.key === "Enter") searchCorpus();

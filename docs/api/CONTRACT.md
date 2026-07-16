@@ -2,7 +2,7 @@
 
 This document defines the FastAPI boundary for Ledgerly.
 
-Contract status: implementation started in project version `0.7.0`; every route documented below is now implemented in `ledgerly.api` (run with `ledgerly serve`) except the disabled Future AI Routes section, which is a shape-only planning sketch (see that section) covering `POST /api/v1/ai/{test,review,novelty,rqs/assess}`. Novelty assessment has no deterministic engine path (`ledgerly.engine.ai.ai_novelty_assessment` is AI-only) — it belongs at `POST /api/v1/ai/novelty` under the same AI opt-in and privacy-boundary rules as the rest of that section, not as a separate `/api/v1/novelty` route implying a deterministic path that doesn't exist.
+Contract status: implementation started in project version `0.7.0`; every route documented below is implemented in `ledgerly.api` (run with `ledgerly serve`), including the AI Routes section (added 2026-07-16, per Pedro's explicit go-ahead — `POST /api/v1/ai/{test,review,novelty,rqs/assess,corpus-summary,claim-check,citation-gaps,artefact-cross-reference,source-relevance,abstract-screening}` and `POST /api/v1/search/{ai-query-plan,ai-candidate-review}`). Novelty assessment has no deterministic engine path (`ledgerly.engine.ai.ai_novelty_assessment` is AI-only) — it lives at `POST /api/v1/ai/novelty` under the same AI opt-in and privacy-boundary rules as the rest of that section, not as a separate `/api/v1/novelty` route implying a deterministic path that doesn't exist.
 
 The API must be local-first, workspace-scoped, and a thin transport layer over `ledgerly.engine` functions. It must not duplicate business logic already implemented in the engine.
 
@@ -1052,19 +1052,19 @@ Engine source:
 - `GET /` — the app shell. Session-gated *server-side*: reads the session cookie directly and issues a `303` redirect to `/login?next=<url>` before rendering anything if there's no valid session, rather than sending an empty shell that discovers it's unauthenticated only after a client-side API call. Workspace selection is a `?workspace=` query param, mirroring how every `/api/v1/*` route already takes an explicit `workspace` — there is no server-side session-scoped "current workspace."
 - `GET /static/*` — `app.js` (vanilla JS, no framework, no bundler) and `styles.css` (hand-written, no CSS framework). No CDN dependency anywhere, consistent with this project staying usable offline.
 
-## Future AI Routes
+## AI Routes
 
-**Not implemented.** The route shapes below are a planning sketch only, modeled directly on the equivalent CLI commands and their `ledgerly.engine.ai` functions (which already exist and are exercised by the CLI today) so that a future implementation has no ambiguity to resolve at build time. Adding these routes for real still requires: (1) an explicit product decision on how a *web* client performs the CLI's per-invocation `--ai` opt-in (sketched below as a required `"ai": true` request-body field, mirroring the CLI rather than introducing a session-wide or workspace-wide AI toggle), and (2) the privacy-boundary tests listed under "Required Tests Before Implementation." Until both exist, these routes must stay disabled/unregistered — do not wire them into `ledgerly/api/app.py`.
+**Implemented** (2026-07-16, per Pedro's explicit go-ahead to build the web/API opt-in layer). Modeled directly on the equivalent CLI commands and their `ledgerly.engine.ai` functions — a thin pass-through, no new business logic. Every route requires the per-request `"ai": true` opt-in described below; there is no workspace-level or session-level AI toggle that bypasses it, mirroring the CLI's per-invocation `--ai` flag exactly.
 
-Every route in this section shares the same server-side credential rule: the OpenAI API key is resolved server-side only, the same way the CLI resolves it (`OPENAI_API_KEY` env var, or `.env` in the workspace via `engine.ai.openai_credentials`). **No route may accept an API key in the request body or from the client** — that would hand a browser client the ability to exfiltrate or misuse server-side credentials, which is a straight OWASP-relevant boundary violation, not just a style preference. If the key is missing, the route must return the same "not configured" failure the CLI raises (`OpenAiError("Missing OPENAI_API_KEY")`), not a generic 500.
+Every route in this section shares the same server-side credential rule: the OpenAI API key is resolved server-side only, the same way the CLI resolves it (`OPENAI_API_KEY` env var, or `.env` in the workspace via `engine.ai.openai_credentials`). **No route accepts an API key in the request body or from the client** — that would hand a browser client the ability to exfiltrate or misuse server-side credentials, a straight OWASP-relevant boundary violation, not just a style preference. If the key is missing, the route returns `503 openai_not_configured` rather than a generic 500 or a raw exception message.
 
-Every route also shares the same safe-context boundary already enforced by `engine.ai.build_safe_context`: original files, whole PDFs/CSVs/SQLite databases, and full documents are excluded by construction — only per-source excerpts capped at `max_excerpt_chars` are sent. None of the four sketched routes needs a `--full-file-ai`/`--directory-ai`-style extra opt-in, because none of their CLI equivalents (`ai test`, `ai review`, `assess-novelty`, `rqs assess`) use one; a future route that *did* need whole-file or directory context (there is none planned) would need the matching extra opt-in field, not just `ai: true`.
+Every route also shares the same safe-context boundary already enforced by `engine.ai.build_safe_context`: original files, whole PDFs/CSVs/SQLite databases, and full documents are excluded by construction — only per-source excerpts capped at `max_excerpt_chars` are sent. None of these routes needs a `--full-file-ai`/`--directory-ai`-style extra opt-in, because none of their CLI equivalents use one, with two explicit exceptions below (`ai-query-plan`, `ai-candidate-review`) that need an *additional* `external_search: true` opt-in, matching their CLI's `--ai --external-search`.
 
-Common response envelope fields all four routes would share (already returned by every `engine.ai` function): `version`, `kind`, `provider` (`"openai"`), `model`, `ai_used`, `requires_user_review`, `safe_context_policy` (echoes `build_safe_context`'s `policy` block), `limits` (echoes `max_sources`/`max_excerpt_chars` actually applied), `source_count`, `response_id` (the OpenAI response id, for audit trail — never the raw response body). None of these routes modify any artefact, source, or claim document; where the CLI equivalent writes a side-effect file (novelty ledger), the sketch below says so explicitly.
+Common response envelope fields most routes share (already returned by every `engine.ai` function): `version`, `kind`, `provider` (`"openai"`), `model`, `ai_used`, `requires_user_review`, `safe_context_policy` (echoes `build_safe_context`'s `policy` block), `limits` (echoes `max_sources`/`max_excerpt_chars` actually applied), `source_count`, `response_id` (the OpenAI response id, for audit trail — never the raw response body). None of these routes modify any artefact, source, or claim document; where the CLI equivalent writes a side-effect file (novelty ledger), the route below says so explicitly. Unlike the CLI, no route writes an `outputs/` YAML file — the caller receives the same content in the response body and decides whether to persist it.
 
-Per AGENTS.md's "Core Rule: No Hallucinations," every `engine.ai` function now also returns `insufficient_evidence: bool` and, when true, `insufficient_evidence_reason: string` — **implemented**, not just sketched: when the safe context has no source with a usable excerpt (or, for `ai_workspace_report`, when the whole payload — sources, claims, artefacts, and abstract/external candidates — is empty), the function returns this immediately with `ai_used: false` and `response_id: null` **without calling OpenAI at all**, rather than sending an all-but-empty prompt and trusting the model to decline on its own. Any future route wrapping these functions inherits this field for free. Still not implemented: per-claim traceable grounding back to specific source/artefact/claim IDs within a *non*-insufficient-evidence response — that's a larger, separate piece (chunk-level derived-text anchors, AGENTS.md Core Rule item 6) tracked in `TODO.md` Phase 27/31, not fixed by this sketch.
+Per AGENTS.md's "Core Rule: No Hallucinations," every `engine.ai` function also returns `insufficient_evidence: bool` and, when true, `insufficient_evidence_reason: string`: when the safe context has no source with a usable excerpt (or, for the workspace-report routes, when the whole payload — sources, claims, artefacts, and abstract/external candidates — is empty), the function returns this immediately with `ai_used: false` and `response_id: null` **without calling OpenAI at all**. Every route below inherits this for free. Still not implemented: per-claim traceable grounding back to specific source/artefact/claim IDs within a *non*-insufficient-evidence response — that's a larger, separate piece (chunk-level derived-text anchors, AGENTS.md Core Rule item 6) tracked in `TODO.md` Phase 27/31.
 
-### `POST /api/v1/ai/test` (not implemented — shape only)
+### `POST /api/v1/ai/test` (implemented)
 
 CLI equivalent: `ledgerly ai test`. Engine source: `engine.ai.openai_readiness`.
 
@@ -1072,38 +1072,64 @@ Request body: `{"ai": bool = false}` — `ai: true` additionally performs a live
 
 Response `data`: `{key_loaded, key_exposed: false, workspace_ai_enabled, openai_provider_enabled, default_model, live_request_performed, policy: "explicit_ai_flag_required"}`, plus `api_reachable` and `model_count` when `live_request_performed` is true.
 
-### `POST /api/v1/ai/review` (not implemented — shape only)
+### `POST /api/v1/ai/review` (implemented)
 
 CLI equivalent: `ledgerly ai review --ai`. Engine source: `engine.ai.ai_assisted_review`.
 
 Request body: `{"ai": true, "max_sources": int = 10, "max_excerpt_chars": int = 1200}`. `400 ai_not_enabled` if `ai` is not `true`.
 
-Response `data`: common envelope fields above, plus `review` (markdown text with sections Scope, Useful Signals, Evidence Gaps, Source Follow-up, Human Review Required). No side-effect file — the CLI writes `outputs/validation/openai-review.yaml`; an API caller receives the same content in the response body and decides whether to persist it.
+Response `data`: common envelope fields above, plus `review` (markdown text with sections Scope, Useful Signals, Evidence Gaps, Source Follow-up, Human Review Required).
 
-### `POST /api/v1/ai/novelty` (not implemented — shape only)
+### `POST /api/v1/ai/novelty` (implemented)
 
-CLI equivalent: `ledgerly assess-novelty --ai`. Engine source: `engine.ai.ai_novelty_assessment`. This is the route that resolves the "novelty assessment has no deterministic engine path" note at the top of this document — `ai_novelty_assessment` is AI-only, so novelty assessment belongs under `/api/v1/ai/`, not as a separate `/api/v1/novelty` route implying a deterministic engine path that doesn't exist.
+CLI equivalent: `ledgerly assess-novelty --ai`. Engine source: `engine.ai.ai_novelty_assessment`. This is the route that resolves the "novelty assessment has no deterministic engine path" note at the top of this document — `ai_novelty_assessment` is AI-only, so novelty assessment lives under `/api/v1/ai/`, not as a separate `/api/v1/novelty` route implying a deterministic engine path that doesn't exist.
 
 Request body: `{"ai": true, "max_sources": int = 10, "max_excerpt_chars": int = 1200}`. `400 ai_not_enabled` if `ai` is not `true`.
 
-Response `data`: common envelope fields, plus `novelty_not_proven: true` (the assessment must never be presented as proof of novelty), `research_question_count`, `assessment` (markdown text). Side effect: like the CLI, appends a record to `novelty-ledger.yaml` (`id`, `kind`, `provider`, `model`, `response_id`, `requires_user_review`, `novelty_not_proven`, `source_count`, `research_question_count`, `assessment`) — this is a workspace-state write and must be covered by the same workspace-scoped-write test every other mutating route has.
+Response `data`: common envelope fields, plus `novelty_not_proven: true` (the assessment must never be presented as proof of novelty), `research_question_count`, `assessment` (markdown text). Side effect: like the CLI, appends a record to `novelty-ledger.yaml` (`id`, `kind`, `provider`, `model`, `response_id`, `requires_user_review`, `novelty_not_proven`, `source_count`, `research_question_count`, `assessment`) — skipped when the response is `insufficient_evidence`.
 
-### `POST /api/v1/ai/rqs/assess` (not implemented — shape only)
+### `POST /api/v1/ai/rqs/assess` (implemented)
 
 CLI equivalent: `ledgerly rqs assess --ai [--rq <id>]`. Engine source: `engine.ai.ai_research_question_assessment`.
 
-Request body: `{"ai": true, "rq_id": Optional[str] = None, "max_sources": int = 10, "max_excerpt_chars": int = 1200}`. `400 ai_not_enabled` if `ai` is not `true`. `404 unknown_research_question` if `rq_id` is supplied but matches no approved or candidate research question (mirrors `OpenAiError(f"Unknown research question: {rq_id}")`).
+Request body: `{"ai": true, "rq_id": Optional[str] = None, "max_sources": int = 10, "max_excerpt_chars": int = 1200}`. `400 ai_not_enabled` if `ai` is not `true`. `404 ai_rq_assessment_failed` if `rq_id` is supplied but matches no approved or candidate research question (mirrors `OpenAiError(f"Unknown research question: {rq_id}")`).
 
 Response `data`: common envelope fields, plus `novelty_not_proven: true`, `research_question_count` (count actually assessed — all approved+candidate questions when `rq_id` is omitted, else the one matched question), `rq_id` (echoes the request), `assessment` (markdown text, one section per assessed research question plus a final Human Review Required section).
 
-Rules (all four routes):
+### Workspace-report routes (implemented)
 
-- Disabled by default — not registered in `ledgerly/api/app.py` until implemented.
+Six thin wrappers around `engine.ai.ai_workspace_report` with a fixed `kind`, one per `ledgerly ai <name>` CLI command. Request body for all six: `{"ai": true, "max_sources": int = 10, "max_excerpt_chars": int = 1200}`. Response `data`: common envelope fields, plus `report` (markdown text) and the same claim/artefact/candidate counts the CLI's own report carries.
+
+- `POST /api/v1/ai/corpus-summary` — CLI: `ledgerly ai corpus-summary --ai`.
+- `POST /api/v1/ai/claim-check` — CLI: `ledgerly ai claim-check --ai`.
+- `POST /api/v1/ai/citation-gaps` — CLI: `ledgerly ai citation-gaps --ai`.
+- `POST /api/v1/ai/artefact-cross-reference` — CLI: `ledgerly ai artefact-cross-reference --ai`.
+- `POST /api/v1/ai/source-relevance` — CLI: `ledgerly ai source-relevance --ai`.
+- `POST /api/v1/ai/abstract-screening` — CLI: `ledgerly ai abstract-screening --ai`.
+
+### `POST /api/v1/search/ai-query-plan` (implemented)
+
+CLI equivalent: `ledgerly search ai-query-plan --ai --external-search`. Engine source: `engine.ai.ai_workspace_report` (`kind="query_generation"`). Lives under `/api/v1/search/`, not `/api/v1/ai/`, matching the CLI's own `search` command group.
+
+Request body: `{"ai": true, "external_search": true, "max_sources": int = 10, "max_excerpt_chars": int = 1200}`. Requires **both** opt-ins: `400 ai_not_enabled` if `ai` is not `true`, `400 external_search_not_enabled` if `external_search` is not `true` (checked after `ai`).
+
+Response `data`: common envelope fields, plus `report` (markdown text: suggested queries, refinement rationale, excluded unsafe context, search budget notes). Never executes any external search itself.
+
+### `POST /api/v1/search/ai-candidate-review` (implemented)
+
+CLI equivalent: `ledgerly search ai-candidate-review --ai --external-search [--full-source-document-ai]`. Engine source: `engine.ai.ai_workspace_report` (`kind="candidate_validation"`).
+
+Request body: `{"ai": true, "external_search": true, "full_source_document_ai": bool = false, "max_sources": int = 10, "max_excerpt_chars": int = 1200}`. Requires both `ai` and `external_search`; `full_source_document_ai` is a separate, optional third opt-in that only changes the response's `full_text_mode` field — the underlying context is candidate metadata/abstracts either way (no CLI or engine path today actually sends full source documents for this kind).
+
+Response `data`: common envelope fields, plus `report`, `full_source_document_ai_opt_in` (echoes the request), `full_text_mode` (`"explicit_opt_in"` or `"metadata_and_abstracts_only"`).
+
+Rules (all AI routes):
+
 - Must require the per-request `ai: true` opt-in described above; there is no workspace-level or session-level AI toggle that bypasses it.
 - Must never log or echo the API key.
 - Must never upload whole PDFs, CSVs, SQLite databases, or original documents — only `build_safe_context` excerpts, capped at the requested `max_excerpt_chars`.
 - Must preserve the Zotero no-write boundary.
-- Must return the response's `requires_user_review: true` field on every success response — these are advisory outputs, never auto-applied.
+- Must return the response's `requires_user_review: true` field on every success response that isn't `insufficient_evidence` — these are advisory outputs, never auto-applied.
 
 ## Forbidden Routes
 
@@ -1125,4 +1151,4 @@ Before a route group is marked implemented, tests must prove that:
 - Local Zotero directories are never modified.
 - Zotero Web API routes use read-only operations only.
 - Missing or invalid API keys are handled without printing or logging secrets.
-- Future AI routes stay disabled until explicit AI implementation and privacy-boundary tests exist.
+- Any AI route requires the per-request `ai: true` opt-in and never calls the AI provider when the safe context has no usable evidence (`insufficient_evidence: true` instead).

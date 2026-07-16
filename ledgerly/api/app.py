@@ -8,6 +8,7 @@ from ledgerly.api.deps import require_session
 from ledgerly.api.envelope import ApiError
 from ledgerly.api.routers import (
     abstracts,
+    ai,
     artefacts,
     auth,
     backup,
@@ -91,6 +92,7 @@ def create_app() -> FastAPI:
     app.include_router(notes.router, prefix="/api/v1/notes", tags=["notes"], dependencies=protected)
     app.include_router(search.router, prefix="/api/v1/search", tags=["search"], dependencies=protected)
     app.include_router(abstracts.router, prefix="/api/v1/abstracts", tags=["abstracts"], dependencies=protected)
+    app.include_router(ai.router, prefix="/api/v1/ai", tags=["ai"], dependencies=protected)
     mount_web(app)
     return app
 

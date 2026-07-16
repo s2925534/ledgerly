@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from ledgerly.api.deps import resolve_workspace
 from ledgerly.api.envelope import ApiError, ok
+from ledgerly.engine.ai import OpenAiError, ai_workspace_report, openai_credentials
 from ledgerly.engine.external_search import (
     ExternalSearchError,
     external_candidate_deduplication_report,
@@ -80,4 +81,76 @@ def search_import_candidates(
         report = import_external_candidates(workspace, payload.candidate_ids)
     except ExternalSearchError as exc:
         raise ApiError("search_import_candidates_failed", str(exc), status_code=400) from exc
+    return ok(report)
+
+
+class AiQueryPlanRequest(BaseModel):
+    ai: bool = False
+    external_search: bool = False
+    max_sources: int = 10
+    max_excerpt_chars: int = 1200
+
+
+@router.post("/ai-query-plan")
+def search_ai_query_plan(payload: AiQueryPlanRequest, workspace: Path = Depends(resolve_workspace)) -> dict[str, Any]:
+    """AI-assisted external-search query suggestions, never executed automatically. Requires both `ai: true` and
+    `external_search: true` — same double opt-in the CLI's `--ai --external-search` requires."""
+    if not payload.ai:
+        raise ApiError("ai_not_enabled", 'Set "ai": true to explicitly opt in to this AI action.', status_code=400)
+    if not payload.external_search:
+        raise ApiError(
+            "external_search_not_enabled",
+            'Set "external_search": true to explicitly opt in to external-search planning.',
+            status_code=400,
+        )
+    try:
+        credentials = openai_credentials(workspace)
+    except OpenAiError as exc:
+        raise ApiError("openai_not_configured", str(exc), status_code=503) from exc
+    report = ai_workspace_report(
+        workspace,
+        credentials,
+        kind="query_generation",
+        max_sources=payload.max_sources,
+        max_excerpt_chars=payload.max_excerpt_chars,
+    )
+    return ok(report)
+
+
+class AiCandidateReviewRequest(BaseModel):
+    ai: bool = False
+    external_search: bool = False
+    full_source_document_ai: bool = False
+    max_sources: int = 10
+    max_excerpt_chars: int = 1200
+
+
+@router.post("/ai-candidate-review")
+def search_ai_candidate_review(
+    payload: AiCandidateReviewRequest, workspace: Path = Depends(resolve_workspace)
+) -> dict[str, Any]:
+    """AI-assisted candidate relevance/novelty review, from candidate metadata and abstracts only unless
+    `full_source_document_ai: true` is separately and explicitly set — the same two-tier opt-in the CLI's
+    `--ai --external-search [--full-source-document-ai]` requires."""
+    if not payload.ai:
+        raise ApiError("ai_not_enabled", 'Set "ai": true to explicitly opt in to this AI action.', status_code=400)
+    if not payload.external_search:
+        raise ApiError(
+            "external_search_not_enabled",
+            'Set "external_search": true to explicitly opt in to external candidate review.',
+            status_code=400,
+        )
+    try:
+        credentials = openai_credentials(workspace)
+    except OpenAiError as exc:
+        raise ApiError("openai_not_configured", str(exc), status_code=503) from exc
+    report = ai_workspace_report(
+        workspace,
+        credentials,
+        kind="candidate_validation",
+        max_sources=payload.max_sources,
+        max_excerpt_chars=payload.max_excerpt_chars,
+    )
+    report["full_source_document_ai_opt_in"] = payload.full_source_document_ai
+    report["full_text_mode"] = "explicit_opt_in" if payload.full_source_document_ai else "metadata_and_abstracts_only"
     return ok(report)
