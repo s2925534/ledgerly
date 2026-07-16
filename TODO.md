@@ -313,10 +313,10 @@ The source inbox/review workflow (`sources accept/maybe/ignore/note/tag`) is one
 
 ## Phase 15: Web UI — Artefact Registry and Research Questions
 
-- [ ] **API** - Add an artefact registry list view (`GET /api/v1/artefacts`) — distinct from the existing "uploaded artefacts" table, which only shows document-vault uploads. The full registered-artefact list has no web view at all today.
-- [ ] **API** - Add a manual artefact registration form (`POST /api/v1/artefacts`) and a deterministic artefact creation action (`POST /api/v1/artefacts/create`).
-- [ ] **API** - Add artefact review-status controls (`POST /api/v1/artefacts/{artefact_id}/review`) and a dependency-check view (`GET /api/v1/artefacts/dependencies`).
-- [ ] **API** - Add a research questions view (`GET /api/v1/rqs`) with approve/reject/archive actions (`POST /api/v1/rqs/{rq_id}/approve|reject|archive`) and a readiness-check action (`POST /api/v1/rqs/check`).
+- [x] **Done** - **API** - Add an artefact registry list view (`GET /api/v1/artefacts`) — distinct from the existing "uploaded artefacts" table, which only shows document-vault uploads. Shown as a table with title/type/review-status/link-count.
+- [x] **Done** - **API** - Add a deterministic artefact creation action (`POST /api/v1/artefacts/create`) as a form (type select, optional title, include-maybe checkbox). The manual registration route (`POST /api/v1/artefacts`, for registering an artefact created outside this tool at an arbitrary path) has no web form yet — lower priority, `/create` covers the common case.
+- [x] **Done** - **API** - Add an artefact review-status control (`POST /api/v1/artefacts/{artefact_id}/review`) as a per-row dropdown (all 5 statuses, changes apply on select). The dependency-check view (`GET /api/v1/artefacts/dependencies`) has no web view yet.
+- [x] **Done** - **API** - Add a research questions view (`GET /api/v1/rqs`) as three grouped lists (candidates/approved/rejected) with approve/reject/archive actions (`POST /api/v1/rqs/{rq_id}/approve|reject|archive` — approve only offered on candidates, reject/archive on both candidates and approved, matching what the engine actually allows) and a readiness-check action (`POST /api/v1/rqs/check`, deterministic rules only, explicitly labeled as such) that populates a `readiness` status+score badge on each item.
 
 ## Phase 16: Web UI — Claims and Citation Planning
 

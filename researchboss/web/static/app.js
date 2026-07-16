@@ -66,6 +66,8 @@ async function loadWorkspace(workspace) {
   refreshZoteroPanel();
   refreshDashboard();
   refreshSources();
+  refreshResearchQuestions();
+  refreshArtefacts();
 }
 
 async function loadUploadLimits() {
@@ -513,6 +515,168 @@ function setupSourcesPanel() {
   document.getElementById("source-edit-add-tag-btn").addEventListener("click", addSourceEditTag);
 }
 
+// --- research questions ---
+
+async function refreshResearchQuestions() {
+  try {
+    const groups = await api("GET", "/api/v1/rqs");
+    renderRqGroup("rq-candidates-list", "rq-candidates-empty", groups.candidates || [], "candidates");
+    renderRqGroup("rq-approved-list", "rq-approved-empty", groups.approved || [], "approved");
+    renderRqGroup("rq-rejected-list", "rq-rejected-empty", groups.rejected || [], "rejected");
+  } catch (err) {
+    showWorkspaceError(err.message);
+  }
+}
+
+function renderRqGroup(listId, emptyId, items, group) {
+  const listEl = document.getElementById(listId);
+  const emptyEl = document.getElementById(emptyId);
+  listEl.innerHTML = "";
+  emptyEl.hidden = items.length > 0;
+  for (const item of items) {
+    const row = document.createElement("div");
+    row.className = "rq-row";
+    const subquestions = (item.subquestions || [])
+      .map((sq) => `<li>${escapeHtml(sq)}</li>`)
+      .join("");
+    const readiness = item.readiness
+      ? `<span class="candidate-status">${escapeHtml(item.readiness.status)} (score ${item.readiness.score})</span>`
+      : "";
+    const reasonNote = group === "rejected" && item.reason ? `<p class="muted small">Reason: ${escapeHtml(item.reason)}</p>` : "";
+    const statusNote = group === "rejected" ? `<p class="muted small">Status: ${escapeHtml(item.status || "")}</p>` : "";
+    row.innerHTML = `
+      <div class="rq-question">${escapeHtml(item.question || "")}</div>
+      ${subquestions ? `<ul class="rq-subquestions">${subquestions}</ul>` : ""}
+      <p>${readiness}</p>
+      ${statusNote}
+      ${reasonNote}
+      <div class="row-actions"></div>
+    `;
+    const actions = row.querySelector(".row-actions");
+    if (group === "candidates") {
+      const approveBtn = document.createElement("button");
+      approveBtn.type = "button";
+      approveBtn.textContent = "Approve";
+      approveBtn.addEventListener("click", () => rqAction(item.id, "approve"));
+      actions.appendChild(approveBtn);
+    }
+    if (group === "candidates" || group === "approved") {
+      const rejectBtn = document.createElement("button");
+      rejectBtn.type = "button";
+      rejectBtn.className = "secondary";
+      rejectBtn.textContent = "Reject";
+      rejectBtn.addEventListener("click", () => rqAction(item.id, "reject"));
+      const archiveBtn = document.createElement("button");
+      archiveBtn.type = "button";
+      archiveBtn.className = "secondary";
+      archiveBtn.textContent = "Archive";
+      archiveBtn.addEventListener("click", () => rqAction(item.id, "archive"));
+      actions.appendChild(rejectBtn);
+      actions.appendChild(archiveBtn);
+    }
+    listEl.appendChild(row);
+  }
+}
+
+async function rqAction(rqId, action) {
+  try {
+    await api("POST", `/api/v1/rqs/${encodeURIComponent(rqId)}/${action}`, { json: {} });
+    await refreshResearchQuestions();
+    await refreshDashboard();
+  } catch (err) {
+    showWorkspaceError(err.message);
+  }
+}
+
+async function checkRqReadiness() {
+  const messageEl = document.getElementById("rq-check-message");
+  messageEl.hidden = false;
+  messageEl.className = "small";
+  messageEl.textContent = "Checking...";
+  try {
+    const report = await api("POST", "/api/v1/rqs/check", { json: {} });
+    messageEl.textContent = `Checked ${report.checked_count} research question(s) — deterministic rules only, human review still required.`;
+    await refreshResearchQuestions();
+  } catch (err) {
+    messageEl.textContent = err.message;
+    messageEl.classList.add("error");
+  }
+}
+
+// --- artefact registry ---
+
+async function refreshArtefacts() {
+  const tbody = document.getElementById("artefacts-tbody");
+  const emptyEl = document.getElementById("artefacts-empty");
+  try {
+    const artefacts = await api("GET", "/api/v1/artefacts");
+    tbody.innerHTML = "";
+    emptyEl.hidden = artefacts.length > 0;
+    for (const artefact of artefacts) {
+      const tr = document.createElement("tr");
+      const linkCount = (artefact.linked_sources || []).length + (artefact.linked_research_questions || []).length;
+      tr.innerHTML = `
+        <td>${escapeHtml(artefact.title || "")}</td>
+        <td class="muted small">${escapeHtml(artefact.type || "")}</td>
+        <td></td>
+        <td class="muted small">${linkCount} linked</td>
+        <td></td>
+      `;
+      const statusCell = tr.children[2];
+      const select = document.createElement("select");
+      for (const status of ["pending_review", "reviewed", "needs_revision", "accepted", "not_required"]) {
+        const option = document.createElement("option");
+        option.value = status;
+        option.textContent = status;
+        if (artefact.review_status === status) option.selected = true;
+        select.appendChild(option);
+      }
+      select.addEventListener("change", () => setArtefactReviewStatus(artefact.id, select.value));
+      statusCell.appendChild(select);
+      tbody.appendChild(tr);
+    }
+  } catch (err) {
+    tbody.innerHTML = "";
+    emptyEl.hidden = false;
+    emptyEl.textContent = err.message;
+  }
+}
+
+async function setArtefactReviewStatus(artefactId, status) {
+  try {
+    await api("POST", `/api/v1/artefacts/${encodeURIComponent(artefactId)}/review`, { json: { status } });
+    await refreshArtefacts();
+  } catch (err) {
+    showWorkspaceError(err.message);
+  }
+}
+
+async function createArtefact() {
+  const messageEl = document.getElementById("artefact-create-message");
+  const artefactType = document.getElementById("artefact-create-type-select").value;
+  const title = document.getElementById("artefact-create-title-input").value.trim();
+  const includeMaybe = document.getElementById("artefact-create-include-maybe").checked;
+  messageEl.hidden = false;
+  messageEl.className = "small";
+  messageEl.textContent = "Creating...";
+  try {
+    const result = await api("POST", "/api/v1/artefacts/create", {
+      json: { artefact_type: artefactType, title: title || null, include_maybe: includeMaybe },
+    });
+    messageEl.textContent = `Created: ${result.path}`;
+    await refreshArtefacts();
+    await refreshDashboard();
+  } catch (err) {
+    messageEl.textContent = err.message;
+    messageEl.classList.add("error");
+  }
+}
+
+function setupRqAndArtefactPanels() {
+  document.getElementById("rq-check-btn").addEventListener("click", checkRqReadiness);
+  document.getElementById("artefact-create-btn").addEventListener("click", createArtefact);
+}
+
 // --- localStorage: remember the last-used workspace path ---
 
 const LAST_WORKSPACE_KEY = "researchboss:lastWorkspace";
@@ -726,6 +890,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setupModals();
   setupZoteroPanel();
   setupSourcesPanel();
+  setupRqAndArtefactPanels();
 
   const workspaceInput = document.getElementById("workspace-input");
   // Prefer an explicit ?workspace= URL param (e.g. from a bookmark or a

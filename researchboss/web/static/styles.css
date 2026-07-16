@@ -52,7 +52,7 @@ button:disabled {
   cursor: not-allowed;
 }
 
-input[type="text"], input[type="password"], textarea {
+input[type="text"], input[type="password"], textarea, select {
   font: inherit;
   padding: 0.5rem;
   border: 1px solid var(--border);
@@ -334,6 +334,47 @@ main {
   background: var(--accent);
   color: var(--accent-contrast);
   border-color: var(--accent);
+}
+
+/* --- research questions panel --- */
+.rq-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0.5rem 0 1rem;
+}
+
+.rq-row {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.6rem 0.8rem;
+}
+
+.rq-row .rq-question {
+  font-weight: 600;
+}
+
+.rq-row .rq-subquestions {
+  margin: 0.3rem 0 0;
+  padding-left: 1.2rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.rq-row .row-actions {
+  margin-top: 0.5rem;
+}
+
+/* --- artefact registry panel --- */
+#artefact-create-details {
+  margin-bottom: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+}
+
+#artefact-create-details summary {
+  cursor: pointer;
 }
 
 /* --- zotero panel --- */

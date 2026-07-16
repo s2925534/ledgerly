@@ -62,6 +62,59 @@
   </section>
 
   <section class="panel">
+    <h2>Research questions</h2>
+    <button id="rq-check-btn" type="button" class="secondary">Check readiness (deterministic)</button>
+    <p id="rq-check-message" class="small" hidden></p>
+
+    <h3>Candidates (draft)</h3>
+    <div id="rq-candidates-list" class="rq-list"></div>
+    <p id="rq-candidates-empty" class="muted small" hidden>No draft research questions yet.</p>
+
+    <h3>Approved</h3>
+    <div id="rq-approved-list" class="rq-list"></div>
+    <p id="rq-approved-empty" class="muted small" hidden>No approved research questions yet.</p>
+
+    <h3>Rejected / archived</h3>
+    <div id="rq-rejected-list" class="rq-list"></div>
+    <p id="rq-rejected-empty" class="muted small" hidden>None yet.</p>
+  </section>
+
+  <section class="panel">
+    <h2>Artefact registry</h2>
+
+    <details id="artefact-create-details">
+      <summary class="link">Create a deterministic artefact</summary>
+      <div class="source-scan-form">
+        <label class="field-label" for="artefact-create-type-select">Artefact type</label>
+        <select id="artefact-create-type-select">
+          <option value="source-summary-report">Source summary report</option>
+          <option value="literature-review-matrix">Literature review matrix</option>
+          <option value="claim-evidence-table">Claim-evidence table</option>
+          <option value="research-question-brief">Research question brief</option>
+          <option value="data-profile-summary">Data profile summary</option>
+        </select>
+        <label class="field-label" for="artefact-create-title-input">Title (optional)</label>
+        <input id="artefact-create-title-input" type="text" placeholder="Leave blank for a default title">
+        <label class="field-label">
+          <input id="artefact-create-include-maybe" type="checkbox"> Include "maybe" sources, not just accepted
+        </label>
+        <div class="zotero-link-actions">
+          <button id="artefact-create-btn" type="button">Create</button>
+        </div>
+        <p id="artefact-create-message" class="small" hidden></p>
+      </div>
+    </details>
+
+    <table id="artefacts-table" class="data-table">
+      <thead>
+        <tr><th>Title</th><th>Type</th><th>Review status</th><th>Links</th><th></th></tr>
+      </thead>
+      <tbody id="artefacts-tbody"></tbody>
+    </table>
+    <p id="artefacts-empty" class="muted small" hidden>No artefacts registered yet.</p>
+  </section>
+
+  <section class="panel">
     <h2>Upload artefacts</h2>
     <p id="upload-limits" class="muted small"></p>
     <div id="dropzone" class="dropzone" tabindex="0">
