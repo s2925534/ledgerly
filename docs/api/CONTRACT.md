@@ -473,6 +473,70 @@ Engine source:
 
 - `ledgerly.engine.zotero.search_zotero_storage`
 
+### `POST /api/v1/zotero/local/collections/select` (implemented)
+
+Configures selected local Zotero collections for future scans — the local-storage equivalent of `POST /api/v1/zotero/api/collections/select` below. Rejects unknown collection keys with `404 unknown_collection_keys` (validated against `list_zotero_collections`) rather than silently accepting them. Mirrors `ledgerly zotero select-collections` exactly.
+
+Engine source:
+
+- `ledgerly.engine.zotero.write_zotero_config`, `list_zotero_collections`
+
+### `POST /api/v1/zotero/local/use-entire-library` (implemented)
+
+Configures local Zotero scans to use the entire storage library. Mirrors `ledgerly zotero use-entire-library`.
+
+Engine source:
+
+- `ledgerly.engine.zotero.write_zotero_config`
+
+### `GET /api/v1/zotero/local/metadata-report` (implemented)
+
+Reports missing local Zotero metadata fields (title/year/DOI/creators) from read-only `zotero.sqlite`.
+
+Engine source:
+
+- `ledgerly.engine.zotero.metadata_quality_report`
+
+### `GET /api/v1/zotero/local/attachment-health` (implemented)
+
+Compares local Zotero storage files against attachment records in `zotero.sqlite` — missing files, unlinked storage files.
+
+Engine source:
+
+- `ledgerly.engine.zotero.attachment_health_report`
+
+### `GET /api/v1/zotero/local/fulltext-report` (implemented)
+
+Reports which local Zotero storage files have `.zotero-ft-cache` available.
+
+Engine source:
+
+- `ledgerly.engine.zotero.fulltext_availability_report`
+
+### `GET /api/v1/zotero/local/duplicates` (implemented)
+
+Finds possible local Zotero metadata duplicates by DOI or title/year.
+
+Engine source:
+
+- `ledgerly.engine.zotero.duplicate_metadata_candidates`
+
+### `GET /api/v1/zotero/local/snapshot` (implemented)
+
+Writes a reproducible local Zotero metadata snapshot into the workspace (`sources_metadata/zotero-snapshot.yaml`) and returns it.
+
+Engine source:
+
+- `ledgerly.engine.zotero.zotero_metadata_snapshot`
+
+### `GET /api/v1/zotero/local/export-bibtex` (implemented)
+
+Exports conservative BibTeX from local Zotero SQLite metadata to `outputs/reports/zotero-references.bib`.
+
+Engine source:
+
+- `ledgerly.engine.zotero.export_bibtex_from_metadata`
+
 ### `POST /api/v1/zotero/api/credentials` (implemented)
 
 Links a Zotero Web API account by saving `api_key`/`user_id` (request body) into the workspace's local `.env`, replacing hand-editing that file. Added 2026-07-16 so the web UI can link an account the same way the CLI's new `ledgerly zotero api-link` does.

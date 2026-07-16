@@ -8,6 +8,7 @@ from ledgerly.api.auth import clear_all_sessions
 from ledgerly.core.yamlio import read_yaml, write_yaml
 from ledgerly.engine.sources import scan_sources
 from ledgerly.engine.workspace import init_workspace
+from tests.test_zotero import make_storage, make_zotero_sqlite
 
 
 TEST_USERNAME = "test-user"
@@ -575,6 +576,85 @@ def test_zotero_api_select_collections_writes_only_workspace_config(client: Test
     assert context["zotero"]["api_selected_collections"] == [{"key": "ABC123"}]
     assert context["zotero"]["api_include_subcollections"] is False
     assert context["zotero"]["api_access"] == "read_only"
+
+
+def _init_workspace_with_zotero_storage(tmp_path: Path) -> tuple[Path, Path]:
+    storage, _first, _second = make_storage(tmp_path)
+    zotero_root = storage.parent
+    make_zotero_sqlite(zotero_root)
+    workspace = tmp_path / "workspace"
+    init_workspace(
+        workspace, project_name="Test", project_type="M.Phil", topic="Topic", source_root=str(storage)
+    )
+    return workspace, zotero_root
+
+
+def test_zotero_local_use_entire_library_via_api(client: TestClient, tmp_path: Path) -> None:
+    workspace, _zotero_root = _init_workspace_with_zotero_storage(tmp_path)
+
+    response = client.post("/api/v1/zotero/local/use-entire-library", params={"workspace": str(workspace)})
+
+    assert response.status_code == 200
+    context = read_yaml(workspace / "research-context.yaml")
+    assert context["zotero"]["mode"] == "entire_library"
+
+
+def test_zotero_local_select_collections_rejects_unknown_key(client: TestClient, tmp_path: Path) -> None:
+    workspace, _zotero_root = _init_workspace_with_zotero_storage(tmp_path)
+
+    response = client.post(
+        "/api/v1/zotero/local/collections/select",
+        params={"workspace": str(workspace)},
+        json={"collection_keys": ["NOPE"], "include_subcollections": True},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["errors"][0]["code"] == "unknown_collection_keys"
+
+
+def test_zotero_local_select_collections_via_api(client: TestClient, tmp_path: Path) -> None:
+    workspace, _zotero_root = _init_workspace_with_zotero_storage(tmp_path)
+
+    response = client.post(
+        "/api/v1/zotero/local/collections/select",
+        params={"workspace": str(workspace)},
+        json={"collection_keys": ["COLLROOT"], "include_subcollections": True},
+    )
+
+    assert response.status_code == 200
+    context = read_yaml(workspace / "research-context.yaml")
+    assert context["zotero"]["mode"] == "selected_collections"
+    assert context["zotero"]["selected_collections"][0]["key"] == "COLLROOT"
+
+
+def test_zotero_local_reports_and_bibtex_via_api(client: TestClient, tmp_path: Path) -> None:
+    workspace, _zotero_root = _init_workspace_with_zotero_storage(tmp_path)
+
+    metadata_response = client.get("/api/v1/zotero/local/metadata-report", params={"workspace": str(workspace)})
+    assert metadata_response.status_code == 200
+    assert metadata_response.json()["data"]["total_attachments"] == 2
+
+    health_response = client.get("/api/v1/zotero/local/attachment-health", params={"workspace": str(workspace)})
+    assert health_response.status_code == 200
+    assert health_response.json()["data"]["sqlite_attachments"] == 2
+
+    fulltext_response = client.get("/api/v1/zotero/local/fulltext-report", params={"workspace": str(workspace)})
+    assert fulltext_response.status_code == 200
+    assert fulltext_response.json()["data"]["with_fulltext_cache"] == 1
+
+    duplicates_response = client.get("/api/v1/zotero/local/duplicates", params={"workspace": str(workspace)})
+    assert duplicates_response.status_code == 200
+    assert len(duplicates_response.json()["data"]["duplicates"]) == 1
+
+    snapshot_response = client.get("/api/v1/zotero/local/snapshot", params={"workspace": str(workspace)})
+    assert snapshot_response.status_code == 200
+    assert Path(snapshot_response.json()["data"]["snapshot_path"]).is_file()
+
+    bibtex_response = client.get("/api/v1/zotero/local/export-bibtex", params={"workspace": str(workspace)})
+    assert bibtex_response.status_code == 200
+    bibtex_data = bibtex_response.json()["data"]
+    assert bibtex_data["entries"] == 2
+    assert Path(bibtex_data["bibtex_path"]).is_file()
 
 
 def test_reports_workspace_and_timeline_via_api(client: TestClient, tmp_path: Path) -> None:

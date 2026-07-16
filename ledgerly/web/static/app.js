@@ -1743,12 +1743,15 @@ async function refreshZoteroApiStatus() {
     if (report.key_has_write_access) {
       setStatusPill("zotero-api-status", `Connected (user ${report.user_id}) — key has write access, use read-only`, "error");
     }
+    await refreshZoteroApiCollections();
   } catch (err) {
     if (/Missing ZOTERO_API_KEY|Missing ZOTERO_USER_ID/.test(err.message)) {
       setStatusPill("zotero-api-status", "Not linked", "not-connected");
     } else {
       setStatusPill("zotero-api-status", `Error: ${err.message}`, "error");
     }
+    document.getElementById("zotero-api-collections-list").innerHTML = "";
+    document.getElementById("zotero-api-collections-empty").hidden = false;
   }
 }
 
@@ -1780,10 +1783,117 @@ function renderZoteroCollections(collections) {
     const row = document.createElement("div");
     row.className = "zotero-collection-row";
     row.innerHTML = `
-      <span>${escapeHtml(collection.name)}</span>
+      <span><input type="checkbox" data-collection-key="${escapeHtml(collection.key)}"> ${escapeHtml(collection.name)}</span>
       <span class="muted small">${collection.item_count} item${collection.item_count === 1 ? "" : "s"}</span>
     `;
     listEl.appendChild(row);
+  }
+}
+
+async function useSelectedZoteroCollections() {
+  const messageEl = document.getElementById("zotero-collections-select-message");
+  const checked = Array.from(document.querySelectorAll("#zotero-collections-list input[type=checkbox]:checked"));
+  const collectionKeys = checked.map((box) => box.dataset.collectionKey);
+  messageEl.hidden = false;
+  messageEl.className = "small";
+  if (!collectionKeys.length) {
+    messageEl.textContent = "Check at least one collection first.";
+    messageEl.classList.add("error");
+    return;
+  }
+  try {
+    await api("POST", "/api/v1/zotero/local/collections/select", {
+      json: { collection_keys: collectionKeys, include_subcollections: true },
+    });
+    messageEl.textContent = `Configured ${collectionKeys.length} selected collection(s) for future scans.`;
+  } catch (err) {
+    messageEl.textContent = err.message;
+    messageEl.classList.add("error");
+  }
+}
+
+async function useEntireZoteroLibrary() {
+  const messageEl = document.getElementById("zotero-collections-select-message");
+  messageEl.hidden = false;
+  messageEl.className = "small";
+  try {
+    await api("POST", "/api/v1/zotero/local/use-entire-library", { json: {} });
+    messageEl.textContent = "Configured to scan the entire local library.";
+  } catch (err) {
+    messageEl.textContent = err.message;
+    messageEl.classList.add("error");
+  }
+}
+
+async function refreshZoteroApiCollections() {
+  const listEl = document.getElementById("zotero-api-collections-list");
+  const emptyEl = document.getElementById("zotero-api-collections-empty");
+  try {
+    const collections = await api("GET", "/api/v1/zotero/api/collections");
+    listEl.innerHTML = "";
+    emptyEl.hidden = collections.length > 0;
+    for (const collection of collections) {
+      const row = document.createElement("div");
+      row.className = "zotero-collection-row";
+      row.innerHTML = `<span><input type="checkbox" data-collection-key="${escapeHtml(collection.key || "")}"> ${escapeHtml(
+        collection.name || collection.key || ""
+      )}</span>`;
+      listEl.appendChild(row);
+    }
+  } catch (err) {
+    listEl.innerHTML = "";
+    emptyEl.hidden = false;
+    emptyEl.textContent = err.message;
+  }
+}
+
+async function saveSelectedZoteroApiCollections() {
+  const messageEl = document.getElementById("zotero-api-collections-select-message");
+  const checked = Array.from(document.querySelectorAll("#zotero-api-collections-list input[type=checkbox]:checked"));
+  const collectionKeys = checked.map((box) => box.dataset.collectionKey);
+  messageEl.hidden = false;
+  messageEl.className = "small";
+  if (!collectionKeys.length) {
+    messageEl.textContent = "Check at least one Web API collection first.";
+    messageEl.classList.add("error");
+    return;
+  }
+  try {
+    await api("POST", "/api/v1/zotero/api/collections/select", {
+      json: { collection_keys: collectionKeys, include_subcollections: true },
+    });
+    messageEl.textContent = `Saved ${collectionKeys.length} selected Web API collection(s).`;
+  } catch (err) {
+    messageEl.textContent = err.message;
+    messageEl.classList.add("error");
+  }
+}
+
+async function runZoteroReport(action, path) {
+  const messageEl = document.getElementById("zotero-report-message");
+  messageEl.hidden = false;
+  messageEl.className = "small";
+  messageEl.textContent = `Running ${action}...`;
+  try {
+    const report = await api("GET", path);
+    if (report.snapshot_path) {
+      messageEl.textContent = `Snapshot written: ${report.snapshot_path}`;
+    } else if (report.bibtex_path) {
+      messageEl.textContent = `${report.entries} entr${report.entries === 1 ? "y" : "ies"} written to ${report.bibtex_path}.`;
+    } else if (report.duplicates) {
+      messageEl.textContent = `${report.duplicates.length} duplicate group(s) found.`;
+    } else if (report.total_attachments !== undefined) {
+      messageEl.textContent = `${report.total_attachments} attachment(s): ${report.missing_title.length} missing title, ${report.missing_year.length} missing year, ${report.missing_doi.length} missing DOI.`;
+    } else if (report.sqlite_attachments !== undefined) {
+      messageEl.textContent = `${report.storage_files} storage file(s), ${report.sqlite_attachments} SQLite attachment(s), ${report.missing_attachment_files.length} missing, ${report.unlinked_storage_files.length} unlinked.`;
+    } else if (report.with_fulltext_cache !== undefined) {
+      messageEl.textContent = `${report.total_sources} source(s): ${report.with_fulltext_cache} with fulltext cache, ${report.without_fulltext_cache} without.`;
+    } else {
+      messageEl.textContent = `${action} done.`;
+    }
+  } catch (err) {
+    messageEl.textContent = err.message;
+    messageEl.classList.add("error");
   }
 }
 
@@ -1866,6 +1976,15 @@ function setupZoteroPanel() {
   document.getElementById("zotero-search-input").addEventListener("keydown", (event) => {
     if (event.key === "Enter") searchZoteroLocal();
   });
+  document.getElementById("zotero-use-selected-btn").addEventListener("click", useSelectedZoteroCollections);
+  document.getElementById("zotero-use-entire-library-btn").addEventListener("click", useEntireZoteroLibrary);
+  document.getElementById("zotero-api-use-selected-btn").addEventListener("click", saveSelectedZoteroApiCollections);
+  document.getElementById("zotero-metadata-report-btn").addEventListener("click", () => runZoteroReport("metadata report", "/api/v1/zotero/local/metadata-report"));
+  document.getElementById("zotero-attachment-health-btn").addEventListener("click", () => runZoteroReport("attachment health", "/api/v1/zotero/local/attachment-health"));
+  document.getElementById("zotero-fulltext-report-btn").addEventListener("click", () => runZoteroReport("fulltext report", "/api/v1/zotero/local/fulltext-report"));
+  document.getElementById("zotero-duplicates-btn").addEventListener("click", () => runZoteroReport("duplicates", "/api/v1/zotero/local/duplicates"));
+  document.getElementById("zotero-snapshot-btn").addEventListener("click", () => runZoteroReport("snapshot", "/api/v1/zotero/local/snapshot"));
+  document.getElementById("zotero-export-bibtex-btn").addEventListener("click", () => runZoteroReport("BibTeX export", "/api/v1/zotero/local/export-bibtex"));
 }
 
 // --- modal plumbing (shared by preview / cross-reference / about) ---

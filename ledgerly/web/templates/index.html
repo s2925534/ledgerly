@@ -535,9 +535,33 @@
       </div>
       <div id="zotero-search-results"></div>
 
-      <h3>Collections</h3>
+      <h3>Local collections</h3>
       <div id="zotero-collections-list" class="zotero-collections-list"></div>
       <p id="zotero-collections-empty" class="muted small" hidden>No Zotero collections found yet — link an account or check local storage detection above.</p>
+      <div class="zotero-link-actions">
+        <button id="zotero-use-selected-btn" type="button" class="secondary">Scan only checked collections</button>
+        <button id="zotero-use-entire-library-btn" type="button" class="secondary">Scan entire library</button>
+      </div>
+      <p id="zotero-collections-select-message" class="small" hidden></p>
+
+      <h3>Web API collections (linked account)</h3>
+      <div id="zotero-api-collections-list" class="zotero-collections-list"></div>
+      <p id="zotero-api-collections-empty" class="muted small" hidden>Link a Web API account above to browse its collections here.</p>
+      <div class="zotero-link-actions">
+        <button id="zotero-api-use-selected-btn" type="button" class="secondary">Save selected Web API collections</button>
+      </div>
+      <p id="zotero-api-collections-select-message" class="small" hidden></p>
+
+      <h3>Reports</h3>
+      <div class="zotero-link-actions">
+        <button id="zotero-metadata-report-btn" type="button" class="secondary">Metadata quality</button>
+        <button id="zotero-attachment-health-btn" type="button" class="secondary">Attachment health</button>
+        <button id="zotero-fulltext-report-btn" type="button" class="secondary">Fulltext availability</button>
+        <button id="zotero-duplicates-btn" type="button" class="secondary">Duplicates</button>
+        <button id="zotero-snapshot-btn" type="button" class="secondary">Snapshot</button>
+        <button id="zotero-export-bibtex-btn" type="button" class="secondary">Export BibTeX</button>
+      </div>
+      <p id="zotero-report-message" class="small" hidden></p>
     </div>
   </section>
 </main>
