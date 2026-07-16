@@ -9,6 +9,39 @@ const state = {
   uploads: [],
 };
 
+// --- theme (dark/light) ---
+// Applied immediately, not inside DOMContentLoaded, so there's no
+// flash-of-wrong-theme on load — `document.documentElement` (<html>)
+// already exists as soon as the script tag runs.
+
+const THEME_KEY = "ledgerly:theme";
+
+function applyStoredTheme() {
+  try {
+    const stored = window.localStorage.getItem(THEME_KEY);
+    if (stored === "dark" || stored === "light") {
+      document.documentElement.setAttribute("data-theme", stored);
+    }
+  } catch (err) {
+    // Private browsing / storage disabled: fall back to system preference via CSS media query.
+  }
+}
+
+function toggleTheme() {
+  const current = document.documentElement.getAttribute("data-theme");
+  const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const effectiveCurrent = current || (prefersDark ? "dark" : "light");
+  const next = effectiveCurrent === "dark" ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", next);
+  try {
+    window.localStorage.setItem(THEME_KEY, next);
+  } catch (err) {
+    // ignore
+  }
+}
+
+applyStoredTheme();
+
 function apiUrl(path, params = {}) {
   const url = new URL(path, window.location.origin);
   url.searchParams.set("workspace", state.workspace);
@@ -128,6 +161,19 @@ function escapeHtml(value) {
   return div.innerHTML;
 }
 
+function statusBadgeClass(status) {
+  const s = (status || "").toLowerCase();
+  if (["accepted", "approved", "supported", "ok", "reviewed", "ready_for_review"].includes(s)) return "accepted";
+  if (["rejected", "ignored", "archived", "failed", "not_ready"].includes(s)) return "rejected";
+  if (s.includes("needs") || s.includes("pending") || s === "maybe" || s === "draft" || s === "active") return "warning";
+  return "neutral";
+}
+
+function statusBadgeHtml(status) {
+  const label = status || "unknown";
+  return `<span class="candidate-status ${statusBadgeClass(status)}">${escapeHtml(label)}</span>`;
+}
+
 // --- upload (drag-and-drop + browse) ---
 
 function setupDropzone() {
@@ -186,7 +232,7 @@ function renderUploadReport(report) {
       (row) => `
       <tr>
         <td>${escapeHtml(row.file_name || "")}</td>
-        <td>${escapeHtml(row.status || "")}</td>
+        <td>${statusBadgeHtml(row.status)}</td>
         <td>${escapeHtml(row.reason || "")}</td>
       </tr>`
     )
@@ -272,18 +318,13 @@ function renderCrossReferenceCandidates(candidates) {
   for (const candidate of candidates) {
     const row = document.createElement("div");
     row.className = "candidate-row";
-    const statusClass = candidate.review_status === "accepted" || candidate.review_status === "approved"
-      ? "accepted"
-      : candidate.review_status === "rejected"
-        ? "rejected"
-        : "";
     row.innerHTML = `
       <div>
         <strong>${escapeHtml(candidate.target_title || candidate.target_id)}</strong>
         <span class="muted small">(${escapeHtml(candidate.target_kind)}, matched: ${
           (candidate.matched_keywords || []).join(", ")
         })</span>
-        <div class="candidate-status ${statusClass}">${escapeHtml(candidate.review_status)}</div>
+        <div>${statusBadgeHtml(candidate.review_status)}</div>
       </div>
       <div class="row-actions"></div>
     `;
@@ -403,7 +444,7 @@ function renderSourcesTable(sources) {
     tr.innerHTML = `
       <td>${escapeHtml(source.file_name || "")}</td>
       <td class="muted small">${escapeHtml(source.provider || "")}</td>
-      <td><span class="candidate-status">${escapeHtml(source.status || "")}</span></td>
+      <td>${statusBadgeHtml(source.status)}</td>
       <td class="muted small">${escapeHtml((source.tags || []).join(", "))}</td>
       <td class="muted small">${escapeHtml(source.notes || "")}</td>
       <td class="row-actions"></td>
@@ -545,7 +586,7 @@ function renderRqGroup(listId, emptyId, items, group) {
       .map((sq) => `<li>${escapeHtml(sq)}</li>`)
       .join("");
     const readiness = item.readiness
-      ? `<span class="candidate-status">${escapeHtml(item.readiness.status)} (score ${item.readiness.score})</span>`
+      ? `<span class="candidate-status ${statusBadgeClass(item.readiness.status)}">${escapeHtml(item.readiness.status)} (score ${item.readiness.score})</span>`
       : "";
     const reasonNote = group === "rejected" && item.reason ? `<p class="muted small">Reason: ${escapeHtml(item.reason)}</p>` : "";
     const statusNote = group === "rejected" ? `<p class="muted small">Status: ${escapeHtml(item.status || "")}</p>` : "";
@@ -623,11 +664,11 @@ async function refreshArtefacts() {
       tr.innerHTML = `
         <td>${escapeHtml(artefact.title || "")}</td>
         <td class="muted small">${escapeHtml(artefact.type || "")}</td>
-        <td></td>
+        <td>${statusBadgeHtml(artefact.review_status)}</td>
         <td class="muted small">${linkCount} linked</td>
         <td></td>
       `;
-      const statusCell = tr.children[2];
+      const statusCell = tr.children[4];
       const select = document.createElement("select");
       for (const status of ["pending_review", "reviewed", "needs_revision", "accepted", "not_required"]) {
         const option = document.createElement("option");
@@ -739,10 +780,11 @@ async function refreshClaims() {
       const linkCount = (claim.linked_sources || []).length + (claim.linked_research_questions || []).length;
       tr.innerHTML = `
         <td>${escapeHtml(claim.text || "")}</td>
-        <td></td>
+        <td>${statusBadgeHtml(claim.status)}</td>
         <td class="muted small">${linkCount} linked</td>
+        <td></td>
       `;
-      const statusCell = tr.children[1];
+      const statusCell = tr.children[3];
       const select = document.createElement("select");
       for (const status of CLAIM_STATUSES) {
         const option = document.createElement("option");
@@ -869,7 +911,7 @@ function renderCitationInsertions() {
       <p class="muted small">
         Suggested: ${escapeHtml(insertion.suggested_inline_citation || "")}
         &middot; confidence: ${insertion.confidence_score != null ? insertion.confidence_score : "n/a"}
-        &middot; <span class="candidate-status">${escapeHtml(insertion.review_status || "")}</span>
+        &middot; ${statusBadgeHtml(insertion.review_status)}
       </p>
       <div class="row-actions"></div>
     `;
@@ -1117,7 +1159,7 @@ async function refreshFeedback() {
     tbody.innerHTML = rows
       .map(
         (row) =>
-          `<tr><td class="muted small">${escapeHtml(row.source || "")}</td><td>${escapeHtml(row.text || "")}</td><td class="muted small">${escapeHtml(row.status || "")}</td></tr>`
+          `<tr><td class="muted small">${escapeHtml(row.source || "")}</td><td>${escapeHtml(row.text || "")}</td><td>${statusBadgeHtml(row.status)}</td></tr>`
       )
       .join("");
     emptyEl.hidden = rows.length > 0;
@@ -2232,6 +2274,8 @@ document.addEventListener("DOMContentLoaded", () => {
   workspaceInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter") document.getElementById("workspace-load").click();
   });
+
+  document.getElementById("theme-toggle-btn").addEventListener("click", toggleTheme);
 
   document.getElementById("logout-btn").addEventListener("click", async () => {
     try {

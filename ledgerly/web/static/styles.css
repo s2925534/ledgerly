@@ -11,6 +11,32 @@
   --radius: 6px;
 }
 
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --border: #2d3744;
+    --bg: #14181f;
+    --bg-muted: #1b212b;
+    --text: #e6e9ee;
+    --text-muted: #93a0b0;
+    --accent: #4a8ff5;
+    --accent-contrast: #0b1017;
+    --error: #ff6b60;
+    --error-bg: #3a1c1c;
+  }
+}
+
+:root[data-theme="dark"] {
+  --border: #2d3744;
+  --bg: #14181f;
+  --bg-muted: #1b212b;
+  --text: #e6e9ee;
+  --text-muted: #93a0b0;
+  --accent: #4a8ff5;
+  --accent-contrast: #0b1017;
+  --error: #ff6b60;
+  --error-bg: #3a1c1c;
+}
+
 * { box-sizing: border-box; }
 
 body {
@@ -266,6 +292,8 @@ main {
 
 .candidate-status.accepted { background: #e3f6e6; color: #1a7d33; }
 .candidate-status.rejected { background: var(--error-bg); color: var(--error); }
+.candidate-status.warning { background: #fdf0d5; color: #9a6700; }
+.candidate-status.neutral { background: var(--bg-muted); color: var(--text-muted); }
 
 /* --- dashboard --- */
 .stat-tiles {

@@ -5,6 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Ledgerly — Sign in</title>
 <link rel="stylesheet" href="/static/styles.css">
+<script>
+  // Respect a theme already chosen in the main app; no toggle here, keep the
+  // login page minimal. Falls back to the CSS prefers-color-scheme media
+  // query when nothing is stored yet.
+  try {
+    var storedTheme = window.localStorage.getItem("ledgerly:theme");
+    if (storedTheme === "dark" || storedTheme === "light") {
+      document.documentElement.setAttribute("data-theme", storedTheme);
+    }
+  } catch (err) {}
+</script>
 </head>
 <body class="login-body">
 <main class="login-card">
