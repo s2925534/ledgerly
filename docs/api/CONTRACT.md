@@ -16,6 +16,7 @@ The API must be local-first, workspace-scoped, and a thin transport layer over `
 - AI routes are future/disabled until privacy-boundary tests exist.
 - API keys must not be returned, printed, or logged.
 - Whole PDFs, CSV files, SQLite databases, or original documents must not be sent to AI by default.
+- AI routes must never fabricate content not grounded in the user's actual accepted-source text, artefacts, claims, or own notes — see AGENTS.md's "Core Rule: No Hallucinations" (non-negotiable, applies to every AI route in this document, present and future). Insufficient evidence must produce an explicit low/no-confidence response, never a plausible-sounding guess.
 - Every `/api/v1` route except `/api/v1/auth/login` must fail closed (`503 auth_not_configured`) when no login password is configured, rather than silently allowing unauthenticated access.
 - The login password must never be returned, printed, or logged, and session tokens are held in server memory only — never written to YAML, SQLite, or git.
 - Upload routes must reject a batch that exceeds its configured file-count limit before writing anything, never silently process a truncated subset. Individual oversized files must be reported as rejected, not silently dropped or partially written without limit.
@@ -749,6 +750,8 @@ Every route in this section shares the same server-side credential rule: the Ope
 Every route also shares the same safe-context boundary already enforced by `engine.ai.build_safe_context`: original files, whole PDFs/CSVs/SQLite databases, and full documents are excluded by construction — only per-source excerpts capped at `max_excerpt_chars` are sent. None of the four sketched routes needs a `--full-file-ai`/`--directory-ai`-style extra opt-in, because none of their CLI equivalents (`ai test`, `ai review`, `assess-novelty`, `rqs assess`) use one; a future route that *did* need whole-file or directory context (there is none planned) would need the matching extra opt-in field, not just `ai: true`.
 
 Common response envelope fields all four routes would share (already returned by every `engine.ai` function): `version`, `kind`, `provider` (`"openai"`), `model`, `ai_used: true`, `requires_user_review: true`, `safe_context_policy` (echoes `build_safe_context`'s `policy` block), `limits` (echoes `max_sources`/`max_excerpt_chars` actually applied), `source_count`, `response_id` (the OpenAI response id, for audit trail — never the raw response body). None of these routes modify any artefact, source, or claim document; where the CLI equivalent writes a side-effect file (novelty ledger), the sketch below says so explicitly.
+
+Per AGENTS.md's "Core Rule: No Hallucinations," a real implementation must also add `insufficient_evidence: bool` (true when the route has nothing groundable to answer from, in which case the route must say so rather than generating an unsupported answer) and, for any field containing a factual claim, some form of traceable grounding back to the specific source/artefact/claim IDs it drew from — the exact shape of that grounding field is an implementation decision for whoever builds this, not fixed by this sketch, but its presence is not optional. See Phase 27 in `TODO.md` for the cross-cutting enforcement work this depends on.
 
 ### `POST /api/v1/ai/test` (not implemented — shape only)
 

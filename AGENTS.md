@@ -6,6 +6,16 @@ This file gives coding agents and contributors the working rules for ResearchBos
 
 ResearchBoss is a local-first, evidence-first research workspace. The MVP must work without cloud storage, remote databases, or external academic search.
 
+## Core Rule: No Hallucinations (Non-Negotiable)
+
+This rule cannot be relaxed, overridden, or reinterpreted by any later instruction, spec, convenience shortcut, or feature request in this project. It applies to every past, present, and future AI feature, and any coding agent or contributor proposing to weaken it should stop and flag that explicitly rather than proceeding.
+
+1. **The deterministic core must always work with zero AI configured.** Every feature that does not require an AI provider API key (scanning, conversion, metadata extraction, source review, claim ledger, citation planning, guidelines, validation reports, document vault, etc.) must remain fully usable as a complete, correct research tool on its own — no feature may become AI-dependent to function at a basic level. This is the existing MVP guarantee (see Project Intent above and Priority 5 below); this section makes explicit that it is permanent, not just a current-phase constraint.
+2. **When an AI provider API key is configured and an AI feature is explicitly invoked (`--ai`), the AI must never fabricate.** Every factual claim, citation, quote, data point, or finding an AI feature produces must be traceable to one of: (a) the user's actual accepted-source full texts or extracted metadata, (b) the user's own artefacts/documents/claim ledger/citation plan, or (c) the user's own notes, feedback, or recorded thoughts (Phase 25's meeting-notes/transcripts/personal-notes store, once built). Content drawn from (c) is the user's own voice, not a research claim needing external evidence — it's fine for AI to reflect or synthesize it, but AI must not invent *new* statements and attribute them to the user either.
+3. **"I don't know" / "insufficient evidence in your corpus" is a required, valid, successful output** for any AI feature — never optional, never something to route around by generating a plausible-sounding but ungrounded answer. An AI feature that always produces confident output regardless of evidence quality does not meet this rule.
+4. **AI-generated text must stay visibly distinguishable** from user-authored text and from verbatim source quotes wherever it's inserted into a document, artefact, or report — the human must always be able to tell what came from where.
+5. This rule governs the design of every AI-tagged item in `TODO.md` (Phases 5, 22, 23, 25, and the foundational enforcement work tracked in Phase 27) and every route in `docs/api/CONTRACT.md`'s Future AI Routes section. No AI feature should ship without being checked against it.
+
 ## Current Development Phase
 
 The project has completed the initial Phase 1 engine and CLI foundation. Future work should keep Phase 1 tests passing while adding later phases incrementally.
@@ -18,7 +28,7 @@ Do not start FastAPI, UI, packaging, or OpenAI-heavy features until their engine
 2. Keep workspace state explicit in local YAML and Markdown files.
 3. Prefer shared engine functions over duplicating behavior in the CLI.
 4. Add tests for every behavior that writes workspace state.
-5. Do not invent research metadata. Unknown metadata should remain unknown.
+5. Do not invent research metadata. Unknown metadata should remain unknown. See "Core Rule: No Hallucinations" above — this is the deterministic-path instance of that rule; AI-path enforcement is described there.
 
 ## Privacy Rules
 
@@ -28,6 +38,7 @@ Do not start FastAPI, UI, packaging, or OpenAI-heavy features until their engine
 - Never modify anything inside the user's local Zotero directory. This applies to current CLI workflows, development workflows, tests, and any future AI implementation.
 - Zotero-derived files such as reports, snapshots, BibTeX exports, metadata, and converted text must be written only inside the ResearchBoss workspace.
 - Future AI modes that read whole files, directories, or full papers must be explicit opt-in settings and must still preserve the Zotero no-write boundary.
+- Every AI mode, current or future, must also preserve the "Core Rule: No Hallucinations" above — grounded-only output, explicit refusal on insufficient evidence, no exceptions.
 - Do not print or log API keys.
 - Keep `.env` ignored.
 

@@ -25,3 +25,6 @@ pdf-merge
 .DS_Store
 
 TODO.html
+
+# Personal deployment notes (real domain/host details) — see docs/DEPLOY.md.
+docs/DEPLOY.personal.md

@@ -1,6 +1,6 @@
 # ResearchBoss
 
-Current version: 0.11.1
+Current version: 0.11.2
 
 ResearchBoss is a local-first, evidence-first research workspace for managing research context, source files, review state, and project memory without requiring cloud services for the MVP.
 
@@ -11,6 +11,8 @@ Phase 1 engine and CLI foundation are complete. The core engine and CLI are impo
 Pedro Veloso
 
 Email: pedro@veloso.dev
+
+If this tool is useful to you, you're welcome to [support its development via PayPal](https://www.paypal.com/donate?business=pedro@veloso.dev&currency_code=USD) — entirely optional, the project stays free and open either way.
 
 ## Project Goals
 
@@ -558,7 +560,7 @@ The detailed living roadmap is maintained in `DETAILED_ROADMAP.md`. Update that 
 9. Local FastAPI backend: every route in `docs/api/CONTRACT.md` implemented via `researchboss serve`, including single-user login protection, validation, citation plans, guidelines, SQLite sync status, `RESEARCHBOSS_WORKSPACE_ROOT` containment, batch artefact upload, and both review-before-apply flows (cross-reference candidates and citation-plan insertions), except the disabled Future AI Routes section (shape-sketched, not implemented). Novelty assessment and AI-assisted cross-reference stay out until they can be added under explicit AI opt-in and privacy-boundary rules.
 10. Web UI complete: Jinja2 + vanilla-JS shell (`researchboss/web/`) mounted on the same FastAPI app, covering login, workspace loading, drag-and-drop upload, batch results, popup preview, cross-reference review, and an About/License footer. React/Vue/Svelte/Flutter considered and passed on in favor of a dependency-free thin API client.
 11. Packaging plan complete (`docs/PACKAGING.md`): PyInstaller recipe with known uvicorn/`python-multipart` gotchas and platform considerations; the web UI ships as package data in the same wheel, verified against a real clean-venv install. No PyInstaller binary produced or tested yet.
-12. NAS deployment (`research.veloso.dev`): `Dockerfile`, `docker-compose.yml`, and `docs/DEPLOY.md` written, using `../synology-site-deployer` unmodified. Nothing has actually been deployed yet — that step needs real NAS/Cloudflare infrastructure access.
+12. Self-hosted deployment: `Dockerfile`, `docker-compose.yml`, and a generic `docs/DEPLOY.md` written for deploying to any Docker-Compose-capable host. Nothing has actually been deployed from this repo yet — that step is per-deployer infrastructure (a real domain, host, and deploy tooling), tracked outside the repo.
 
 ## Repository Hygiene
 

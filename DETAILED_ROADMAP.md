@@ -421,22 +421,22 @@ Next work:
 
 - Produce and test an actual PyInstaller build against the two identified gotchas — the plan is unverified against a real binary.
 
-### Phase 12: NAS Deployment (research.veloso.dev)
+### Phase 12: Self-Hosted Deployment (Docker Compose, any domain/host)
 
-Status: Dockerfile, Compose file, and deploy documentation written; nothing has actually been deployed.
+Status: Dockerfile, Compose file, and deploy documentation written; nothing has actually been deployed. Genericized 2026-07-16 — this section and `docs/DEPLOY.md` previously named one specific domain and one specific sibling deploy-tool project; that's now generic, with any one deployer's real domain/host/tooling choice belonging in their own gitignored `docs/DEPLOY.personal.md` instead.
 
 Done:
 
-- `Dockerfile`: `python:3.11-slim`, `pip install .`, single-process `uvicorn researchboss.api.app:app` (no `--workers` — see the file's own comment: session state in `researchboss/api/auth.py` is an in-memory dict, so more than one process/replica would randomly fail logins depending which one handled a given request), a `HEALTHCHECK` hitting `/health`, and `tesseract`/`poppler-utils` installed so the deployed instance can actually use the `--ocr` conversion fallback (unlike a PyInstaller desktop build, a container can bundle these).
-- `docker-compose.yml`: bind-mounts `./data/workspaces` to `/data/workspaces` (matching `RESEARCHBOSS_WORKSPACE_ROOT`) rather than an opaque named volume, so workspace files stay directly inspectable/backupable on the NAS's own filesystem; `RESEARCHBOSS_API_PASSWORD` required via Compose's `:?` syntax (refuses to start rather than silently running without one, consistent with the API's own fail-closed behavior); other `RESEARCHBOSS_*` env vars optional with the same defaults the app itself uses.
+- `Dockerfile`: `python:3.11-slim`, `pip install .`, single-process `uvicorn researchboss.api.app:app` (no `--workers` — see the file's own comment: session state in `researchboss/api/auth.py` is an in-memory dict, so more than one process/replica would randomly fail logins depending which one handled a given request), a `HEALTHCHECK` hitting `/health`, and `tesseract`/`poppler-utils` installed so a deployed instance can actually use the `--ocr` conversion fallback (unlike a PyInstaller desktop build, a container can bundle these).
+- `docker-compose.yml`: bind-mounts `./data/workspaces` to `/data/workspaces` (matching `RESEARCHBOSS_WORKSPACE_ROOT`) rather than an opaque named volume, so workspace files stay directly inspectable/backupable on the host's own filesystem; `RESEARCHBOSS_API_PASSWORD` required via Compose's `:?` syntax (refuses to start rather than silently running without one, consistent with the API's own fail-closed behavior); other `RESEARCHBOSS_*` env vars optional with the same defaults the app itself uses.
 - Extended the existing `.env.example` (already the file `researchboss/api/auth.py`, `zotero_api.py`, and `ai.py` all read via the shared `Path.cwd()/.env` convention) with the new deployment-related variables, rather than inventing a second env-file mechanism.
-- `docs/DEPLOY.md`: local test-before-deploy steps, the exact `synology-site deploy` invocation (`--source-dir` to build on the NAS without needing a registry, `--port 8000` for automatic Cloudflare routing, `--health-path /health`), setting up a workspace per research project via `POST /api/v1/projects/init` against the mounted root, `update`/rollback behavior (session invalidation on restart is expected, not a bug), and why license/developer-info consistency (the last Phase 12 TODO item) is blocked on an actual deployment — Phase 10 now has a page to check (the About/License footer modal in `researchboss/web/`), so that half of the earlier blocker is resolved.
+- `docs/DEPLOY.md`: local test-before-deploy steps, generic guidance on what any deploy tool needs to be told (Compose file, `.env`, source dir, port 8000, `/health` health-check path), setting up a workspace per research project via `POST /api/v1/projects/init` against the mounted root, `update`/rollback behavior (session invalidation on restart is expected, not a bug), and why license/developer-info consistency (the last Phase 12 TODO item) is blocked on an actual deployment — Phase 10 now has a page to check (the About/License footer modal in `researchboss/web/`), so that half of the earlier blocker is resolved.
 - Verified what could be verified without Docker (not available in this environment): a genuinely clean-venv `pip install .` followed by running the Dockerfile's exact `CMD` served `/health` successfully, and separately, a real wheel build+install confirmed the web UI's templates/static assets ship correctly and both import orderings resolve (see the Phase 10 circular-import fix). The container build itself (base image, `apt-get` layer, healthcheck) was not verified and is documented as the reader's first step, not claimed as done.
 
 Next work:
 
-- Actually run the `synology-site deploy research.veloso.dev` command above — needs real NAS SSH access and Cloudflare credentials neither this environment nor an unattended session should have.
-- Confirm license/developer-info consistency on the live site once it exists — the content itself (`researchboss/web/templates/index.html`'s About modal) is already in place and matches the README/LICENSE; this step is purely "check it renders correctly once actually deployed."
+- Actually deploy somewhere — this is now explicitly a per-person infrastructure step tracked outside this repo (each deployer's own gitignored `docs/DEPLOY.personal.md`), not a project TODO with one canonical answer.
+- Confirm license/developer-info consistency on any live deployment once one exists — the content itself (`researchboss/web/templates/index.html`'s About modal) is already in place and matches the README/LICENSE; this step is purely "check it renders correctly once actually deployed."
 
 ## 5. CLI Audit
 
@@ -756,8 +756,8 @@ What's left is genuinely blocked, not just undone:
    - Why: both are AI-tagged and need the same explicit opt-in/privacy-boundary treatment as novelty above. The anchor infrastructure AI edit sessions need (paragraph/sentence IDs, citation insertion anchors) is now built — this is purely an AI-design gate, not missing engine work.
    - Phase: 8/9.
 
-3. Phase 12's actual `synology-site deploy` run, and a dedicated citation-plan review web view (the API/CLI side is done; only the cross-reference overlay has a web view so far).
-   - Why: the deployment needs a real NAS/Cloudflare credential this environment does not have; the citation web view is a reasonable next increment, not something blocked on anything, just not built yet since nothing has asked for it specifically.
+3. Phase 12's actual deployment to a live host, and a dedicated citation-plan review web view (the API/CLI side is done; only the cross-reference overlay has a web view so far).
+   - Why: deployment needs real host/domain/tooling credentials this environment does not have and that are inherently per-deployer, not part of this repo; the citation web view is a reasonable next increment, not something blocked on anything, just not built yet since nothing has asked for it specifically.
    - Phase: 10, 12.
 
 ## 15a. Useful Ideas Learned From `../pdf-merge`
