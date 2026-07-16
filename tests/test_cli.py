@@ -1831,6 +1831,38 @@ def test_cli_claims_duplicates_rejects_invalid_threshold(tmp_path: Path) -> None
     assert result.exit_code == 2, result.output
 
 
+def test_cli_stages_list_status_target_date_and_ics(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test Project", project_type="M.Phil", topic="")
+
+    list_result = runner.invoke(app, ["stages", "list", "--workspace", str(workspace), "--quiet"])
+    assert list_result.exit_code == 0, list_result.output
+    stage_id = read_yaml(workspace / "research-stages.yaml")["stages"][0]["id"]
+
+    status_result = runner.invoke(
+        app, ["stages", "status", stage_id, "in_progress", "--workspace", str(workspace), "--quiet"]
+    )
+    assert status_result.exit_code == 0, status_result.output
+    assert read_yaml(workspace / "research-stages.yaml")["stages"][0]["status"] == "in_progress"
+
+    bad_status_result = runner.invoke(
+        app, ["stages", "status", stage_id, "almost_done", "--workspace", str(workspace), "--quiet"]
+    )
+    assert bad_status_result.exit_code == 2, bad_status_result.output
+
+    date_result = runner.invoke(
+        app, ["stages", "target-date", stage_id, "2026-09-30", "--workspace", str(workspace), "--quiet"]
+    )
+    assert date_result.exit_code == 0, date_result.output
+    assert read_yaml(workspace / "research-stages.yaml")["stages"][0]["target_date"] == "2026-09-30"
+
+    ics_result = runner.invoke(app, ["stages", "ics", "--workspace", str(workspace), "--quiet"])
+    assert ics_result.exit_code == 0, ics_result.output
+    ics_text = (workspace / "outputs" / "reports" / "research-stages.ics").read_text(encoding="utf-8")
+    assert "BEGIN:VEVENT" in ics_text
+    assert "DTSTART;VALUE=DATE:20260930" in ics_text
+
+
 def test_cli_phase4_local_review_commands(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     source_root = tmp_path / "sources"

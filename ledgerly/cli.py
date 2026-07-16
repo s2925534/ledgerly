@@ -153,6 +153,13 @@ from ledgerly.engine.research_questions import (
 )
 from ledgerly.engine.progress_log import research_progress_report
 from ledgerly.engine.relationships import citation_relationship_map
+from ledgerly.engine.research_stages import (
+    STAGE_STATUSES,
+    list_stages,
+    set_stage_status,
+    set_stage_target_date,
+    write_stages_ics,
+)
 from ledgerly.engine.report_schemas import export_report_schemas
 from ledgerly.engine.reports import generate_workspace_report
 from ledgerly.engine.sidecars import import_sidecar_metadata
@@ -243,6 +250,7 @@ doc_app = typer.Typer(help="Document vault version, diff, and restore commands."
 notes_app = typer.Typer(help="Personal notes, meeting notes, and transcript commands.")
 paper_app = typer.Typer(help="Deterministic paper-draft skeleton commands.")
 transcribe_app = typer.Typer(help="Audio/video transcription via SourceScribe (subprocess).")
+stages_app = typer.Typer(help="Research stage status, target dates, and calendar export commands.")
 
 app.add_typer(sources_app, name="sources")
 app.add_typer(config_app, name="config")
@@ -266,6 +274,7 @@ app.add_typer(db_app, name="db")
 app.add_typer(doc_app, name="doc")
 app.add_typer(paper_app, name="paper")
 app.add_typer(transcribe_app, name="transcribe")
+app.add_typer(stages_app, name="stages")
 
 console = Console()
 DEFAULT_WORKSPACES_DIR = "workspaces"
@@ -4383,6 +4392,100 @@ def transcribe_list(
     for row in rows:
         table.add_row(row.get("job_id", ""), row.get("status", ""), row.get("original_file_name", ""), row.get("note_id", ""))
     console.print(table)
+
+
+@stages_app.command("list")
+def stages_list(
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """List research stages, their status, and any target date set."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["stages", "list"], ws, log_level)
+    rows = list_stages(ws)
+    logger.info("Listed research stages", operation="stages_list", count=len(rows))
+    _finish(summary, summary_path)
+    if quiet:
+        return
+    table = Table(title="Research Stages")
+    table.add_column("id")
+    table.add_column("name")
+    table.add_column("status")
+    table.add_column("target_date")
+    for row in rows:
+        table.add_row(row.get("id", ""), row.get("name", ""), row.get("status", ""), row.get("target_date", ""))
+    console.print(table)
+
+
+@stages_app.command("status")
+def stages_status(
+    stage_id: str = typer.Argument(...),
+    status: str = typer.Argument(..., help="not_started | in_progress | blocked | done"),
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Set a research stage's status."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["stages", "status"], ws, log_level)
+    try:
+        set_stage_status(ws, stage_id, status)
+    except ValueError as e:
+        logger.error("Stage status update failed", operation="stages_status", error=str(e))
+        summary.errors += 1
+        _finish(summary, summary_path)
+        if not quiet:
+            console.print(f"[red]{e}[/red]")
+        raise typer.Exit(code=2)
+    logger.info("Updated stage status", operation="stages_status", stage_id=stage_id, status=status)
+    _finish(summary, summary_path)
+    if not quiet:
+        console.print(f"[green]Updated[/green] {stage_id}: status={status}")
+
+
+@stages_app.command("target-date")
+def stages_target_date(
+    stage_id: str = typer.Argument(...),
+    target_date: Optional[str] = typer.Argument(
+        None, help="ISO date, e.g. 2026-09-30. Omit to clear the stage's target date."
+    ),
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Set (or clear, if omitted) a research stage's optional target completion date."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["stages", "target-date"], ws, log_level)
+    try:
+        set_stage_target_date(ws, stage_id, target_date)
+    except ValueError as e:
+        logger.error("Stage target date update failed", operation="stages_target_date", error=str(e))
+        summary.errors += 1
+        _finish(summary, summary_path)
+        if not quiet:
+            console.print(f"[red]{e}[/red]")
+        raise typer.Exit(code=2)
+    logger.info("Updated stage target date", operation="stages_target_date", stage_id=stage_id, target_date=target_date)
+    _finish(summary, summary_path)
+    if not quiet:
+        console.print(f"[green]Updated[/green] {stage_id}: target_date={target_date or '(cleared)'}")
+
+
+@stages_app.command("ics")
+def stages_ics_cmd(
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Write a .ics calendar file with one event per stage that has a target date set."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["stages", "ics"], ws, log_level)
+    output_path = write_stages_ics(ws)
+    logger.info("Wrote stages ICS calendar", operation="stages_ics", output_path=str(output_path))
+    _finish(summary, summary_path)
+    if not quiet:
+        console.print(f"[green]Wrote[/green] {output_path}")
 
 
 @zotero_app.command("collections")

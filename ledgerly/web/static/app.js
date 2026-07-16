@@ -108,6 +108,7 @@ async function loadWorkspace(workspace) {
   refreshNotes();
   refreshTranscribeJobs();
   refreshAiUsageLog();
+  refreshStages();
 }
 
 async function loadUploadLimits() {
@@ -1075,6 +1076,70 @@ function setupRqAndArtefactPanels() {
   document.getElementById("artefact-create-btn").addEventListener("click", createArtefact);
   document.getElementById("artefact-register-btn").addEventListener("click", registerArtefact);
   document.getElementById("artefact-dependencies-btn").addEventListener("click", checkArtefactDependencies);
+}
+
+// --- research stages ---
+
+const STAGE_STATUSES = ["not_started", "in_progress", "blocked", "done"];
+
+async function refreshStages() {
+  const tbody = document.getElementById("stages-tbody");
+  const emptyEl = document.getElementById("stages-empty");
+  document.getElementById("stages-ics-link").href = apiUrl("/api/v1/stages/ics");
+  try {
+    const stages = await api("GET", "/api/v1/stages");
+    tbody.innerHTML = "";
+    emptyEl.hidden = stages.length > 0;
+    for (const stage of stages) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${escapeHtml(stage.name || stage.id || "")}</td><td></td><td></td>`;
+
+      const statusCell = tr.children[1];
+      const select = document.createElement("select");
+      for (const status of STAGE_STATUSES) {
+        const option = document.createElement("option");
+        option.value = status;
+        option.textContent = status;
+        if (stage.status === status) option.selected = true;
+        select.appendChild(option);
+      }
+      select.addEventListener("change", () => setStageStatus(stage.id, select.value));
+      statusCell.appendChild(select);
+
+      const dateCell = tr.children[2];
+      const dateInput = document.createElement("input");
+      dateInput.type = "date";
+      dateInput.value = stage.target_date || "";
+      dateInput.addEventListener("change", () => setStageTargetDate(stage.id, dateInput.value || null));
+      dateCell.appendChild(dateInput);
+
+      tbody.appendChild(tr);
+    }
+  } catch (err) {
+    tbody.innerHTML = "";
+    emptyEl.hidden = false;
+    emptyEl.textContent = err.message;
+  }
+}
+
+async function setStageStatus(stageId, status) {
+  try {
+    await api("POST", `/api/v1/stages/${encodeURIComponent(stageId)}/status`, { json: { status } });
+  } catch (err) {
+    showWorkspaceError(err.message);
+    refreshStages();
+  }
+}
+
+async function setStageTargetDate(stageId, targetDate) {
+  try {
+    await api("POST", `/api/v1/stages/${encodeURIComponent(stageId)}/target-date`, {
+      json: { target_date: targetDate },
+    });
+  } catch (err) {
+    showWorkspaceError(err.message);
+    refreshStages();
+  }
 }
 
 // --- claims ledger ---

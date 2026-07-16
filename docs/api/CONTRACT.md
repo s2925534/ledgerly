@@ -327,6 +327,34 @@ Engine source:
 
 - `ledgerly.engine.research_questions.archive_research_question`
 
+## Stage Routes (implemented, 2026-07-17)
+
+### `GET /api/v1/stages` (implemented)
+
+Lists research stages (from the project-type template written at `init`) with their `status` and optional `target_date`.
+
+Engine source: `ledgerly.engine.research_stages.list_stages`.
+
+### `POST /api/v1/stages/{stage_id}/status` (implemented)
+
+Sets a stage's status. `400 invalid_stage_status` for an unrecognized value (`not_started`/`in_progress`/`blocked`/`done`); `404 invalid_stage_status` for an unknown `stage_id`.
+
+Engine source: `ledgerly.engine.research_stages.set_stage_status`.
+
+### `POST /api/v1/stages/{stage_id}/target-date` (implemented)
+
+Sets (or, with `target_date: null`, clears) a stage's optional target completion date (`YYYY-MM-DD`). `400 invalid_stage_target_date` for an invalid date string or unknown `stage_id` (404 for the latter).
+
+Engine source: `ledgerly.engine.research_stages.set_stage_target_date`.
+
+### `GET /api/v1/stages/ics` (implemented)
+
+Returns a `text/calendar` (RFC 5545 `.ics`) document with one all-day `VEVENT` per stage that has a `target_date` set — a standard file format a user's own calendar app can import or subscribe to, no new external service. Stages without a target date are omitted, never guessed at. Hand-written generation (stdlib only, no new dependency).
+
+Engine source: `ledgerly.engine.research_stages.stages_ics`.
+
+CLI equivalents: `ledgerly stages list/status/target-date/ics`.
+
 ## Claim Routes
 
 ### `GET /api/v1/claims` (implemented)

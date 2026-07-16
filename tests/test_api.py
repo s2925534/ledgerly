@@ -525,6 +525,78 @@ def test_claims_duplicates_route_rejects_invalid_threshold(client: TestClient, t
     assert response.json()["errors"][0]["code"] == "invalid_duplicate_threshold"
 
 
+def test_stages_list_status_target_date_and_ics_via_api(client: TestClient, tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+
+    list_response = client.get("/api/v1/stages", params={"workspace": str(workspace)})
+    assert list_response.status_code == 200
+    stages = list_response.json()["data"]
+    assert len(stages) > 0
+    stage_id = stages[0]["id"]
+
+    status_response = client.post(
+        f"/api/v1/stages/{stage_id}/status",
+        params={"workspace": str(workspace)},
+        json={"status": "in_progress"},
+    )
+    assert status_response.status_code == 200
+    assert status_response.json()["data"]["status"] == "in_progress"
+
+    date_response = client.post(
+        f"/api/v1/stages/{stage_id}/target-date",
+        params={"workspace": str(workspace)},
+        json={"target_date": "2026-09-30"},
+    )
+    assert date_response.status_code == 200
+    assert date_response.json()["data"]["target_date"] == "2026-09-30"
+
+    ics_response = client.get("/api/v1/stages/ics", params={"workspace": str(workspace)})
+    assert ics_response.status_code == 200
+    assert "BEGIN:VEVENT" in ics_response.text
+    assert "DTSTART;VALUE=DATE:20260930" in ics_response.text
+
+
+def test_stages_status_unknown_stage_id_returns_404(client: TestClient, tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+
+    response = client.post(
+        "/api/v1/stages/stage-99/status", params={"workspace": str(workspace)}, json={"status": "done"}
+    )
+
+    assert response.status_code == 404
+    assert response.json()["errors"][0]["code"] == "invalid_stage_status"
+
+
+def test_stages_status_invalid_value_returns_400(client: TestClient, tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    stage_id = client.get("/api/v1/stages", params={"workspace": str(workspace)}).json()["data"][0]["id"]
+
+    response = client.post(
+        f"/api/v1/stages/{stage_id}/status", params={"workspace": str(workspace)}, json={"status": "almost_done"}
+    )
+
+    assert response.status_code == 400
+    assert response.json()["errors"][0]["code"] == "invalid_stage_status"
+
+
+def test_stages_target_date_invalid_value_returns_400(client: TestClient, tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    stage_id = client.get("/api/v1/stages", params={"workspace": str(workspace)}).json()["data"][0]["id"]
+
+    response = client.post(
+        f"/api/v1/stages/{stage_id}/target-date",
+        params={"workspace": str(workspace)},
+        json={"target_date": "not-a-date"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["errors"][0]["code"] == "invalid_stage_target_date"
+
+
 def test_claims_status_unknown_id_returns_404(client: TestClient, tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
