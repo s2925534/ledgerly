@@ -275,6 +275,13 @@ kbd {
   font-size: 0.85em;
 }
 
+mark {
+  background: var(--accent);
+  color: var(--accent-contrast);
+  padding: 0 0.15em;
+  border-radius: 2px;
+}
+
 .modal-footer {
   padding: 0.9rem 1.1rem;
   border-top: 1px solid var(--border);

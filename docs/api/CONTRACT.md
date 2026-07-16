@@ -791,6 +791,14 @@ Engine source:
 
 - `ledgerly.engine.database.database_privacy_report`
 
+### `GET /api/v1/db/search?query=...&limit=20` (implemented)
+
+Full-text keyword search across the whole corpus (converted source text, artefact text, guideline text, claims, accepted-source references, research questions, personal notes/meeting notes/transcripts) using SQLite FTS5 (`fts_index_search`, Phase 7). The index itself was built by Phase 7 but never queried anywhere until now; personal notes were also missing from the indexed document set entirely and are now included. Each whitespace-separated word in `query` is quoted as a literal phrase token internally, so ordinary words containing FTS5 operator characters (`-`, `:`, unbalanced `"`) behave like plain keyword search instead of raising an FTS5 syntax error — this is a keyword search box for researchers, not an FTS5 query language exposed to end users. Never auto-creates or activates the SQLite index — if it doesn't exist yet, returns `status: "not_indexed"` with a hint to run `db sync` first, per AGENTS.md's opt-in-cache rule for SQLite. The `status: "invalid_query"` path is a defensive fallback for cases the term-quoting doesn't cover, not something ordinary input should trigger.
+
+Engine source:
+
+- `ledgerly.engine.database.search_corpus`
+
 ## Notes Routes
 
 Personal notes, meeting notes, and transcripts — the user's own working material, distinct from per-source notes (`POST /api/v1/sources/{source_id}/note`) and supervisor/stakeholder feedback (`POST /api/v1/feedback`). Stored as plain workspace YAML (`personal-notes.yaml`) like everything else; never sent anywhere until a future AI feature explicitly opts this note type in (see AGENTS.md's "Core Rule: No Hallucinations" and `TODO.md` Phase 25 — the AI-assisted review half of that phase is not implemented). Added 2026-07-16.

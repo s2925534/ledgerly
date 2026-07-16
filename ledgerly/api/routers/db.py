@@ -16,6 +16,7 @@ from ledgerly.engine.database import (
     init_database,
     pending_changes_report,
     rebuild_database,
+    search_corpus,
     sync_database,
 )
 
@@ -64,3 +65,8 @@ def db_apply_pending(payload: ApplyPendingRequest, workspace: Path = Depends(res
 @router.get("/privacy")
 def db_privacy(workspace: Path = Depends(resolve_workspace)) -> dict[str, Any]:
     return ok(_result(database_privacy_report(workspace)))
+
+
+@router.get("/search")
+def db_search(query: str, limit: int = 20, workspace: Path = Depends(resolve_workspace)) -> dict[str, Any]:
+    return ok(_result(search_corpus(workspace, query, limit=limit)))

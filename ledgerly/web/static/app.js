@@ -424,6 +424,61 @@ async function refreshDashboard() {
   }
 }
 
+function highlightSnippet(snippet) {
+  // snippet() wraps matches in literal [ ] markers (see the `db_search`
+  // SQL); escape the raw text first (it's untrusted corpus content), then
+  // turn the still-intact bracket markers into <mark> tags.
+  return escapeHtml(snippet).replace(/\[/g, "<mark>").replace(/\]/g, "</mark>");
+}
+
+async function searchCorpus() {
+  const messageEl = document.getElementById("corpus-search-message");
+  const resultsEl = document.getElementById("corpus-search-results");
+  const query = document.getElementById("corpus-search-input").value.trim();
+  resultsEl.innerHTML = "";
+  messageEl.hidden = false;
+  messageEl.className = "small";
+  if (!query) {
+    messageEl.textContent = "Enter a search query.";
+    messageEl.classList.add("error");
+    return;
+  }
+  messageEl.textContent = "Searching...";
+  try {
+    const result = await api("GET", "/api/v1/db/search", { params: { query } });
+    if (result.report.status === "not_indexed") {
+      messageEl.textContent = result.report.hint;
+      return;
+    }
+    if (result.report.status === "invalid_query") {
+      messageEl.textContent = `Invalid query: ${result.report.error}`;
+      messageEl.classList.add("error");
+      return;
+    }
+    const rows = result.report.results || [];
+    if (!rows.length) {
+      messageEl.textContent = "No matches.";
+      return;
+    }
+    messageEl.hidden = true;
+    resultsEl.innerHTML = rows
+      .map(
+        (row) => `
+        <div class="rq-row">
+          <div>
+            <span class="candidate-status">${escapeHtml(row.doc_kind)}</span>
+            <span class="muted small">${escapeHtml(row.path)}</span>
+            <div>${highlightSnippet(row.snippet)}</div>
+          </div>
+        </div>`
+      )
+      .join("");
+  } catch (err) {
+    messageEl.textContent = err.message;
+    messageEl.classList.add("error");
+  }
+}
+
 async function compareWorkspaces() {
   const messageEl = document.getElementById("compare-workspaces-message");
   const tableEl = document.getElementById("compare-workspaces-table");
@@ -2227,6 +2282,7 @@ function setupModals() {
 // About modal — keep that list in sync with this table.
 const KEYBOARD_SHORTCUTS = [
   { key: "u", description: "Jump to Upload artefacts" },
+  { key: "/", description: "Jump to and focus Search corpus" },
   { key: "?", description: "Show this shortcuts list (opens About)" },
   { key: "Escape", description: "Close an open dialog" },
 ];
@@ -2247,6 +2303,11 @@ function setupKeyboardShortcuts() {
       const dropzone = document.getElementById("dropzone");
       dropzone.scrollIntoView({ behavior: "smooth", block: "center" });
       dropzone.focus();
+    } else if (event.key === "/") {
+      event.preventDefault();
+      const searchInput = document.getElementById("corpus-search-input");
+      searchInput.scrollIntoView({ behavior: "smooth", block: "center" });
+      searchInput.focus();
     } else if (event.key === "?") {
       openModal("about-modal");
     }
@@ -2476,6 +2537,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.getElementById("theme-toggle-btn").addEventListener("click", toggleTheme);
   document.getElementById("compare-workspaces-btn").addEventListener("click", compareWorkspaces);
+  document.getElementById("corpus-search-btn").addEventListener("click", searchCorpus);
+  document.getElementById("corpus-search-input").addEventListener("keydown", (event) => {
+    if (event.key === "Enter") searchCorpus();
+  });
 
   document.getElementById("logout-btn").addEventListener("click", async () => {
     try {

@@ -312,6 +312,69 @@ def database_privacy_report(workspace: Path) -> DbCommandResult:
     )
 
 
+def _fts_query_terms(query: str) -> str:
+    """Turn a plain-English query into a safe FTS5 MATCH expression.
+
+    Quotes each whitespace-separated word as a literal phrase token (escaping
+    embedded double-quotes) and joins them with FTS5's implicit AND, so
+    ordinary words containing hyphens, colons, or other FTS5 operator
+    characters (e.g. "self-driving", "3:1") behave like plain keyword search
+    instead of tripping FTS5's query-syntax parser. This is a keyword search
+    box for researchers, not a query language for SQL experts.
+    """
+    terms = [term for term in query.split() if term.strip()]
+    return " ".join('"' + term.replace('"', '""') + '"' for term in terms)
+
+
+def search_corpus(workspace: Path, query: str, *, limit: int = 20) -> DbCommandResult:
+    """Full-text keyword search across the whole corpus (converted source
+    text, artefact text, guideline text, claims, accepted-source references,
+    research questions) using the SQLite FTS5 index built by `db sync`. Never
+    auto-creates or activates the SQLite index just because someone
+    searched — per AGENTS.md, SQLite stays an opt-in cache layer, not
+    something that turns itself on silently.
+    """
+    path = database_path(workspace)
+    if not path.exists():
+        return DbCommandResult(
+            path,
+            {
+                "status": "not_indexed",
+                "query": query,
+                "results": [],
+                "hint": "Run `ledgerly db sync` (or `db init` then `db sync`) to build the search index first.",
+            },
+        )
+    fts_query = _fts_query_terms(query)
+    if not fts_query:
+        return DbCommandResult(path, {"status": "ok", "query": query, "result_count": 0, "results": []})
+    with _connect(path) as conn:
+        _create_schema(conn)
+        try:
+            rows = conn.execute(
+                """
+                select doc_kind, doc_id, path,
+                       snippet(fts_index_search, 3, '[', ']', '...', 12) as snippet,
+                       bm25(fts_index_search) as rank
+                from fts_index_search
+                where fts_index_search match ?
+                order by rank
+                limit ?
+                """,
+                (fts_query, limit),
+            ).fetchall()
+        except sqlite3.OperationalError as exc:
+            return DbCommandResult(
+                path,
+                {"status": "invalid_query", "query": query, "results": [], "error": str(exc)},
+            )
+    results = [
+        {"doc_kind": row["doc_kind"], "doc_id": row["doc_id"], "path": row["path"], "snippet": row["snippet"]}
+        for row in rows
+    ]
+    return DbCommandResult(path, {"status": "ok", "query": query, "result_count": len(results), "results": results})
+
+
 def workspace_sync_files(workspace: Path) -> list[str]:
     names = [
         WORKSPACE_FILES.research_context,
@@ -705,6 +768,7 @@ def _fts_documents(workspace: Path) -> list[dict[str, str]]:
         (WORKSPACE_FILES.claims_ledger, "claims", "claims"),
         (WORKSPACE_FILES.accepted_sources, "source_ids", "references"),
         (WORKSPACE_FILES.research_questions, "research_questions", "document_sections"),
+        (WORKSPACE_FILES.personal_notes_ledger, "notes", "personal_notes"),
     ]:
         path = workspace / file_name
         if path.exists():

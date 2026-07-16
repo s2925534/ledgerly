@@ -15,6 +15,7 @@ from ledgerly.engine.database import (
     init_database,
     pending_changes_report,
     rebuild_database,
+    search_corpus,
     sync_database,
 )
 from ledgerly.engine.workspace import init_workspace
@@ -79,6 +80,87 @@ def test_database_has_memory_alias_and_fts_entries(tmp_path: Path) -> None:
     assert memory_count >= 5
     assert thesis_alias[0] == "artefacts/thesis"
     assert fts_hit >= 1
+
+
+def test_search_corpus_returns_not_indexed_before_first_sync(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+
+    result = search_corpus(workspace, "container")
+
+    assert result.report["status"] == "not_indexed"
+    assert result.report["results"] == []
+    assert "db sync" in result.report["hint"]
+
+
+def test_search_corpus_finds_matches_after_sync(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    text_path = workspace / "sources_text" / "source-001.txt"
+    text_path.write_text("container terminal automation evidence", encoding="utf-8")
+    sync_database(workspace)
+
+    result = search_corpus(workspace, "container")
+
+    assert result.report["status"] == "ok"
+    assert result.report["result_count"] >= 1
+    hit = result.report["results"][0]
+    assert hit["doc_kind"] == "converted_source_text"
+    assert "container" in hit["snippet"].lower()
+
+
+def test_search_corpus_covers_personal_notes(tmp_path: Path) -> None:
+    from ledgerly.engine.notes import add_note
+
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    add_note(workspace, "Supervisor suggested narrowing the berth scheduling scope.", kind="meeting")
+    sync_database(workspace)
+
+    result = search_corpus(workspace, "scheduling")
+
+    assert result.report["status"] == "ok"
+    assert any(row["doc_kind"] == "personal_notes" for row in result.report["results"])
+
+
+def test_search_corpus_matches_hyphenated_words_as_plain_keywords(tmp_path: Path) -> None:
+    # FTS5 treats "-" as a column-filter/NOT operator prefix; a plain
+    # keyword search box should tolerate hyphenated English words instead
+    # of erroring on common input like "self-driving".
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    text_path = workspace / "sources_text" / "source-001.txt"
+    text_path.write_text("evaluating self-driving container terminal equipment", encoding="utf-8")
+    sync_database(workspace)
+
+    result = search_corpus(workspace, "self-driving")
+
+    assert result.report["status"] == "ok"
+    assert result.report["result_count"] >= 1
+
+
+def test_search_corpus_tolerates_unbalanced_quotes_without_crashing(tmp_path: Path) -> None:
+    # FTS5 treats an unescaped `"` as the start of a quoted phrase; a plain
+    # keyword search box should never surface a raw SQLite syntax error for
+    # ordinary typed punctuation.
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    sync_database(workspace)
+
+    result = search_corpus(workspace, '"unterminated quote')
+
+    assert result.report["status"] == "ok"
+
+
+def test_search_corpus_empty_query_returns_no_results_without_error(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    sync_database(workspace)
+
+    result = search_corpus(workspace, "   ")
+
+    assert result.report["status"] == "ok"
+    assert result.report["results"] == []
 
 
 def test_database_indexes_validation_citation_and_guidelines(tmp_path: Path) -> None:

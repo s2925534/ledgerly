@@ -59,6 +59,17 @@
   </section>
 
   <section class="panel">
+    <h2>Search corpus</h2>
+    <p class="muted small">Full-text keyword search across converted source text, artefact text, guideline text, claims, accepted-source references, and research questions — built on the SQLite index (Data &amp; Metadata panel below has "Sync"). Never runs without an index you've already built.</p>
+    <div class="zotero-search-row">
+      <input id="corpus-search-input" type="text" placeholder="Search the corpus...">
+      <button id="corpus-search-btn" type="button">Search</button>
+    </div>
+    <p id="corpus-search-message" class="small" hidden></p>
+    <div id="corpus-search-results" class="rq-list"></div>
+  </section>
+
+  <section class="panel">
     <h2>Compare workspaces</h2>
     <p class="muted small">Source/claim/artefact/RQ counts and last activity, side by side, for anyone running more than one research project at once.</p>
     <div class="source-scan-form">
@@ -714,6 +725,7 @@
       <p><strong>Keyboard shortcuts</strong> (only while not typing in a field):</p>
       <ul class="small muted">
         <li><kbd>u</kbd> — Jump to Upload artefacts</li>
+        <li><kbd>/</kbd> — Jump to and focus Search corpus</li>
         <li><kbd>?</kbd> — Show this shortcuts list (opens this dialog)</li>
         <li><kbd>Esc</kbd> — Close an open dialog</li>
       </ul>

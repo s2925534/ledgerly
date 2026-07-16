@@ -1304,6 +1304,10 @@ def test_db_full_lifecycle_via_api(client: TestClient, tmp_path: Path) -> None:
 
     rebuild_response = client.post("/api/v1/db/rebuild", params={"workspace": str(workspace)})
     assert rebuild_response.status_code == 200
+
+    search_response = client.get("/api/v1/db/search", params={"workspace": str(workspace), "query": "Test"})
+    assert search_response.status_code == 200
+    assert search_response.json()["data"]["report"]["status"] == "ok"
     assert rebuild_response.json()["data"]["report"]["status"] == "rebuilt"
 
 

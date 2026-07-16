@@ -50,6 +50,7 @@ from ledgerly.engine.database import (
     database_status,
     init_database,
     rebuild_database,
+    search_corpus,
     sync_database,
     pending_changes_report,
 )
@@ -2221,6 +2222,40 @@ def merge_pdfs(
         console.print(f"CSV: {result.csv_path}")
         if result.output_path:
             console.print(f"Merged PDF: {result.output_path}")
+
+
+@app.command("search-corpus")
+def search_corpus_cmd(
+    query: str = typer.Argument(..., help="Keyword search query (SQLite FTS5 syntax)."),
+    limit: int = typer.Option(20, "--limit", help="Maximum number of results."),
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Full-text keyword search across sources, artefacts, guidelines, claims, and research questions."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["search-corpus"], ws, log_level)
+    result = search_corpus(ws, query, limit=limit)
+    logger.info("Searched corpus", operation="search_corpus", status=result.report["status"], query=query)
+    _finish(summary, summary_path)
+    if quiet:
+        return
+    if result.report["status"] == "not_indexed":
+        console.print(f"[yellow]Not indexed.[/yellow] {result.report['hint']}")
+        return
+    if result.report["status"] == "invalid_query":
+        console.print(f"[red]Invalid query.[/red] {result.report['error']}")
+        raise typer.Exit(code=2)
+    if not result.report["results"]:
+        console.print("[dim]No matches.[/dim]")
+        return
+    table = Table(title=f"Search: {query}")
+    table.add_column("Kind")
+    table.add_column("Path")
+    table.add_column("Snippet")
+    for row in result.report["results"]:
+        table.add_row(row["doc_kind"], row["path"], row["snippet"])
+    console.print(table)
 
 
 @app.command("citation-relationships")
