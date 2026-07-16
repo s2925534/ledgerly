@@ -44,6 +44,7 @@ Do not start FastAPI, UI, packaging, or OpenAI-heavy features until their engine
 - Every AI mode, current or future, must also preserve the "Core Rule: No Hallucinations" above — grounded-only output, explicit refusal on insufficient evidence, no exceptions.
 - Do not print or log API keys.
 - Keep `.env` ignored.
+- SQLite remains the always-on, zero-config local index/cache over the real source of truth (workspace YAML/Markdown) — this is unaffected by Phase 24's optional MariaDB/PostgreSQL secondary backend. That secondary backend is strictly opt-in (`LEDGERLY_DB_BACKEND` env var) and never required: a fresh install with nothing set behaves exactly as it always has, and even when configured, it never activates itself — `db init`/`db sync`/`db status` (CLI) and the web Data & Admin panel only ever *offer* to activate it, the same explicit-opt-in pattern as every AI feature. The secondary backend is a mirror of the SQLite cache, never a replacement for it or for YAML/Markdown as the source of truth for any backend.
 
 ## Validation
 

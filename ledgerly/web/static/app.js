@@ -1957,6 +1957,45 @@ function setupDbAdminPanel() {
   document.getElementById("db-privacy-btn").addEventListener("click", () => runDbAction("Privacy check", "GET", "/api/v1/db/privacy"));
 }
 
+async function runDbBackendAction(action, method, path, { confirmMessage } = {}) {
+  const messageEl = document.getElementById("db-backend-message");
+  if (confirmMessage && !window.confirm(confirmMessage)) return;
+  messageEl.hidden = false;
+  messageEl.className = "small";
+  messageEl.textContent = `Running ${action}...`;
+  try {
+    const result = await api(method, path, method === "POST" ? { json: {} } : {});
+    messageEl.textContent = `${action}: ${JSON.stringify(result.report)}`;
+  } catch (err) {
+    messageEl.textContent = err.message;
+    messageEl.classList.add("error");
+  }
+}
+
+function setupDbBackendPanel() {
+  document.getElementById("db-backend-status-btn").addEventListener("click", () =>
+    runDbBackendAction("Status", "GET", "/api/v1/db/backend-status")
+  );
+  document.getElementById("db-backend-activate-btn").addEventListener("click", () =>
+    runDbBackendAction("Activate", "POST", "/api/v1/db/activate-backend", {
+      confirmMessage: "Activate the configured secondary backend and mirror the current SQLite cache into it?",
+    })
+  );
+  document.getElementById("db-backend-deactivate-btn").addEventListener("click", () =>
+    runDbBackendAction("Deactivate", "POST", "/api/v1/db/deactivate-backend")
+  );
+  document.getElementById("db-repair-sqlite-btn").addEventListener("click", () =>
+    runDbBackendAction("Repair SQLite from backend", "POST", "/api/v1/db/repair-sqlite", {
+      confirmMessage: "Recreate the local SQLite cache from the active secondary backend? Use this if the local SQLite file was lost.",
+    })
+  );
+  document.getElementById("db-repair-backend-btn").addEventListener("click", () =>
+    runDbBackendAction("Repair backend from SQLite", "POST", "/api/v1/db/repair-backend", {
+      confirmMessage: "Re-mirror the active secondary backend from the current SQLite cache? Use this if the secondary backend was unreachable or lost data.",
+    })
+  );
+}
+
 // --- export & reporting ---
 
 async function exportEvidence() {
@@ -2688,6 +2727,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setupConversionPanel();
   setupBackupPanel();
   setupDbAdminPanel();
+  setupDbBackendPanel();
   setupExportPanel();
 
   const workspaceInput = document.getElementById("workspace-input");

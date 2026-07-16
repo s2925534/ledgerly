@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 import pytest
@@ -2035,3 +2036,60 @@ def test_ai_candidate_review_route_reports_full_text_mode(client: TestClient, tm
     data = response.json()["data"]
     assert data["full_text_mode"] == "metadata_and_abstracts_only"
     assert data["full_source_document_ai_opt_in"] is False
+
+
+def _postgres_test_reachable() -> bool:
+    try:
+        from ledgerly.engine.db_backends import postgres
+        from ledgerly.engine.db_backends.base import SecondaryBackendCredentials
+    except Exception:
+        return False
+    creds = SecondaryBackendCredentials(host="localhost", port=5432, user=os.environ.get("USER", "postgres"), password="", database="ledgerly_test")
+    try:
+        return postgres.is_reachable(creds)
+    except Exception:
+        return False
+
+
+requires_postgres_api = pytest.mark.skipif(
+    not _postgres_test_reachable(), reason="No reachable local PostgreSQL test server"
+)
+
+
+@requires_postgres_api
+def test_db_backend_status_and_activate_route_via_api(client: TestClient, tmp_path: Path, monkeypatch) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    monkeypatch.setenv("LEDGERLY_DB_BACKEND", "postgres")
+    monkeypatch.setenv("LEDGERLY_POSTGRES_HOST", "localhost")
+    monkeypatch.setenv("LEDGERLY_POSTGRES_PORT", "5432")
+    monkeypatch.setenv("LEDGERLY_POSTGRES_USER", os.environ.get("USER", "postgres"))
+    monkeypatch.setenv("LEDGERLY_POSTGRES_PASSWORD", "")
+    monkeypatch.setenv("LEDGERLY_POSTGRES_DATABASE", "ledgerly_test")
+
+    status_response = client.get("/api/v1/db/backend-status", params={"workspace": str(workspace)})
+    assert status_response.status_code == 200
+    assert status_response.json()["data"]["report"]["configured"] == "postgres"
+
+    activate_response = client.post("/api/v1/db/activate-backend", params={"workspace": str(workspace)})
+    assert activate_response.status_code == 200
+    assert activate_response.json()["data"]["report"]["status"] == "activated"
+
+    sync_response = client.post("/api/v1/db/sync", params={"workspace": str(workspace)}, json={})
+    assert sync_response.status_code == 200
+    assert sync_response.json()["data"]["report"]["secondary_backend"]["status"] == "mirrored"
+
+    deactivate_response = client.post("/api/v1/db/deactivate-backend", params={"workspace": str(workspace)})
+    assert deactivate_response.status_code == 200
+    assert deactivate_response.json()["data"]["report"]["status"] == "deactivated"
+
+
+def test_db_activate_backend_route_requires_configuration(client: TestClient, tmp_path: Path, monkeypatch) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    monkeypatch.delenv("LEDGERLY_DB_BACKEND", raising=False)
+
+    response = client.post("/api/v1/db/activate-backend", params={"workspace": str(workspace)})
+
+    assert response.status_code == 400
+    assert response.json()["errors"][0]["code"] == "secondary_backend_activation_failed"

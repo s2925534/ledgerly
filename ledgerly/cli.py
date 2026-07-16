@@ -45,15 +45,21 @@ from ledgerly.engine.conversion import convert_sources, extract_text, ocr_readin
 from ledgerly.engine.citations import apply_citation_plan, create_citation_plan, set_citation_plan_insertion_review_status
 from ledgerly.engine.data import data_source_counts, list_data_sources, profile_data_sources
 from ledgerly.engine.database import (
+    activate_secondary_backend,
     apply_pending_changes,
     database_privacy_report,
     database_status,
+    deactivate_secondary_backend,
     init_database,
     rebuild_database,
+    repair_secondary_from_sqlite,
+    repair_sqlite_from_secondary,
     search_corpus,
+    secondary_backend_status,
     sync_database,
     pending_changes_report,
 )
+from ledgerly.engine.db_backends.base import SecondaryBackendError
 from ledgerly.engine.cross_reference import (
     apply_cross_reference_links,
     cross_reference_candidates,
@@ -2614,6 +2620,34 @@ def data_status(
     console.print(table)
 
 
+def _maybe_prompt_secondary_backend_activation(ws: Path, *, quiet: bool) -> None:
+    """Prompt to opt in to a configured-but-not-yet-active secondary
+    backend, on `db init`/`db sync`/`db status` per Phase 24's spec. Never
+    activates silently — this is the one place that asks, and only asks,
+    never assumes yes. A quiet run skips the prompt entirely rather than
+    blocking on stdin (matches every other `--quiet` behavior in this CLI).
+    """
+    if quiet:
+        return
+    try:
+        status = secondary_backend_status(ws).report
+    except SecondaryBackendError:
+        return
+    if not status.get("needs_activation_prompt"):
+        return
+    backend = status["configured"]
+    reachable = "reachable" if status.get("reachable") else "NOT currently reachable"
+    console.print(f"\n[yellow]A {backend} secondary backend is configured but not active for this workspace ({reachable}).[/yellow]")
+    if not typer.confirm(f"Activate it now and mirror the current SQLite cache into it?", default=False):
+        return
+    try:
+        result = activate_secondary_backend(ws)
+    except SecondaryBackendError as e:
+        console.print(f"[red]Activation failed:[/red] {e}")
+        return
+    console.print(f"[green]Activated {result.report['backend']}.[/green] Mirrored: {result.report['mirrored_counts']}")
+
+
 @db_app.command("init")
 def db_init(
     workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
@@ -2628,6 +2662,7 @@ def db_init(
     _finish(summary, summary_path, next_action="Run `ledgerly db sync` to index workspace state.")
     if not quiet:
         console.print(f"[green]Database initialized:[/green] {result.path}")
+    _maybe_prompt_secondary_backend_activation(ws, quiet=quiet)
 
 
 @db_app.command("sync")
@@ -2648,6 +2683,10 @@ def db_sync(
             f"files={result.report['files_synced']} changed={result.report['files_changed']} "
             f"missing={result.report['files_missing']} conflicts={result.report['conflicts']}"
         )
+        secondary = result.report.get("secondary_backend")
+        if secondary:
+            console.print(f"Secondary backend ({secondary['backend']}): {secondary['status']}")
+    _maybe_prompt_secondary_backend_activation(ws, quiet=quiet)
 
 
 @db_app.command("status")
@@ -2672,6 +2711,7 @@ def db_status(
     for key, value in (result.report.get("counts") or {}).items():
         table.add_row(f"count.{key}", str(value))
     console.print(table)
+    _maybe_prompt_secondary_backend_activation(ws, quiet=quiet)
 
 
 @db_app.command("rebuild")
@@ -2742,6 +2782,119 @@ def db_privacy(
         console.print(f"[yellow]Needs review[/yellow] issues={result.report['issue_count']}")
         for issue in result.report["issues"]:
             console.print(f"- {issue['issue']} in {issue.get('table')}.{issue.get('column')}")
+
+
+@db_app.command("backend-status")
+def db_backend_status(
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Show whether a secondary MariaDB/PostgreSQL backend is configured, active, and reachable. Read-only."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["db", "backend-status"], ws, log_level)
+    result = secondary_backend_status(ws)
+    logger.info("Checked secondary backend status", operation="db_backend_status", report=result.report)
+    _finish(summary, summary_path)
+    if quiet:
+        return
+    table = Table(title="Secondary database backend")
+    table.add_column("Field")
+    table.add_column("Value")
+    for key, value in result.report.items():
+        table.add_row(key, str(value))
+    console.print(table)
+
+
+@db_app.command("activate-backend")
+def db_activate_backend(
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Explicitly activate the configured (LEDGERLY_DB_BACKEND) secondary backend and mirror SQLite into it."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["db", "activate-backend"], ws, log_level)
+    try:
+        result = activate_secondary_backend(ws)
+    except SecondaryBackendError as e:
+        logger.error("Secondary backend activation failed", operation="db_activate_backend", error=str(e))
+        summary.errors += 1
+        _finish(summary, summary_path)
+        if not quiet:
+            console.print(f"[red]{e}[/red]")
+        raise typer.Exit(code=2)
+    logger.info("Activated secondary backend", operation="db_activate_backend", report=result.report)
+    _finish(summary, summary_path)
+    if not quiet:
+        console.print(f"[green]Activated {result.report['backend']}.[/green] Mirrored: {result.report['mirrored_counts']}")
+
+
+@db_app.command("deactivate-backend")
+def db_deactivate_backend(
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Stop mirroring to the active secondary backend. Does not delete data already written there or in SQLite."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["db", "deactivate-backend"], ws, log_level)
+    result = deactivate_secondary_backend(ws)
+    logger.info("Deactivated secondary backend", operation="db_deactivate_backend", report=result.report)
+    _finish(summary, summary_path)
+    if not quiet:
+        if result.report["status"] == "not_active":
+            console.print("[dim]No secondary backend was active.[/dim]")
+        else:
+            console.print(f"[green]Deactivated {result.report['backend']}.[/green]")
+
+
+@db_app.command("repair-sqlite")
+def db_repair_sqlite(
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Repair direction 1: local SQLite file is missing. Recreate it and repopulate from the active secondary backend."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["db", "repair-sqlite"], ws, log_level)
+    try:
+        result = repair_sqlite_from_secondary(ws)
+    except SecondaryBackendError as e:
+        logger.error("SQLite repair failed", operation="db_repair_sqlite", error=str(e))
+        summary.errors += 1
+        _finish(summary, summary_path)
+        if not quiet:
+            console.print(f"[red]{e}[/red]")
+        raise typer.Exit(code=2)
+    logger.info("Repaired SQLite from secondary backend", operation="db_repair_sqlite", report=result.report)
+    _finish(summary, summary_path)
+    if not quiet:
+        console.print(f"[green]Repaired[/green] SQLite from {result.report['backend']}. Counts: {result.report['counts']}")
+
+
+@db_app.command("repair-backend")
+def db_repair_backend(
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Repair direction 2: the active secondary backend was unreachable/lost data. Re-mirror it from SQLite."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["db", "repair-backend"], ws, log_level)
+    try:
+        result = repair_secondary_from_sqlite(ws)
+    except SecondaryBackendError as e:
+        logger.error("Secondary backend repair failed", operation="db_repair_backend", error=str(e))
+        summary.errors += 1
+        _finish(summary, summary_path)
+        if not quiet:
+            console.print(f"[red]{e}[/red]")
+        raise typer.Exit(code=2)
+    logger.info("Repaired secondary backend from SQLite", operation="db_repair_backend", report=result.report)
+    _finish(summary, summary_path)
+    if not quiet:
+        console.print(f"[green]Repaired[/green] {result.report['backend']} from SQLite. Counts: {result.report['counts']}")
 
 
 @doc_app.command("version")

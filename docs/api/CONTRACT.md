@@ -799,6 +799,26 @@ Engine source:
 
 - `ledgerly.engine.database.search_corpus`
 
+### Secondary database backend routes (implemented, Phase 24)
+
+Optional MariaDB/PostgreSQL backend mirroring the SQLite cache, per Pedro's explicit 2026-07-16 go-ahead. SQLite stays the always-on, zero-config default; these routes only matter when `LEDGERLY_DB_BACKEND` is configured, and even then nothing activates automatically — see AGENTS.md's Privacy Rules. `ledgerly.engine.db_backends/` holds the abstraction (`base.py` for the shared mirror/repopulate row-copy logic, `postgres.py`/`mariadb.py` for connection + schema DDL, `config.py` for env var resolution). Ten tables are mirrored (`sync_files`, `pending_changes`, `memory_entries`, `search_queries`, `validation_runs`, `evidence_matches`, `citation_plans`, `guideline_registrations`, `document_versions`, `document_aliases`) — deliberately excludes SQLite's FTS5 virtual table (`fts_index`/`fts_index_search`), which has no direct cross-engine equivalent and is trivially rebuilt via `db sync` regardless of which backend is primary.
+
+- `GET /api/v1/db/backend-status` — whether a secondary backend is configured (env vars present), active (opted in), and currently reachable. Read-only; never activates anything.
+- `POST /api/v1/db/activate-backend` — explicit opt-in: creates the schema on the configured backend and mirrors the current SQLite cache into it. `400 secondary_backend_activation_failed` if nothing is configured, or if a *different* backend is already active (at most one at a time — deactivate first).
+- `POST /api/v1/db/deactivate-backend` — stops mirroring. Does not delete data already written to either side.
+- `POST /api/v1/db/repair-sqlite` — bidirectional repair, direction 1: the local SQLite file went missing. Recreates it and repopulates from the active secondary backend. `400 sqlite_repair_failed` if no backend is active.
+- `POST /api/v1/db/repair-backend` — bidirectional repair, direction 2: the active backend was unreachable or lost data. Re-mirrors it from the current SQLite cache (reuses the same row-copy logic `db sync` already calls, not a second sync engine). `400 secondary_backend_repair_failed` if no backend is active.
+
+`db sync`/`db rebuild` also mirror to the active secondary backend automatically as their last step (`report.secondary_backend: {backend, status: "mirrored"|"unreachable", ...}` in the response) — an unreachable secondary backend is reported, not a `db sync` failure, since the real source of truth (workspace YAML/Markdown → SQLite) already succeeded by that point.
+
+Engine source:
+
+- `ledgerly.engine.database.secondary_backend_status`
+- `ledgerly.engine.database.activate_secondary_backend`
+- `ledgerly.engine.database.deactivate_secondary_backend`
+- `ledgerly.engine.database.repair_sqlite_from_secondary`
+- `ledgerly.engine.database.repair_secondary_from_sqlite`
+
 ## Notes Routes
 
 Personal notes, meeting notes, and transcripts — the user's own working material, distinct from per-source notes (`POST /api/v1/sources/{source_id}/note`) and supervisor/stakeholder feedback (`POST /api/v1/feedback`). Stored as plain workspace YAML (`personal-notes.yaml`) like everything else; never sent anywhere until a future AI feature explicitly opts this note type in (see AGENTS.md's "Core Rule: No Hallucinations" and `TODO.md` Phase 25 — the AI-assisted review half of that phase is not implemented). Added 2026-07-16.

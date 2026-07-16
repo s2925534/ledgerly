@@ -9,9 +9,19 @@ from pathlib import Path
 from typing import Any
 
 from ledgerly.core.constants import WORKSPACE_FILES
-from ledgerly.core.yamlio import read_yaml
+from ledgerly.core.yamlio import read_yaml, write_yaml
 from ledgerly.engine.document_targets import PRIMARY_OUTPUT_ALIASES
 from ledgerly.engine.artefacts import list_artefacts
+from ledgerly.engine.db_backends.base import (
+    SecondaryBackendError,
+    mirror_sqlite_into_secondary,
+    repopulate_sqlite_from_secondary,
+)
+from ledgerly.engine.db_backends.config import (
+    backend_module,
+    configured_secondary_backend,
+    secondary_backend_credentials,
+)
 
 
 DB_FILE_NAME = "ledgerly.sqlite"
@@ -27,6 +37,32 @@ class DbCommandResult:
 
 def database_path(workspace: Path) -> Path:
     return workspace / DB_FILE_NAME
+
+
+def _secondary_backend_state_path(workspace: Path) -> Path:
+    return workspace / "db-backend-state.yaml"
+
+
+def _read_active_secondary_backend(workspace: Path) -> str | None:
+    """Which secondary backend (if any) is active for this workspace.
+
+    Deliberately tracked in a small workspace-root YAML file, not in
+    SQLite's own `meta` table: the whole point of `repair_sqlite_from_
+    secondary` is recovering from a *missing* SQLite file, so the marker
+    that says "look in PostgreSQL for the data" must survive SQLite being
+    gone, not live inside the very file that's missing.
+    """
+    path = _secondary_backend_state_path(workspace)
+    if not path.exists():
+        return None
+    return read_yaml(path).get("active_secondary_backend") or None
+
+
+def _write_active_secondary_backend(workspace: Path, backend: str | None) -> None:
+    path = _secondary_backend_state_path(workspace)
+    doc = read_yaml(path) if path.exists() else {"version": 1}
+    doc["active_secondary_backend"] = backend
+    write_yaml(path, doc)
 
 
 def init_database(workspace: Path) -> DbCommandResult:
@@ -139,20 +175,44 @@ def sync_database(workspace: Path) -> DbCommandResult:
         _sync_document_versions(conn, workspace, now)
         _sync_fts_indexes(conn, workspace, now)
         _set_meta(conn, "last_sync_at", now)
+    active_secondary = _read_active_secondary_backend(workspace)
 
-    return DbCommandResult(
-        path,
-        {
-            "status": "synced",
-            "database": str(path),
-            "files_synced": synced,
-            "files_changed": changed,
-            "files_missing": missing,
-            "conflicts": conflicts,
-            "source_of_truth": "workspace_yaml_markdown",
-            "write_back_policy": "pending_changes_require_review_and_apply",
-        },
-    )
+    report: dict[str, Any] = {
+        "status": "synced",
+        "database": str(path),
+        "files_synced": synced,
+        "files_changed": changed,
+        "files_missing": missing,
+        "conflicts": conflicts,
+        "source_of_truth": "workspace_yaml_markdown",
+        "write_back_policy": "pending_changes_require_review_and_apply",
+    }
+    if active_secondary:
+        report["secondary_backend"] = _mirror_to_active_secondary(workspace, active_secondary)
+    return DbCommandResult(path, report)
+
+
+def _mirror_to_active_secondary(workspace: Path, backend: str) -> dict[str, Any]:
+    """Best-effort mirror of the just-synced SQLite cache into the active
+    secondary backend, called at the end of every `db sync`/`db rebuild` so
+    the two stay in step without a second sync engine. Never raises — an
+    unreachable secondary backend is reported in the result, not a `db
+    sync` failure, since SQLite (built from the real source of truth,
+    workspace YAML/Markdown) already succeeded by this point.
+    """
+    try:
+        credentials = secondary_backend_credentials(backend, workspace)
+        module = backend_module(backend)
+        secondary_conn = module.connect(credentials)
+    except SecondaryBackendError as exc:
+        return {"backend": backend, "status": "unreachable", "error": str(exc)}
+    try:
+        module.create_schema(secondary_conn)
+        with _connect(database_path(workspace)) as conn:
+            counts = mirror_sqlite_into_secondary(conn, secondary_conn)
+    finally:
+        secondary_conn.close()
+    return {"backend": backend, "status": "mirrored", "counts": counts}
 
 
 def database_status(workspace: Path) -> DbCommandResult:
@@ -416,6 +476,139 @@ def search_corpus(workspace: Path, query: str, *, limit: int = 20) -> DbCommandR
         for row in rows
     ]
     return DbCommandResult(path, {"status": "ok", "query": query, "result_count": len(results), "results": results})
+
+
+def secondary_backend_status(workspace: Path) -> DbCommandResult:
+    """Whether a secondary backend is configured (`LEDGERLY_DB_BACKEND` env
+    var / workspace `.env`) and/or activated (opted into and mirrored) for
+    this workspace, plus a live reachability check when one is configured.
+    Never activates anything — this is a read-only status check, the
+    opt-in prompt (CLI `db status`/`db init`/`db sync`, or the web
+    configuration panel) decides what to do with this information.
+    """
+    path = database_path(workspace)
+    try:
+        configured = configured_secondary_backend(workspace)
+    except SecondaryBackendError as exc:
+        return DbCommandResult(path, {"configured": None, "configured_error": str(exc), "active": None, "reachable": None})
+
+    active = _read_active_secondary_backend(workspace)
+
+    reachable = None
+    if configured:
+        try:
+            credentials = secondary_backend_credentials(configured, workspace)
+            reachable = backend_module(configured).is_reachable(credentials)
+        except SecondaryBackendError:
+            reachable = False
+
+    return DbCommandResult(
+        path,
+        {
+            "configured": configured,
+            "active": active,
+            "reachable": reachable,
+            "needs_activation_prompt": bool(configured) and configured != active,
+        },
+    )
+
+
+def activate_secondary_backend(workspace: Path) -> DbCommandResult:
+    """Explicit opt-in only — never called automatically by `db init`/`db
+    sync`/`db status`. Creates the schema on the configured secondary
+    backend, mirrors the current SQLite cache into it (reusing the same
+    logic `db sync` uses to keep them in step afterward), and records it
+    active. Refuses if a *different* secondary backend is already active
+    (at most one at a time; deactivate first).
+    """
+    path = database_path(workspace)
+    configured = configured_secondary_backend(workspace)
+    if not configured:
+        raise SecondaryBackendError("No secondary backend configured (LEDGERLY_DB_BACKEND is unset or 'sqlite').")
+
+    init_database(workspace)
+    current_active = _read_active_secondary_backend(workspace)
+    if current_active and current_active != configured:
+        raise SecondaryBackendError(
+            f"{current_active} is already the active secondary backend for this workspace. "
+            "Deactivate it first — at most one secondary backend can be active at a time."
+        )
+
+    credentials = secondary_backend_credentials(configured, workspace)
+    module = backend_module(configured)
+    secondary_conn = module.connect(credentials)
+    try:
+        module.create_schema(secondary_conn)
+        with _connect(path) as conn:
+            counts = mirror_sqlite_into_secondary(conn, secondary_conn)
+    finally:
+        secondary_conn.close()
+
+    _write_active_secondary_backend(workspace, configured)
+    with _connect(path) as conn:
+        _set_meta(conn, "secondary_backend_activated_at", _utc_now())
+
+    return DbCommandResult(path, {"status": "activated", "backend": configured, "mirrored_counts": counts})
+
+
+def deactivate_secondary_backend(workspace: Path) -> DbCommandResult:
+    """Stop mirroring to the currently active secondary backend. Does not
+    touch data already written there or in SQLite — SQLite (built from
+    workspace YAML/Markdown) keeps working exactly as it does today,
+    unaffected by whether a secondary backend is active.
+    """
+    path = database_path(workspace)
+    active = _read_active_secondary_backend(workspace)
+    if not active:
+        return DbCommandResult(path, {"status": "not_active"})
+    _write_active_secondary_backend(workspace, None)
+    return DbCommandResult(path, {"status": "deactivated", "backend": active})
+
+
+def repair_sqlite_from_secondary(workspace: Path) -> DbCommandResult:
+    """Bidirectional repair, direction 1: the local SQLite file went
+    missing/was deleted. Recreate it and repopulate from the active,
+    reachable secondary backend instead of starting from an empty cache.
+    """
+    path = database_path(workspace)
+    active = _read_active_secondary_backend(workspace)
+    if not active:
+        raise SecondaryBackendError("No secondary backend is active for this workspace; nothing to repair from.")
+    init_database(workspace)
+
+    credentials = secondary_backend_credentials(active, workspace)
+    module = backend_module(active)
+    secondary_conn = module.connect(credentials)
+    try:
+        with _connect(path) as conn:
+            counts = repopulate_sqlite_from_secondary(conn, secondary_conn)
+    finally:
+        secondary_conn.close()
+    return DbCommandResult(path, {"status": "repaired", "direction": "secondary_to_sqlite", "backend": active, "counts": counts})
+
+
+def repair_secondary_from_sqlite(workspace: Path) -> DbCommandResult:
+    """Bidirectional repair, direction 2: the active secondary backend was
+    unreachable and is now reachable again (or came back empty). Re-mirror
+    the current SQLite cache into it — reuses the exact same
+    `mirror_sqlite_into_secondary` logic `db sync` already calls, not a
+    second sync engine.
+    """
+    path = database_path(workspace)
+    active = _read_active_secondary_backend(workspace)
+    if not active:
+        raise SecondaryBackendError("No secondary backend is active for this workspace.")
+
+    credentials = secondary_backend_credentials(active, workspace)
+    module = backend_module(active)
+    secondary_conn = module.connect(credentials)
+    try:
+        module.create_schema(secondary_conn)
+        with _connect(path) as conn:
+            counts = mirror_sqlite_into_secondary(conn, secondary_conn)
+    finally:
+        secondary_conn.close()
+    return DbCommandResult(path, {"status": "repaired", "direction": "sqlite_to_secondary", "backend": active, "counts": counts})
 
 
 def workspace_sync_files(workspace: Path) -> list[str]:

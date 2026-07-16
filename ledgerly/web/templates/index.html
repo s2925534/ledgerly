@@ -567,6 +567,21 @@
       </div>
       <p id="db-message" class="small" hidden></p>
     </details>
+
+    <details id="db-backend-details" class="detail-box">
+      <summary class="link">Secondary database backend (optional MariaDB/PostgreSQL)</summary>
+      <p class="muted small">SQLite stays the always-on, zero-config default. A secondary backend (configured via <code>LEDGERLY_DB_BACKEND</code> and per-backend env vars) is opt-in and never activates automatically — this panel is where you decide.</p>
+      <div class="zotero-link-actions">
+        <button id="db-backend-status-btn" type="button" class="secondary">Check status</button>
+        <button id="db-backend-activate-btn" type="button" class="secondary">Activate configured backend</button>
+        <button id="db-backend-deactivate-btn" type="button" class="secondary">Deactivate</button>
+      </div>
+      <div class="zotero-link-actions">
+        <button id="db-repair-sqlite-btn" type="button" class="secondary">Repair SQLite from backend</button>
+        <button id="db-repair-backend-btn" type="button" class="secondary">Repair backend from SQLite</button>
+      </div>
+      <p id="db-backend-message" class="small" hidden></p>
+    </details>
   </section>
 
   <section class="panel">

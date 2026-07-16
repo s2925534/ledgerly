@@ -28,3 +28,6 @@ TODO.html
 
 # Personal deployment notes (real domain/host details) — see docs/DEPLOY.md.
 docs/DEPLOY.personal.md
+
+# Personal domain-shopping notes (rename candidates, not project content).
+/DOMAIN_SEARCH_*.md

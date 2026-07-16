@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ledgerly"
-version = "0.11.40"
+version = "0.11.41"
 description = "Local-first, evidence-first research workspace engine and CLI."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -29,6 +29,15 @@ dev = [
   "pytest>=8.0.0",
   "pytest-cov>=5.0.0",
   "httpx>=0.27.0",
+]
+# Optional secondary database backends (Phase 24). SQLite stays the
+# always-on, zero-config default with zero new required dependencies;
+# these are only imported if LEDGERLY_DB_BACKEND selects one.
+postgres = [
+  "psycopg2-binary>=2.9.0",
+]
+mariadb = [
+  "PyMySQL>=1.1.0",
 ]
 
 [project.scripts]
