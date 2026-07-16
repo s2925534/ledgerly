@@ -1,0 +1,31 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: python -m pip install -e ".[dev]"
+
+      - name: Run full deterministic (non-AI) test suite
+        # Deliberately does not set OPENAI_API_KEY, SCOPUS_API_KEY, or any
+        # other AI/paid-external-API credential in this job's environment.
+        # Per AGENTS.md Core Rule item 1 ("the deterministic core must
+        # always work with zero AI configured"), CI proving this holds is
+        # the point of running here at all, not an oversight to fix later.
+        # tests/test_zero_ai_smoke.py is the dedicated smoke pass for this;
+        # every AI-touching test in the suite mocks its own network call,
+        # so no real credentials are needed to run the suite in full.
+        run: python -m pytest -q
