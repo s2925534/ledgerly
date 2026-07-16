@@ -236,6 +236,26 @@ function statusBadgeHtml(status) {
   return `<span class="candidate-status ${statusBadgeClass(status)}">${escapeHtml(label)}</span>`;
 }
 
+// A visual traffic-light for the deterministic grounding-check result
+// (Phase 27's `grounding` field) -- green/yellow/red derived from
+// `fully_grounded`/`uncited_paragraph_count`, never a new AI judgment call.
+function groundingBadgeHtml(grounding) {
+  if (!grounding) return "";
+  let cls;
+  let label;
+  if (!grounding.fully_grounded) {
+    cls = "rejected";
+    label = `${grounding.ungrounded_citations.length} ungrounded citation(s)`;
+  } else if (grounding.uncited_paragraph_count) {
+    cls = "warning";
+    label = `${grounding.uncited_paragraph_count} uncited paragraph(s)`;
+  } else {
+    cls = "accepted";
+    label = "fully grounded";
+  }
+  return `<span class="candidate-status ${cls}" title="Deterministic grounding check (Phase 27)">${escapeHtml(label)}</span>`;
+}
+
 // --- upload (drag-and-drop + browse) ---
 
 function setupDropzone() {
@@ -653,7 +673,7 @@ async function runAiAction() {
     messageEl.hidden = true;
     const text = result.review || result.assessment || result.report || "";
     const grounding = result.grounding;
-    let warningHtml = "";
+    let warningHtml = grounding ? `<p class="small">${groundingBadgeHtml(grounding)}</p>` : "";
     if (grounding && !grounding.fully_grounded) {
       warningHtml += `<p class="small error">Grounding warning: ${grounding.ungrounded_citations.length} citation(s) reference an ID not present in the supplied context -- verify manually before trusting them.</p>`;
     }
@@ -682,17 +702,17 @@ async function refreshAiUsageLog() {
     emptyEl.hidden = entries.length > 0;
     for (const entry of entries) {
       const row = document.createElement("tr");
-      const grounded =
+      const groundedBadge =
         entry.grounding_fully_grounded === null || entry.grounding_fully_grounded === undefined
-          ? "n/a"
+          ? `<span class="candidate-status neutral">n/a</span>`
           : entry.grounding_fully_grounded
-          ? "yes"
-          : "no";
+          ? `<span class="candidate-status accepted">yes</span>`
+          : `<span class="candidate-status rejected">no</span>`;
       row.innerHTML = `
         <td>${escapeHtml(entry.timestamp || "")}</td>
         <td>${escapeHtml(entry.kind || "")}</td>
         <td>${entry.ai_used ? "yes" : "no"}</td>
-        <td>${escapeHtml(grounded)}</td>
+        <td>${groundedBadge}</td>
         <td>${escapeHtml(entry.model || "")}</td>
       `;
       tbody.appendChild(row);
