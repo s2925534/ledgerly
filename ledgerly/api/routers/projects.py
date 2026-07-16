@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 from ledgerly.api.deps import resolve_workspace
 from ledgerly.api.envelope import ApiError, ok
-from ledgerly.engine.health import workspace_health_report
+from ledgerly.engine.health import corpus_dashboard_summary, workspace_health_report
 from ledgerly.engine.sources import source_counts
 from ledgerly.engine.workspace import DEFAULT_CITATION_STYLE, init_workspace
 
@@ -24,6 +24,11 @@ def project_status(workspace: Path = Depends(resolve_workspace)) -> dict[str, An
 @router.get("/health")
 def project_health(workspace: Path = Depends(resolve_workspace)) -> dict[str, Any]:
     return ok(workspace_health_report(workspace))
+
+
+@router.get("/dashboard")
+def project_dashboard(workspace: Path = Depends(resolve_workspace)) -> dict[str, Any]:
+    return ok(corpus_dashboard_summary(workspace))
 
 
 class ResearchQuestionInit(BaseModel):

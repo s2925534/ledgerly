@@ -116,6 +116,14 @@ Engine source:
 
 - `ledgerly.engine.health.workspace_health_report`
 
+### `GET /api/v1/projects/dashboard` (implemented)
+
+Returns at-a-glance corpus stats for the web UI landing page: source counts by status, claim counts by status, artefact count, open (candidate + approved) research question count, and `days_since_last_activity` (derived from the newest mtime among the workspace's core YAML/Markdown files, or `null` if none exist yet).
+
+Engine source:
+
+- `ledgerly.engine.health.corpus_dashboard_summary`
+
 ## Source Routes
 
 ### `GET /api/v1/sources` (implemented)

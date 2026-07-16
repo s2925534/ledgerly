@@ -377,19 +377,29 @@ async function applyCrossReferenceLinks() {
 async function refreshDashboard() {
   const statsEl = document.getElementById("dashboard-stats");
   try {
-    const counts = await api("GET", "/api/v1/projects/status");
+    const summary = await api("GET", "/api/v1/projects/dashboard");
+    const sourceCounts = summary.source_counts || {};
+    const claimCounts = summary.claim_counts || {};
+    const lastActivityLabel =
+      summary.days_since_last_activity == null
+        ? "no activity yet"
+        : summary.days_since_last_activity === 0
+          ? "today"
+          : `${summary.days_since_last_activity}d ago`;
     const tiles = [
-      ["total", "Total"],
-      ["pending_review", "Pending review"],
-      ["accepted", "Accepted"],
-      ["maybe", "Maybe"],
-      ["ignored", "Ignored"],
+      ["Sources", sourceCounts.total || 0],
+      ["Pending review", sourceCounts.pending_review || 0],
+      ["Accepted", sourceCounts.accepted || 0],
+      ["Claims", claimCounts.total || 0],
+      ["Artefacts", summary.artefact_count || 0],
+      ["Open RQs", summary.open_research_question_count || 0],
+      ["Last activity", lastActivityLabel],
     ];
     statsEl.innerHTML = tiles
       .map(
-        ([key, label]) => `
+        ([label, value]) => `
         <div class="stat-tile">
-          <span class="stat-value">${counts[key] || 0}</span>
+          <span class="stat-value">${escapeHtml(String(value))}</span>
           <span class="stat-label">${escapeHtml(label)}</span>
         </div>`
       )

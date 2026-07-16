@@ -75,6 +75,14 @@ def test_project_status_and_health_use_shared_engine_functions(client: TestClien
     assert health_response.status_code == 200
     assert health_response.json()["ok"] is True
 
+    dashboard_response = client.get("/api/v1/projects/dashboard", params={"workspace": str(workspace)})
+    assert dashboard_response.status_code == 200
+    dashboard_data = dashboard_response.json()["data"]
+    assert dashboard_data["artefact_count"] == 0
+    assert dashboard_data["open_research_question_count"] == 0
+    assert "source_counts" in dashboard_data
+    assert "claim_counts" in dashboard_data
+
 
 def test_project_init_creates_workspace_via_api(client: TestClient, tmp_path: Path) -> None:
     workspace = tmp_path / "new-workspace"
