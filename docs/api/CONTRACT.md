@@ -1128,9 +1128,25 @@ Every route in this section shares the same server-side credential rule: the Ope
 
 Every route also shares the same safe-context boundary already enforced by `engine.ai.build_safe_context`: original files, whole PDFs/CSVs/SQLite databases, and full documents are excluded by construction — only per-source excerpts capped at `max_excerpt_chars` are sent. None of these routes needs a `--full-file-ai`/`--directory-ai`-style extra opt-in, because none of their CLI equivalents use one, with two explicit exceptions below (`ai-query-plan`, `ai-candidate-review`) that need an *additional* `external_search: true` opt-in, matching their CLI's `--ai --external-search`.
 
-Common response envelope fields most routes share (already returned by every `engine.ai` function): `version`, `kind`, `provider` (`"openai"`), `model`, `ai_used`, `requires_user_review`, `safe_context_policy` (echoes `build_safe_context`'s `policy` block), `limits` (echoes `max_sources`/`max_excerpt_chars` actually applied), `source_count`, `response_id` (the OpenAI response id, for audit trail — never the raw response body). None of these routes modify any artefact, source, or claim document; where the CLI equivalent writes a side-effect file (novelty ledger), the route below says so explicitly. Unlike the CLI, no route writes an `outputs/` YAML file — the caller receives the same content in the response body and decides whether to persist it.
+Common response envelope fields most routes share (already returned by every `engine.ai` function): `version`, `kind`, `provider` (`"openai"`), `model`, `ai_used`, `requires_user_review`, `safe_context_policy` (echoes `build_safe_context`'s `policy` block), `limits` (echoes `max_sources`/`max_excerpt_chars` actually applied), `source_count`, `response_id` (the OpenAI response id, for audit trail — never the raw response body), `grounding` (see below). None of these routes modify any artefact, source, or claim document; where the CLI equivalent writes a side-effect file (novelty ledger), the route below says so explicitly. Unlike the CLI, no route writes an `outputs/` YAML file — the caller receives the same content in the response body and decides whether to persist it.
 
-Per AGENTS.md's "Core Rule: No Hallucinations," every `engine.ai` function also returns `insufficient_evidence: bool` and, when true, `insufficient_evidence_reason: string`: when the safe context has no source with a usable excerpt (or, for the workspace-report routes, when the whole payload — sources, claims, artefacts, and abstract/external candidates — is empty), the function returns this immediately with `ai_used: false` and `response_id: null` **without calling OpenAI at all**. Every route below inherits this for free. Still not implemented: per-claim traceable grounding back to specific source/artefact/claim IDs within a *non*-insufficient-evidence response — that's a larger, separate piece (chunk-level derived-text anchors, AGENTS.md Core Rule item 6) tracked in `TODO.md` Phase 27/31.
+Per AGENTS.md's "Core Rule: No Hallucinations," every `engine.ai` function also returns `insufficient_evidence: bool` and, when true, `insufficient_evidence_reason: string`: when the safe context has no source with a usable excerpt (or, for the workspace-report routes, when the whole payload — sources, claims, artefacts, and abstract/external candidates — is empty), the function returns this immediately with `ai_used: false`, `response_id: null`, and `grounding: null` **without calling OpenAI at all**. Every route below inherits this for free.
+
+**Grounding-check mechanism** (implemented 2026-07-16, `ledgerly.engine.grounding`, TODO.md Phase 27): every prompt built by `engine.ai` (review, novelty, RQ assessment, all 8 workspace-report kinds, citation-plan review) appends a fixed instruction requiring the model to mark every factual assertion with an inline citation of the exact form `[[source:<id>]]`, `[[claim:<id>]]`, `[[artefact:<id>]]`, or `[[note:<id>]]`, using only IDs that were actually present in the context sent to it. After the response comes back, `validate_grounding` deterministically (no second AI call) checks every marker found against the real IDs that were genuinely available for that request and returns:
+
+```json
+{
+  "version": 1,
+  "citations_found": 2,
+  "grounded_citations": [{"type": "source", "id": "src-001"}],
+  "ungrounded_citations": [{"type": "source", "id": "src-999"}],
+  "fully_grounded": false,
+  "uncited_paragraph_count": 1,
+  "uncited_paragraphs": ["A sentence with no citation marker at all."]
+}
+```
+
+`fully_grounded: false` means at least one citation marker referenced an ID the model was never actually given — the concrete, auditable signal that a claim traces back to real workspace state rather than being self-asserted (AGENTS.md Core Rule item 2). `uncited_paragraph_count` is a softer coverage signal (content with no citation marker at all, excluding markdown headings) surfaced for human review, not a hard failure. `grounding` is `null` only when `insufficient_evidence: true` (no text was generated to check). Clients should treat a non-`fully_grounded` or non-zero-`uncited_paragraph_count` response the same way the CLI does: print/display a visible warning alongside `requires_user_review`, never silently accept the text. Still not implemented: chunk-level (paragraph/sentence anchor, not whole-excerpt) citation precision — that's a larger, separate piece (`engine/derived_text.py` anchors, AGENTS.md Core Rule item 6) tracked for Phase 31's per-suggestion source popups, not claimed here.
 
 ### `POST /api/v1/ai/test` (implemented)
 
@@ -1198,6 +1214,7 @@ Rules (all AI routes):
 - Must never upload whole PDFs, CSVs, SQLite databases, or original documents — only `build_safe_context` excerpts, capped at the requested `max_excerpt_chars`.
 - Must preserve the Zotero no-write boundary.
 - Must return the response's `requires_user_review: true` field on every success response that isn't `insufficient_evidence` — these are advisory outputs, never auto-applied.
+- Must return the `grounding` field described above on every response and must never silently drop a non-`fully_grounded` result — clients must be able to detect and surface an ungrounded/fabricated citation.
 
 ## Forbidden Routes
 

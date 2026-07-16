@@ -545,8 +545,19 @@ def _print_ai_review_footer(report: dict, review_required_message: str) -> None:
     """
     if report.get("insufficient_evidence"):
         console.print(f"[yellow]Insufficient evidence.[/yellow] {report['insufficient_evidence_reason']}")
-    else:
-        console.print(f"[yellow]{review_required_message}[/yellow]")
+        return
+    console.print(f"[yellow]{review_required_message}[/yellow]")
+    grounding = report.get("grounding")
+    if grounding and not grounding.get("fully_grounded", True):
+        console.print(
+            f"[red]Grounding warning:[/red] {len(grounding.get('ungrounded_citations', []))} citation(s) "
+            "reference an ID not present in the supplied context -- verify manually before trusting them."
+        )
+    if grounding and grounding.get("uncited_paragraph_count"):
+        console.print(
+            f"[yellow]{grounding['uncited_paragraph_count']} paragraph(s) have no citation marker at all "
+            "-- treat as unsupported until verified.[/yellow]"
+        )
 
 
 
@@ -972,6 +983,12 @@ def cite_ai_plan(
     if not quiet:
         console.print(f"[green]AI citation plan:[/green] {deterministic.markdown_path}")
         console.print("[yellow]Original document was not modified. Human review is required.[/yellow]")
+        grounding = ai_review.get("grounding")
+        if grounding and not grounding.get("fully_grounded", True):
+            console.print(
+                f"[red]Grounding warning:[/red] {len(grounding.get('ungrounded_citations', []))} citation(s) "
+                "reference an ID not present in the supplied context -- verify manually before trusting them."
+            )
 
 
 @cite_app.command("review")

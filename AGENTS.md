@@ -62,6 +62,11 @@ source .venv/bin/activate
 python -m pytest
 ```
 
+## Git / CI Workflow
+
+- Only push to the remote once a day, around 2am, to keep GitHub Actions minutes low. Batch commits locally throughout the day and push them together at that time rather than pushing after every commit.
+- If the user explicitly asks for an immediate push (e.g. a hotfix), that overrides this default.
+
 ## Code Organization
 
 - `ledgerly/core`: low-level helpers, constants, YAML I/O, logging.

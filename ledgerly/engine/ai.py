@@ -9,6 +9,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from ledgerly.core.yamlio import read_yaml, write_yaml
+from ledgerly.engine.grounding import citation_instruction, validate_grounding
 
 
 OPENAI_API_BASE_URL = "https://api.openai.com/v1"
@@ -426,6 +427,7 @@ def _insufficient_evidence_response(kind: str, context: dict[str, Any]) -> dict[
         "limits": context["limits"],
         "source_count": len(context["sources"]),
         "response_id": None,
+        "grounding": None,
     }
 
 
@@ -435,6 +437,7 @@ def _review_prompt(context: dict[str, Any]) -> str:
         "Use only the provided safe context. Do not infer from unavailable full documents. "
         "Do not claim novelty or evidence strength certainty. Return concise markdown with sections: "
         "Scope, Useful Signals, Evidence Gaps, Source Follow-up, Human Review Required.\n\n"
+        f"{citation_instruction()}\n\n"
         f"Safe context JSON:\n{json.dumps(context, ensure_ascii=False, indent=2)}"
     )
 
@@ -475,6 +478,7 @@ def ai_assisted_review(
         "source_count": len(context["sources"]),
         "response_id": response.get("id") if isinstance(response, dict) else None,
         "review": review_text,
+        "grounding": validate_grounding(review_text, context=context),
     }
 
 
@@ -485,6 +489,7 @@ def _novelty_prompt(context: dict[str, Any], research_questions: dict[str, Any])
         "Identify possible novelty signals, likely overlaps, missing evidence, and follow-up checks. "
         "Return concise markdown with sections: Assessment Boundary, Possible Novelty Signals, "
         "Likely Overlaps, Missing Evidence, Follow-up Checks, Human Review Required.\n\n"
+        f"{citation_instruction()}\n\n"
         f"Research questions JSON:\n{json.dumps(research_questions, ensure_ascii=False, indent=2)}\n\n"
         f"Safe context JSON:\n{json.dumps(context, ensure_ascii=False, indent=2)}"
     )
@@ -545,6 +550,7 @@ def ai_novelty_assessment(
         "research_question_count": len(research_questions["approved"]) + len(research_questions["candidates"]),
         "response_id": response.get("id") if isinstance(response, dict) else None,
         "assessment": assessment_text,
+        "grounding": validate_grounding(assessment_text, context=context),
     }
     _append_novelty_assessment(
         workspace,
@@ -570,6 +576,7 @@ def _rq_assessment_prompt(context: dict[str, Any], research_questions: dict[str,
         "or evidence quality are proven. Assess likely strengths, weaknesses, scope risks, evidence fit, "
         "field usefulness signals, and follow-up revisions. Return concise markdown with one section per "
         "research question and a final Human Review Required section.\n\n"
+        f"{citation_instruction()}\n\n"
         f"Requested research question id: {rq_id or 'all'}\n\n"
         f"Research questions JSON:\n{json.dumps(research_questions, ensure_ascii=False, indent=2)}\n\n"
         f"Safe context JSON:\n{json.dumps(context, ensure_ascii=False, indent=2)}"
@@ -640,6 +647,7 @@ def ai_research_question_assessment(
         "rq_id": rq_id,
         "response_id": response.get("id") if isinstance(response, dict) else None,
         "assessment": assessment_text,
+        "grounding": validate_grounding(assessment_text, context=context),
     }
 
 
@@ -721,6 +729,7 @@ def _workspace_report_prompt(kind: str, payload: dict[str, Any]) -> str:
         "Use only the supplied safe context and workspace state. Do not claim certainty, do not modify statuses, "
         "and cite source IDs when referring to sources. Return concise markdown with sections: "
         f"{spec['sections']}.\n\n"
+        f"{citation_instruction()}\n\n"
         f"Workspace payload JSON:\n{json.dumps(payload, ensure_ascii=False, indent=2)}"
     )
 
@@ -775,6 +784,9 @@ def ai_workspace_report(
         + len(payload["research_questions"]["candidates"]),
         "response_id": response.get("id") if isinstance(response, dict) else None,
         "report": text,
+        "grounding": validate_grounding(
+            text, context=context, claims=payload["claims"], artefacts=payload["artefacts"]
+        ),
     }
 
 
@@ -791,6 +803,7 @@ def ai_citation_plan_review(
         "You are assisting with citation insertion for a local-first, evidence-first research workspace.\n"
         "Use the supplied target document text and deterministic citation plan. Do not edit the document directly. "
         "Propose inline citation locations, link each insertion to evidence source IDs, explain confidence, and require human review.\n\n"
+        f"{citation_instruction()}\n\n"
         f"Deterministic citation plan JSON:\n{json.dumps(citation_plan, ensure_ascii=False, indent=2)}\n\n"
         f"Target document text:\n{target_text}"
     )
@@ -800,6 +813,10 @@ def ai_citation_plan_review(
         {"model": model, "input": prompt},
         opener=opener,
     )
+    recommendations_text = extract_response_text(response)
+    plan_source_ids = [
+        item.get("source_id") for item in citation_plan.get("insertions", []) if isinstance(item, dict)
+    ]
     return {
         "provider": "openai",
         "model": model,
@@ -807,5 +824,6 @@ def ai_citation_plan_review(
         "requires_user_review": True,
         "original_document_modified": False,
         "response_id": response.get("id") if isinstance(response, dict) else None,
-        "recommendations": extract_response_text(response),
+        "recommendations": recommendations_text,
+        "grounding": validate_grounding(recommendations_text, source_ids=plan_source_ids),
     }

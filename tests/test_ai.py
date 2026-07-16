@@ -273,8 +273,11 @@ def test_ai_assisted_review_uses_safe_context_and_requires_human_review(tmp_path
     set_source_status(workspace, source_id=source_id, new_status="accepted")
     convert_sources(workspace, status="accepted")
 
+    captured_bodies = []
+
     def opener(request: Request):
         body = json.loads(request.data.decode("utf-8"))
+        captured_bodies.append(body)
         assert body["model"] == "gpt-4o-mini"
         assert "bounded evidence text" in body["input"]
         assert str(source_file) not in body["input"]
@@ -293,6 +296,12 @@ def test_ai_assisted_review_uses_safe_context_and_requires_human_review(tmp_path
     assert report["requires_user_review"] is True
     assert report["review"] == "Review result"
     assert "sk-secret" not in str(report)
+    # Grounding-check mechanism (TODO.md Phase 27): the prompt must instruct the
+    # model to cite, and the deterministic post-check must run over the response.
+    assert "[[source:" in captured_bodies[0]["input"]
+    assert report["grounding"]["fully_grounded"] is True
+    assert report["grounding"]["citations_found"] == 0
+    assert report["grounding"]["uncited_paragraph_count"] == 1
 
 
 def test_ai_assisted_review_returns_insufficient_evidence_without_calling_ai(tmp_path: Path) -> None:
@@ -313,6 +322,7 @@ def test_ai_assisted_review_returns_insufficient_evidence_without_calling_ai(tmp
     assert report["ai_used"] is False
     assert report["response_id"] is None
     assert "review" not in report
+    assert report["grounding"] is None
 
 
 def test_ai_novelty_assessment_writes_ledger_without_claiming_proof(tmp_path: Path) -> None:
@@ -338,7 +348,9 @@ def test_ai_novelty_assessment_writes_ledger_without_claiming_proof(tmp_path: Pa
         assert "How does local evidence tracking affect review quality?" in body["input"]
         assert "bounded novelty context" in body["input"]
         assert str(source_file) not in body["input"]
-        return FakeResponse({"id": "resp_novelty", "output_text": "Novelty assessment"})
+        return FakeResponse(
+            {"id": "resp_novelty", "output_text": f"Novelty assessment [[source:{source_id}]]"}
+        )
 
     report = ai_novelty_assessment(
         workspace,
@@ -351,8 +363,11 @@ def test_ai_novelty_assessment_writes_ledger_without_claiming_proof(tmp_path: Pa
     ledger = read_yaml(workspace / "novelty-ledger.yaml")
     assert report["kind"] == "ai_assisted_novelty_assessment"
     assert report["requires_user_review"] is True
+    # A citation to a real source ID that was actually in the safe context is grounded.
+    assert report["grounding"]["fully_grounded"] is True
+    assert report["grounding"]["grounded_citations"] == [{"type": "source", "id": source_id}]
     assert report["novelty_not_proven"] is True
-    assert report["assessment"] == "Novelty assessment"
+    assert report["assessment"] == f"Novelty assessment [[source:{source_id}]]"
     assert ledger["assessments"][0]["id"] == "novelty-001"
     assert ledger["assessments"][0]["novelty_not_proven"] is True
     assert "sk-secret" not in str(report)
@@ -374,6 +389,7 @@ def test_ai_novelty_assessment_returns_insufficient_evidence_without_calling_ai_
     assert report["insufficient_evidence"] is True
     assert report["ai_used"] is False
     assert report["novelty_not_proven"] is True
+    assert report["grounding"] is None
     assert not (workspace / "novelty-ledger.yaml").exists() or not read_yaml(workspace / "novelty-ledger.yaml").get(
         "assessments"
     )
@@ -406,7 +422,8 @@ def test_ai_research_question_assessment_can_target_one_question(tmp_path: Path)
         assert "rq-002" not in body["input"]
         assert "bounded RQ context" in body["input"]
         assert str(source_file) not in body["input"]
-        return FakeResponse({"id": "resp_rq", "output_text": "RQ assessment"})
+        # A fabricated source ID the model was never actually given.
+        return FakeResponse({"id": "resp_rq", "output_text": "RQ assessment [[source:src-hallucinated]]"})
 
     report = ai_research_question_assessment(
         workspace,
@@ -421,7 +438,11 @@ def test_ai_research_question_assessment_can_target_one_question(tmp_path: Path)
     assert report["requires_user_review"] is True
     assert report["novelty_not_proven"] is True
     assert report["research_question_count"] == 1
-    assert report["assessment"] == "RQ assessment"
+    assert report["assessment"] == "RQ assessment [[source:src-hallucinated]]"
+    # The deterministic grounding-check catches a citation to an ID that was
+    # never actually in the safe context (AGENTS.md Core Rule item 2).
+    assert report["grounding"]["fully_grounded"] is False
+    assert report["grounding"]["ungrounded_citations"] == [{"type": "source", "id": "src-hallucinated"}]
 
 
 def test_ai_research_question_assessment_rejects_unknown_question(tmp_path: Path) -> None:
@@ -455,6 +476,7 @@ def test_ai_research_question_assessment_returns_insufficient_evidence_without_c
     assert report["insufficient_evidence"] is True
     assert report["ai_used"] is False
     assert report["research_question_count"] == 1
+    assert report["grounding"] is None
 
 
 def test_ai_workspace_report_uses_safe_context_and_does_not_change_statuses(tmp_path: Path) -> None:
@@ -474,7 +496,7 @@ def test_ai_workspace_report_uses_safe_context_and_does_not_change_statuses(tmp_
         assert "bounded report context" in body["input"]
         assert str(source_file) not in body["input"]
         assert "do not modify statuses" in body["input"].lower()
-        return FakeResponse({"id": "resp_report", "output_text": "Corpus summary"})
+        return FakeResponse({"id": "resp_report", "output_text": f"Corpus summary [[source:{source_id}]]"})
 
     report = ai_workspace_report(
         workspace,
@@ -488,8 +510,10 @@ def test_ai_workspace_report_uses_safe_context_and_does_not_change_statuses(tmp_
     assert report["kind"] == "corpus_summary"
     assert report["status_changes_applied"] is False
     assert report["requires_user_review"] is True
-    assert report["report"] == "Corpus summary"
+    assert report["report"] == f"Corpus summary [[source:{source_id}]]"
     assert read_yaml(workspace / "source-register.yaml")["sources"][0]["status"] == "accepted"
+    assert report["grounding"]["fully_grounded"] is True
+    assert report["grounding"]["grounded_citations"] == [{"type": "source", "id": source_id}]
 
 
 def test_ai_workspace_report_rejects_unknown_kind(tmp_path: Path) -> None:
@@ -519,6 +543,7 @@ def test_ai_workspace_report_returns_insufficient_evidence_without_calling_ai(tm
     assert report["ai_used"] is False
     assert report["kind"] == "corpus_summary"
     assert report["status_changes_applied"] is False
+    assert report["grounding"] is None
 
 
 def test_ai_abstract_screening_uses_candidate_register_without_status_changes(tmp_path: Path) -> None:
@@ -585,7 +610,9 @@ def test_ai_citation_plan_review_returns_review_only_recommendations(tmp_path: P
         body = json.loads(request.data.decode("utf-8"))
         assert "Target document text" in body["input"]
         assert "source-001" in body["input"]
-        return FakeResponse({"id": "resp_cite", "output_text": "Insert citation after sentence one."})
+        return FakeResponse(
+            {"id": "resp_cite", "output_text": "Insert citation after sentence one [[source:source-001]]."}
+        )
 
     report = ai_citation_plan_review(
         workspace,
@@ -598,4 +625,7 @@ def test_ai_citation_plan_review_returns_review_only_recommendations(tmp_path: P
     assert report["ai_used"] is True
     assert report["requires_user_review"] is True
     assert report["original_document_modified"] is False
-    assert report["recommendations"] == "Insert citation after sentence one."
+    assert report["recommendations"] == "Insert citation after sentence one [[source:source-001]]."
+    # citable IDs come from the deterministic citation plan's insertions, not build_safe_context.
+    assert report["grounding"]["fully_grounded"] is True
+    assert report["grounding"]["grounded_citations"] == [{"type": "source", "id": "source-001"}]
