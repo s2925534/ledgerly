@@ -115,10 +115,69 @@ async function loadUploadLimits() {
     `Allowed types: ${limits.allowed_extensions.join(", ")}.`;
 }
 
+state.uploadsView = "list";
+
 async function refreshUploads() {
   const uploads = await api("GET", "/api/v1/artefacts/uploads");
   state.uploads = uploads;
   renderUploadsTable(uploads);
+  renderUploadsGallery(uploads);
+}
+
+const GALLERY_TYPE_ICONS = {
+  ".pdf": "\u{1F4C4}",
+  ".doc": "\u{1F4C4}",
+  ".docx": "\u{1F4C4}",
+  ".txt": "\u{1F4C4}",
+  ".md": "\u{1F4C4}",
+  ".csv": "\u{1F4CA}",
+  ".json": "\u{1F4CA}",
+  ".xlsx": "\u{1F4CA}",
+  ".xls": "\u{1F4CA}",
+  ".ppt": "\u{1F4D1}",
+  ".pptx": "\u{1F4D1}",
+};
+const GALLERY_DEFAULT_ICON = "\u{1F4C4}";
+
+function setUploadsView(view) {
+  state.uploadsView = view;
+  document.getElementById("uploads-table").hidden = view !== "list";
+  document.getElementById("uploads-gallery").hidden = view !== "gallery";
+  document.getElementById("uploads-view-list-btn").disabled = view === "list";
+  document.getElementById("uploads-view-gallery-btn").disabled = view === "gallery";
+}
+
+function renderUploadsGallery(uploads) {
+  const galleryEl = document.getElementById("uploads-gallery");
+  galleryEl.innerHTML = uploads
+    .map((upload) => {
+      const ext = extensionOf(upload.renamed_file_name || "");
+      const label = upload.title || upload.original_file_name || upload.renamed_file_name || "";
+      let thumbHtml;
+      if (IMAGE_PREVIEW_EXTENSIONS.has(ext)) {
+        const fileUrl = apiUrl(`/api/v1/artefacts/uploads/${encodeURIComponent(upload.upload_id)}/file`);
+        thumbHtml = `<img src="${fileUrl}" alt="" loading="lazy">`;
+      } else {
+        thumbHtml = `<span class="gallery-icon">${GALLERY_TYPE_ICONS[ext] || GALLERY_DEFAULT_ICON}</span>`;
+      }
+      return `
+        <div class="gallery-tile" data-upload-id="${escapeHtml(upload.upload_id)}" tabindex="0" role="button">
+          <div class="gallery-thumb">${thumbHtml}</div>
+          <div class="gallery-title">${escapeHtml(label)}</div>
+        </div>`;
+    })
+    .join("");
+  galleryEl.querySelectorAll(".gallery-tile").forEach((tile) => {
+    const upload = uploads.find((u) => u.upload_id === tile.dataset.uploadId);
+    if (!upload) return;
+    tile.addEventListener("click", () => openPreview(upload));
+    tile.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        openPreview(upload);
+      }
+    });
+  });
 }
 
 function renderUploadsTable(uploads) {
@@ -2493,6 +2552,9 @@ function setupCreateWorkspacePanel() {
 
 document.addEventListener("DOMContentLoaded", () => {
   setupDropzone();
+  document.getElementById("uploads-view-list-btn").addEventListener("click", () => setUploadsView("list"));
+  document.getElementById("uploads-view-gallery-btn").addEventListener("click", () => setUploadsView("gallery"));
+  setUploadsView("list");
   setupModals();
   setupKeyboardShortcuts();
   setupZoteroPanel();

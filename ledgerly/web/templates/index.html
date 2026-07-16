@@ -391,12 +391,17 @@
 
   <section class="panel">
     <h2>Uploaded artefacts</h2>
+    <div class="zotero-link-actions">
+      <button id="uploads-view-list-btn" type="button" class="secondary">List view</button>
+      <button id="uploads-view-gallery-btn" type="button" class="secondary">Gallery view</button>
+    </div>
     <table id="uploads-table" class="data-table">
       <thead>
         <tr><th>Title</th><th>Original file</th><th>Renamed file</th><th>Cross-references</th><th></th></tr>
       </thead>
       <tbody id="uploads-tbody"></tbody>
     </table>
+    <div id="uploads-gallery" class="gallery-grid" hidden></div>
     <p id="uploads-empty" class="muted small" hidden>No artefacts uploaded yet — drag files into the "Upload artefacts" box above, or click "browse".</p>
   </section>
 
