@@ -1192,6 +1192,20 @@ async function showStaleClaimsReport() {
   }
 }
 
+async function showDuplicateClaimsReport() {
+  const messageEl = document.getElementById("claim-report-message");
+  messageEl.hidden = false;
+  messageEl.className = "small";
+  messageEl.textContent = "Checking...";
+  try {
+    const report = await api("GET", "/api/v1/claims/duplicates");
+    messageEl.textContent = `${report.duplicate_pair_count} likely duplicate claim pair(s) found (similarity >= ${report.threshold}). Deterministic text similarity only -- review each pair before merging or dismissing.`;
+  } catch (err) {
+    messageEl.textContent = err.message;
+    messageEl.classList.add("error");
+  }
+}
+
 async function refreshCitationRelationships() {
   const listEl = document.getElementById("relationships-list");
   const emptyEl = document.getElementById("relationships-empty");
@@ -1254,6 +1268,7 @@ function setupClaimsPanel() {
   document.getElementById("claim-gaps-btn").addEventListener("click", showClaimGapReport);
   document.getElementById("claim-validate-btn").addEventListener("click", showClaimValidationReport);
   document.getElementById("claim-stale-btn").addEventListener("click", showStaleClaimsReport);
+  document.getElementById("claim-duplicates-btn").addEventListener("click", showDuplicateClaimsReport);
 }
 
 // --- citation planning ---

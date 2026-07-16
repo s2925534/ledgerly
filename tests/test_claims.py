@@ -1,16 +1,20 @@
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import pytest
+
 from ledgerly.core.yamlio import read_yaml
 from ledgerly.core.yamlio import write_yaml
 from ledgerly.engine.claims import (
     add_claim,
     citation_gap_claims,
     claim_source_validation_report,
+    find_duplicate_claims,
     list_claims,
     set_claim_status,
     stale_claims,
     write_citation_gap_report,
+    write_duplicate_claims_report,
     write_stale_claims_report,
 )
 from ledgerly.engine.workspace import init_workspace
@@ -94,3 +98,59 @@ def test_stale_claims_report(tmp_path: Path) -> None:
     assert report["days_threshold"] == 14
     assert report["stale_count"] == 2
     assert report["citation_gap_count"] == 1
+
+
+def test_find_duplicate_claims_flags_near_identical_text(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test Project", project_type="M.Phil", topic="")
+
+    a = add_claim(workspace, text="Container automation reduces berth turnaround time significantly.")
+    b = add_claim(workspace, text="Container automation reduces berth turnaround time significantly!")
+    add_claim(workspace, text="A completely unrelated finding about something else entirely.")
+
+    pairs = find_duplicate_claims(workspace)
+
+    assert len(pairs) == 1
+    assert {pairs[0]["claim_id_a"], pairs[0]["claim_id_b"]} == {a["id"], b["id"]}
+    assert pairs[0]["similarity"] > 0.9
+
+
+def test_find_duplicate_claims_respects_threshold(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test Project", project_type="M.Phil", topic="")
+    add_claim(workspace, text="Automation improves throughput at container terminals.")
+    add_claim(workspace, text="Automation improves efficiency at shipping ports.")
+
+    assert find_duplicate_claims(workspace, threshold=0.99) == []
+    assert len(find_duplicate_claims(workspace, threshold=0.5)) == 1
+
+
+def test_find_duplicate_claims_rejects_invalid_threshold(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test Project", project_type="M.Phil", topic="")
+    with pytest.raises(ValueError, match="threshold"):
+        find_duplicate_claims(workspace, threshold=0)
+    with pytest.raises(ValueError, match="threshold"):
+        find_duplicate_claims(workspace, threshold=1.5)
+
+
+def test_find_duplicate_claims_ignores_blank_text(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test Project", project_type="M.Phil", topic="")
+    add_claim(workspace, text="")
+    add_claim(workspace, text="   ")
+    assert find_duplicate_claims(workspace) == []
+
+
+def test_write_duplicate_claims_report(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test Project", project_type="M.Phil", topic="")
+    add_claim(workspace, text="Automation reduces turnaround time at terminals.")
+    add_claim(workspace, text="Automation reduces turnaround time at terminals.")
+
+    output_path = write_duplicate_claims_report(workspace)
+    report = read_yaml(output_path)
+
+    assert report["duplicate_pair_count"] == 1
+    assert report["threshold"] == 0.85
+    assert len(report["pairs"]) == 1

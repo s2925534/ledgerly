@@ -377,6 +377,18 @@ Engine source:
 
 - `ledgerly.engine.claims.write_stale_claims_report`
 
+### `GET /api/v1/claims/duplicates?threshold=0.85` (implemented, 2026-07-17)
+
+Deterministic (non-AI) near-duplicate claim detection: every pair of claims whose text similarity ratio (`difflib.SequenceMatcher`, stdlib) meets or exceeds `threshold` (0 exclusive to 1 inclusive; `400 invalid_duplicate_threshold` outside that range). Flags pairs for human merge/dismiss review only — never merges, edits, or changes any claim itself.
+
+Response `data`: `{version, threshold, generated_at, duplicate_pair_count, pairs: [{claim_id_a, claim_id_b, similarity, text_a, text_b}]}`, highest similarity first.
+
+Engine source:
+
+- `ledgerly.engine.claims.write_duplicate_claims_report`
+
+CLI equivalent: `ledgerly claims duplicates --threshold`.
+
 ## Artefact Routes
 
 ### `GET /api/v1/artefacts` (implemented)

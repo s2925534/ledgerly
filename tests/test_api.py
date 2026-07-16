@@ -496,6 +496,35 @@ def test_claims_add_status_gaps_and_validate_via_api(client: TestClient, tmp_pat
     assert stale_data["stale_count"] == 0
 
 
+def test_claims_duplicates_route_finds_near_identical_pairs(client: TestClient, tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    client.post(
+        "/api/v1/claims", params={"workspace": str(workspace)}, json={"text": "Automation reduces turnaround time."}
+    )
+    client.post(
+        "/api/v1/claims", params={"workspace": str(workspace)}, json={"text": "Automation reduces turnaround time."}
+    )
+
+    response = client.get("/api/v1/claims/duplicates", params={"workspace": str(workspace)})
+
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["duplicate_pair_count"] == 1
+
+
+def test_claims_duplicates_route_rejects_invalid_threshold(client: TestClient, tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+
+    response = client.get(
+        "/api/v1/claims/duplicates", params={"workspace": str(workspace), "threshold": 1.5}
+    )
+
+    assert response.status_code == 400
+    assert response.json()["errors"][0]["code"] == "invalid_duplicate_threshold"
+
+
 def test_claims_status_unknown_id_returns_404(client: TestClient, tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")

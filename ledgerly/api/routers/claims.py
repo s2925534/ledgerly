@@ -10,11 +10,13 @@ from ledgerly.api.deps import resolve_workspace
 from ledgerly.api.envelope import ApiError, ok
 from ledgerly.core.yamlio import read_yaml
 from ledgerly.engine.claims import (
+    DEFAULT_DUPLICATE_SIMILARITY_THRESHOLD,
     add_claim,
     claim_source_validation_report,
     list_claims,
     set_claim_status,
     write_citation_gap_report,
+    write_duplicate_claims_report,
     write_stale_claims_report,
 )
 
@@ -76,4 +78,15 @@ def claims_validate(workspace: Path = Depends(resolve_workspace)) -> dict[str, A
 @router.get("/stale")
 def claims_stale(days: int = 14, workspace: Path = Depends(resolve_workspace)) -> dict[str, Any]:
     report_path = write_stale_claims_report(workspace, days=days)
+    return ok(read_yaml(report_path))
+
+
+@router.get("/duplicates")
+def claims_duplicates(
+    threshold: float = DEFAULT_DUPLICATE_SIMILARITY_THRESHOLD, workspace: Path = Depends(resolve_workspace)
+) -> dict[str, Any]:
+    try:
+        report_path = write_duplicate_claims_report(workspace, threshold=threshold)
+    except ValueError as exc:
+        raise ApiError("invalid_duplicate_threshold", str(exc)) from exc
     return ok(read_yaml(report_path))

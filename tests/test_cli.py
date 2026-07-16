@@ -1804,6 +1804,30 @@ def test_cli_claims_add_list_and_gaps(tmp_path: Path) -> None:
     assert (workspace / "outputs" / "validation" / "citation-gaps.yaml").is_file()
 
 
+def test_cli_claims_duplicates_writes_report(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test Project", project_type="M.Phil", topic="")
+    runner.invoke(app, ["claims", "add", "Automation reduces turnaround time.", "--workspace", str(workspace), "--quiet"])
+    runner.invoke(app, ["claims", "add", "Automation reduces turnaround time.", "--workspace", str(workspace), "--quiet"])
+
+    result = runner.invoke(app, ["claims", "duplicates", "--workspace", str(workspace), "--quiet"])
+
+    assert result.exit_code == 0, result.output
+    report = read_yaml(workspace / "outputs" / "validation" / "duplicate-claims.yaml")
+    assert report["duplicate_pair_count"] == 1
+
+
+def test_cli_claims_duplicates_rejects_invalid_threshold(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test Project", project_type="M.Phil", topic="")
+
+    result = runner.invoke(
+        app, ["claims", "duplicates", "--threshold", "1.5", "--workspace", str(workspace), "--quiet"]
+    )
+
+    assert result.exit_code == 2, result.output
+
+
 def test_cli_phase4_local_review_commands(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     source_root = tmp_path / "sources"

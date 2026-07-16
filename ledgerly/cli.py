@@ -35,11 +35,13 @@ from ledgerly.engine.artefact_creation import SUPPORTED_ARTEFACT_TYPES, create_d
 from ledgerly.engine.artefacts import artefact_dependency_report, list_artefacts, register_artefact, set_artefact_review_status
 from ledgerly.engine.backup import create_workspace_backup, inspect_backup
 from ledgerly.engine.claims import (
+    DEFAULT_DUPLICATE_SIMILARITY_THRESHOLD,
     add_claim,
     claim_source_validation_report,
     list_claims,
     set_claim_status,
     write_citation_gap_report,
+    write_duplicate_claims_report,
     write_stale_claims_report,
 )
 from ledgerly.engine.conversion import convert_sources, extract_text, ocr_readiness_report, processing_issue_report
@@ -3822,6 +3824,37 @@ def claims_stale(
     _slug, logger, summary, summary_path, _log_path = _run_ctx(["claims", "stale"], ws, log_level)
     output_path = write_stale_claims_report(ws, days=days)
     logger.info("Wrote stale claims report", operation="claims_stale", output_path=str(output_path), days=days)
+    _finish(summary, summary_path)
+    if not quiet:
+        console.print(f"[green]Wrote[/green] {output_path}")
+
+
+@claims_app.command("duplicates")
+def claims_duplicates(
+    threshold: float = typer.Option(
+        DEFAULT_DUPLICATE_SIMILARITY_THRESHOLD,
+        "--threshold",
+        help="Minimum text similarity ratio (0-1) to flag a pair as a likely duplicate.",
+    ),
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Write a local report of likely near-duplicate claim pairs (deterministic text similarity, no AI) for human merge/dismiss review."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["claims", "duplicates"], ws, log_level)
+    try:
+        output_path = write_duplicate_claims_report(ws, threshold=threshold)
+    except ValueError as e:
+        logger.error("Duplicate claims report failed", operation="claims_duplicates", error=str(e))
+        summary.errors += 1
+        _finish(summary, summary_path)
+        if not quiet:
+            console.print(f"[red]{e}[/red]")
+        raise typer.Exit(code=2)
+    logger.info(
+        "Wrote duplicate claims report", operation="claims_duplicates", output_path=str(output_path), threshold=threshold
+    )
     _finish(summary, summary_path)
     if not quiet:
         console.print(f"[green]Wrote[/green] {output_path}")

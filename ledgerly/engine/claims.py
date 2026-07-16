@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import difflib
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -141,6 +142,64 @@ def write_stale_claims_report(workspace: Path, *, days: int = 14) -> Path:
             "stale_count": len(claims),
             "citation_gap_count": sum(1 for claim in claims if claim["is_citation_gap"]),
             "claims": claims,
+        },
+    )
+    return output_path
+
+
+DEFAULT_DUPLICATE_SIMILARITY_THRESHOLD = 0.85
+
+
+def find_duplicate_claims(
+    workspace: Path, *, threshold: float = DEFAULT_DUPLICATE_SIMILARITY_THRESHOLD
+) -> list[dict[str, Any]]:
+    """Deterministic (non-AI) near-duplicate detection: every pair of claims
+    whose text similarity ratio (`difflib.SequenceMatcher`, stdlib, no new
+    dependency) meets or exceeds `threshold`. A hygiene signal for human
+    merge/dismiss review over a long project where the same finding can get
+    logged twice under slightly different wording -- never merges or
+    changes anything itself.
+    """
+    if not 0 < threshold <= 1:
+        raise ValueError("threshold must be between 0 (exclusive) and 1 (inclusive)")
+    claims = list_claims(workspace)
+    pairs: list[dict[str, Any]] = []
+    for index, claim_a in enumerate(claims):
+        text_a = str(claim_a.get("text") or "")
+        if not text_a.strip():
+            continue
+        for claim_b in claims[index + 1 :]:
+            text_b = str(claim_b.get("text") or "")
+            if not text_b.strip():
+                continue
+            similarity = difflib.SequenceMatcher(None, text_a, text_b).ratio()
+            if similarity >= threshold:
+                pairs.append(
+                    {
+                        "claim_id_a": claim_a.get("id"),
+                        "claim_id_b": claim_b.get("id"),
+                        "similarity": round(similarity, 4),
+                        "text_a": text_a,
+                        "text_b": text_b,
+                    }
+                )
+    pairs.sort(key=lambda pair: pair["similarity"], reverse=True)
+    return pairs
+
+
+def write_duplicate_claims_report(
+    workspace: Path, *, threshold: float = DEFAULT_DUPLICATE_SIMILARITY_THRESHOLD
+) -> Path:
+    pairs = find_duplicate_claims(workspace, threshold=threshold)
+    output_path = workspace / "outputs" / "validation" / "duplicate-claims.yaml"
+    write_yaml(
+        output_path,
+        {
+            "version": 1,
+            "threshold": threshold,
+            "generated_at": _utc_now(),
+            "duplicate_pair_count": len(pairs),
+            "pairs": pairs,
         },
     )
     return output_path
