@@ -12,7 +12,7 @@ from researchboss.api.auth import (
     create_session,
     extract_token,
     invalidate_session,
-    verify_password,
+    verify_credentials,
 )
 from researchboss.api.envelope import ApiError, ok
 
@@ -21,6 +21,7 @@ router = APIRouter()
 
 
 class LoginRequest(BaseModel):
+    username: str
     password: str
 
 
@@ -29,11 +30,11 @@ def login(payload: LoginRequest, response: Response) -> dict[str, Any]:
     if not auth_configured():
         raise ApiError(
             "auth_not_configured",
-            "RESEARCHBOSS_API_PASSWORD is not set. Configure it before logging in.",
+            "RESEARCHBOSS_API_USERNAME and RESEARCHBOSS_API_PASSWORD are not set. Configure both before logging in.",
             status_code=503,
         )
-    if not verify_password(payload.password):
-        raise ApiError("invalid_credentials", "Incorrect password.", status_code=401)
+    if not verify_credentials(payload.username, payload.password):
+        raise ApiError("invalid_credentials", "Incorrect username or password.", status_code=401)
 
     token, expires_at = create_session()
     response.set_cookie(

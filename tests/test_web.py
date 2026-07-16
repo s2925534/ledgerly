@@ -7,6 +7,7 @@ from researchboss.api.app import create_app
 from researchboss.api.auth import clear_all_sessions
 
 
+TEST_USERNAME = "test-user"
 TEST_PASSWORD = "test-password"
 
 
@@ -19,6 +20,7 @@ def _reset_sessions():
 
 @pytest.fixture()
 def client(monkeypatch) -> TestClient:
+    monkeypatch.setenv("RESEARCHBOSS_API_USERNAME", TEST_USERNAME)
     monkeypatch.setenv("RESEARCHBOSS_API_PASSWORD", TEST_PASSWORD)
     return TestClient(create_app(), follow_redirects=False)
 
@@ -36,11 +38,12 @@ def test_login_page_serves_form_without_auth(client: TestClient) -> None:
 
     assert response.status_code == 200
     assert "login-form" in response.text
+    assert "username" in response.text
     assert "password" in response.text
 
 
 def test_index_with_valid_session_serves_app_shell(client: TestClient) -> None:
-    login = client.post("/api/v1/auth/login", json={"password": TEST_PASSWORD})
+    login = client.post("/api/v1/auth/login", json={"username": TEST_USERNAME, "password": TEST_PASSWORD})
     assert login.status_code == 200
 
     response = client.get("/")
@@ -69,7 +72,7 @@ def test_static_assets_are_served(client: TestClient) -> None:
 
 
 def test_logout_invalidates_session_for_index_route(client: TestClient) -> None:
-    login = client.post("/api/v1/auth/login", json={"password": TEST_PASSWORD})
+    login = client.post("/api/v1/auth/login", json={"username": TEST_USERNAME, "password": TEST_PASSWORD})
     assert login.status_code == 200
     assert client.get("/").status_code == 200
 
@@ -79,6 +82,7 @@ def test_logout_invalidates_session_for_index_route(client: TestClient) -> None:
 
 
 def test_index_without_auth_configured_redirects_to_login(monkeypatch) -> None:
+    monkeypatch.delenv("RESEARCHBOSS_API_USERNAME", raising=False)
     monkeypatch.delenv("RESEARCHBOSS_API_PASSWORD", raising=False)
     unconfigured_client = TestClient(create_app(), follow_redirects=False)
 
@@ -92,7 +96,7 @@ def test_artefacts_upload_limits_route_via_api(client: TestClient, tmp_path: Pat
 
     workspace = tmp_path / "workspace"
     init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
-    login = client.post("/api/v1/auth/login", json={"password": TEST_PASSWORD})
+    login = client.post("/api/v1/auth/login", json={"username": TEST_USERNAME, "password": TEST_PASSWORD})
     assert login.status_code == 200
 
     response = client.get("/api/v1/artefacts/upload/limits", params={"workspace": str(workspace)})

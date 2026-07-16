@@ -10,6 +10,7 @@ from researchboss.engine.sources import scan_sources
 from researchboss.engine.workspace import init_workspace
 
 
+TEST_USERNAME = "test-user"
 TEST_PASSWORD = "test-password"
 
 
@@ -23,16 +24,18 @@ def _reset_sessions():
 @pytest.fixture()
 def client(monkeypatch) -> TestClient:
     """An already-authenticated client, for tests that exercise route behavior, not auth itself."""
+    monkeypatch.setenv("RESEARCHBOSS_API_USERNAME", TEST_USERNAME)
     monkeypatch.setenv("RESEARCHBOSS_API_PASSWORD", TEST_PASSWORD)
     test_client = TestClient(create_app())
-    login_response = test_client.post("/api/v1/auth/login", json={"password": TEST_PASSWORD})
+    login_response = test_client.post("/api/v1/auth/login", json={"username": TEST_USERNAME, "password": TEST_PASSWORD})
     assert login_response.status_code == 200, login_response.text
     return test_client
 
 
 @pytest.fixture()
 def unauthenticated_client(monkeypatch) -> TestClient:
-    """Password configured, but no session established — for testing the auth gate itself."""
+    """Username/password configured, but no session established — for testing the auth gate itself."""
+    monkeypatch.setenv("RESEARCHBOSS_API_USERNAME", TEST_USERNAME)
     monkeypatch.setenv("RESEARCHBOSS_API_PASSWORD", TEST_PASSWORD)
     return TestClient(create_app())
 
@@ -676,17 +679,41 @@ def test_protected_route_fails_closed_when_auth_not_configured(monkeypatch, tmp_
 
 def test_login_fails_closed_when_auth_not_configured(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("RESEARCHBOSS_API_USERNAME", raising=False)
     monkeypatch.delenv("RESEARCHBOSS_API_PASSWORD", raising=False)
     bare_client = TestClient(create_app())
 
-    response = bare_client.post("/api/v1/auth/login", json={"password": "anything"})
+    response = bare_client.post("/api/v1/auth/login", json={"username": "anyone", "password": "anything"})
+
+    assert response.status_code == 503
+    assert response.json()["errors"][0]["code"] == "auth_not_configured"
+
+
+def test_login_fails_closed_when_only_password_configured(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("RESEARCHBOSS_API_USERNAME", raising=False)
+    monkeypatch.setenv("RESEARCHBOSS_API_PASSWORD", TEST_PASSWORD)
+    bare_client = TestClient(create_app())
+
+    response = bare_client.post("/api/v1/auth/login", json={"username": TEST_USERNAME, "password": TEST_PASSWORD})
 
     assert response.status_code == 503
     assert response.json()["errors"][0]["code"] == "auth_not_configured"
 
 
 def test_login_rejects_wrong_password(unauthenticated_client: TestClient) -> None:
-    response = unauthenticated_client.post("/api/v1/auth/login", json={"password": "wrong-password"})
+    response = unauthenticated_client.post(
+        "/api/v1/auth/login", json={"username": TEST_USERNAME, "password": "wrong-password"}
+    )
+
+    assert response.status_code == 401
+    assert response.json()["errors"][0]["code"] == "invalid_credentials"
+
+
+def test_login_rejects_wrong_username(unauthenticated_client: TestClient) -> None:
+    response = unauthenticated_client.post(
+        "/api/v1/auth/login", json={"username": "wrong-user", "password": TEST_PASSWORD}
+    )
 
     assert response.status_code == 401
     assert response.json()["errors"][0]["code"] == "invalid_credentials"
@@ -703,7 +730,9 @@ def test_login_success_grants_access_via_cookie(unauthenticated_client: TestClie
     workspace = tmp_path / "workspace"
     init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
 
-    login_response = unauthenticated_client.post("/api/v1/auth/login", json={"password": TEST_PASSWORD})
+    login_response = unauthenticated_client.post(
+        "/api/v1/auth/login", json={"username": TEST_USERNAME, "password": TEST_PASSWORD}
+    )
     assert login_response.status_code == 200
     assert "token" in login_response.json()["data"]
 
@@ -714,7 +743,9 @@ def test_login_success_grants_access_via_cookie(unauthenticated_client: TestClie
 def test_login_success_grants_access_via_bearer_token(unauthenticated_client: TestClient, tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
-    login_response = unauthenticated_client.post("/api/v1/auth/login", json={"password": TEST_PASSWORD})
+    login_response = unauthenticated_client.post(
+        "/api/v1/auth/login", json={"username": TEST_USERNAME, "password": TEST_PASSWORD}
+    )
     token = login_response.json()["data"]["token"]
     unauthenticated_client.cookies.clear()  # prove the bearer header alone is sufficient
 
@@ -730,7 +761,9 @@ def test_login_success_grants_access_via_bearer_token(unauthenticated_client: Te
 def test_logout_invalidates_session(unauthenticated_client: TestClient, tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
-    login_response = unauthenticated_client.post("/api/v1/auth/login", json={"password": TEST_PASSWORD})
+    login_response = unauthenticated_client.post(
+        "/api/v1/auth/login", json={"username": TEST_USERNAME, "password": TEST_PASSWORD}
+    )
     assert login_response.status_code == 200
 
     logout_response = unauthenticated_client.post("/api/v1/auth/logout")
@@ -741,7 +774,9 @@ def test_logout_invalidates_session(unauthenticated_client: TestClient, tmp_path
 
 
 def test_password_is_never_echoed_back_in_login_response(unauthenticated_client: TestClient) -> None:
-    response = unauthenticated_client.post("/api/v1/auth/login", json={"password": TEST_PASSWORD})
+    response = unauthenticated_client.post(
+        "/api/v1/auth/login", json={"username": TEST_USERNAME, "password": TEST_PASSWORD}
+    )
 
     assert TEST_PASSWORD not in response.text
 

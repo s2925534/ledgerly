@@ -11,8 +11,10 @@
   <h1>ResearchBoss</h1>
   <p class="muted">Local-first, evidence-first research workspace.</p>
   <form id="login-form" autocomplete="off">
+    <label for="username">Username</label>
+    <input type="text" id="username" name="username" required autofocus>
     <label for="password">Password</label>
-    <input type="password" id="password" name="password" required autofocus>
+    <input type="password" id="password" name="password" required>
     <button type="submit">Sign in</button>
     <p id="login-error" class="error" hidden></p>
   </form>
@@ -24,13 +26,14 @@
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     errorEl.hidden = true;
+    const username = document.getElementById("username").value;
     const password = document.getElementById("password").value;
     try {
       const response = await fetch("/api/v1/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ username, password }),
       });
       const body = await response.json();
       if (!response.ok || !body.ok) {

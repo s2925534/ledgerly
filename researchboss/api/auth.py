@@ -33,6 +33,12 @@ def _configured_password() -> Optional[str]:
     return password or None
 
 
+def _configured_username() -> Optional[str]:
+    env_values = _load_dotenv_values(Path.cwd() / ".env")
+    username = os.environ.get("RESEARCHBOSS_API_USERNAME") or env_values.get("RESEARCHBOSS_API_USERNAME")
+    return username or None
+
+
 def _session_ttl_seconds() -> int:
     raw = os.environ.get("RESEARCHBOSS_API_SESSION_HOURS")
     if not raw:
@@ -45,15 +51,25 @@ def _session_ttl_seconds() -> int:
 
 
 def auth_configured() -> bool:
-    """True when RESEARCHBOSS_API_PASSWORD is set. Protected routes fail closed otherwise."""
-    return _configured_password() is not None
+    """True when both RESEARCHBOSS_API_USERNAME and RESEARCHBOSS_API_PASSWORD are set.
+
+    Protected routes fail closed otherwise. A username is required alongside
+    the password (not just a bare password box) to match the login UX of a
+    real account, even though this is still a single shared credential pair,
+    not a per-user account system — see AGENTS.md / TODO.md for the separate,
+    larger multi-tenant item that would add real per-user accounts.
+    """
+    return _configured_username() is not None and _configured_password() is not None
 
 
-def verify_password(password: str) -> bool:
-    configured = _configured_password()
-    if configured is None:
+def verify_credentials(username: str, password: str) -> bool:
+    configured_username = _configured_username()
+    configured_password = _configured_password()
+    if configured_username is None or configured_password is None:
         return False
-    return hmac.compare_digest(configured, password)
+    username_ok = hmac.compare_digest(configured_username, username)
+    password_ok = hmac.compare_digest(configured_password, password)
+    return username_ok and password_ok
 
 
 def create_session() -> tuple[str, float]:

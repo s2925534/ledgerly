@@ -15,7 +15,7 @@ Build and run the image on your own machine before deploying anywhere:
 
 ```bash
 cp .env.example .env
-# edit .env: set RESEARCHBOSS_API_PASSWORD to something real
+# edit .env: set both RESEARCHBOSS_API_USERNAME and RESEARCHBOSS_API_PASSWORD to something real
 docker compose up --build
 ```
 
@@ -24,7 +24,7 @@ Then, from another terminal:
 ```bash
 curl http://localhost:8000/health
 curl -c cookies.txt -X POST http://localhost:8000/api/v1/auth/login \
-  -H "Content-Type: application/json" -d '{"password": "<your password>"}'
+  -H "Content-Type: application/json" -d '{"username": "<your username>", "password": "<your password>"}'
 curl -b cookies.txt "http://localhost:8000/api/v1/projects/status?workspace=/data/workspaces/test"
 ```
 
@@ -35,7 +35,7 @@ The last call will 404 (`workspace_not_found`) until a workspace actually exists
 The exact deploy command depends entirely on your own tooling. In general, whatever you use needs to be told:
 
 - The Compose file: `docker-compose.yml` at the repo root.
-- The `.env` file with your real `RESEARCHBOSS_API_PASSWORD` (never commit it).
+- The `.env` file with your real `RESEARCHBOSS_API_USERNAME`/`RESEARCHBOSS_API_PASSWORD` (never commit it).
 - The source directory (this repo), if your tooling builds the image itself rather than pulling from a registry.
 - Port `8000` (the container's `EXPOSE`d port) and `/health` as the health-check path (`researchboss/api/routers/health.py` — deliberately has no workspace or auth dependency, so the health check must keep working regardless of login state).
 

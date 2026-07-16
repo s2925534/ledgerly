@@ -24,11 +24,11 @@ The API must be local-first, workspace-scoped, and a thin transport layer over `
 
 ## Authentication
 
-`researchboss serve` is a single-user local tool, not a multi-tenant service. Set `RESEARCHBOSS_API_PASSWORD` (env var, or `.env` in the server's working directory) before starting the server; every `/api/v1` route except `/api/v1/auth/login` requires a valid session. `GET /health` never requires a session, so deploy/update health checks keep working regardless of login state.
+`researchboss serve` is a single-user local tool, not a multi-tenant service (see `TODO.md`'s multi-tenant item for the separate, larger feature that would change this for commercial deployments). Set both `RESEARCHBOSS_API_USERNAME` and `RESEARCHBOSS_API_PASSWORD` (env vars, or `.env` in the server's working directory) before starting the server; every `/api/v1` route except `/api/v1/auth/login` requires a valid session. `GET /health` never requires a session, so deploy/update health checks keep working regardless of login state.
 
 ### `POST /api/v1/auth/login` (implemented)
 
-Accepts `{"password": "..."}`. Returns `503 auth_not_configured` if no password is set, `401 invalid_credentials` on a wrong password, or `200` with a session token (also set as an httponly `researchboss_session` cookie) on success. Sessions expire after `RESEARCHBOSS_API_SESSION_HOURS` hours (default 12) and live in server memory only, so a server restart invalidates all sessions.
+Accepts `{"username": "...", "password": "..."}`. Returns `503 auth_not_configured` if either isn't set, `401 invalid_credentials` on a wrong username or password (the two aren't distinguished in the response, to avoid confirming which one was wrong), or `200` with a session token (also set as an httponly `researchboss_session` cookie) on success. Sessions expire after `RESEARCHBOSS_API_SESSION_HOURS` hours (default 12) and live in server memory only, so a server restart invalidates all sessions. This is still one shared credential pair, not a per-user account system — the username field matches the login UX of a real account without implying multi-tenancy exists yet.
 
 Engine source:
 

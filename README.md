@@ -1,6 +1,6 @@
 # ResearchBoss
 
-Current version: 0.11.5
+Current version: 0.11.6
 
 ResearchBoss is a local-first, evidence-first research workspace for managing research context, source files, review state, and project memory without requiring cloud services for the MVP.
 
@@ -88,7 +88,7 @@ Phase 1 complete:
 Known gaps:
 
 - OpenAI readiness, safe context preview, AI-assisted review, novelty assessment, and research-question assessment are implemented with explicit `--ai` opt-in and local report outputs.
-- FastAPI requires `RESEARCHBOSS_API_PASSWORD` to be set; every `/api/v1` route fails closed (`503`) until it is configured, and login sessions are in-memory only. UI is not implemented yet; packaging has a written plan (`docs/PACKAGING.md`) but no built/tested package yet.
+- FastAPI requires both `RESEARCHBOSS_API_USERNAME` and `RESEARCHBOSS_API_PASSWORD` to be set; every `/api/v1` route fails closed (`503`) until both are configured, and login sessions are in-memory only. This is still one shared credential pair, not per-user accounts — see the multi-tenant TODO item for that. Packaging has a written plan (`docs/PACKAGING.md`) but no built/tested package yet.
 - Zotero support defaults to local filesystem and read-only SQLite. Optional read-only Zotero Web API collection listing and selection are implemented.
 - The source review workflow is implemented for local workspace state. Deterministic artefact creation can consume accepted sources, and AI-assisted review/novelty/RQ assessment can use safe accepted-source context when explicitly enabled with `--ai`.
 - Init stores AI preference metadata and keeps AI disabled by default.
@@ -482,7 +482,7 @@ Every route documented in `docs/api/CONTRACT.md` is implemented except the disab
 
 `POST /api/v1/citations/plan/insertion-review` sets one citation-plan insertion's `review_status` the same way the cross-reference route above does, so a browser client never needs filesystem access to hand-edit the plan YAML.
 
-Set `RESEARCHBOSS_API_PASSWORD` (env var or `.env` in the server's working directory) before starting the server. Every `/api/v1` route except `/api/v1/auth/login` requires a valid session and fails closed with `503 auth_not_configured` if no password is set — it never falls back to open access. Log in with `POST /api/v1/auth/login {"password": "..."}` to receive a session (an httponly cookie, and the same token usable as `Authorization: Bearer <token>`); sessions live in server memory only (default 12-hour expiry, `RESEARCHBOSS_API_SESSION_HOURS` to override) and are cleared on server restart. `POST /api/v1/auth/logout` invalidates the current session. There is no public self-registration route.
+Set both `RESEARCHBOSS_API_USERNAME` and `RESEARCHBOSS_API_PASSWORD` (env vars or `.env` in the server's working directory) before starting the server. Every `/api/v1` route except `/api/v1/auth/login` requires a valid session and fails closed with `503 auth_not_configured` if either isn't set — it never falls back to open access. Log in with `POST /api/v1/auth/login {"username": "...", "password": "..."}` to receive a session (an httponly cookie, and the same token usable as `Authorization: Bearer <token>`); sessions live in server memory only (default 12-hour expiry, `RESEARCHBOSS_API_SESSION_HOURS` to override) and are cleared on server restart. `POST /api/v1/auth/logout` invalidates the current session. There is no public self-registration route — this is still one shared username/password pair, not a per-user account system (see `TODO.md`'s multi-tenant item for that larger, separate feature).
 
 Set `RESEARCHBOSS_WORKSPACE_ROOT` when deploying against a mounted volume (e.g. a NAS bind-mount): every `workspace` query value must then resolve inside that root — relative paths are joined to it, absolute paths outside it are rejected with `400 workspace_outside_root` — rather than accepting any path reachable by the server process. Leave it unset for local-first single-user CLI-equivalent use, where any absolute path works exactly as it does today.
 

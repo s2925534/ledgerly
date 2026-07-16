@@ -2,7 +2,8 @@
 # ../synology-site-deployer (see docs/DEPLOY.md) or plain `docker compose up`.
 #
 # Requires a populated .env alongside this file (copy .env.example) with at
-# least RESEARCHBOSS_API_PASSWORD set -- compose refuses to start otherwise.
+# least RESEARCHBOSS_API_USERNAME and RESEARCHBOSS_API_PASSWORD set --
+# compose refuses to start otherwise.
 #
 # Single container, single process: see the Dockerfile for why this must
 # never be scaled to multiple replicas or workers.
@@ -14,6 +15,7 @@ services:
     ports:
       - "${RESEARCHBOSS_HOST_PORT:-8000}:8000"
     environment:
+      RESEARCHBOSS_API_USERNAME: ${RESEARCHBOSS_API_USERNAME:?Set RESEARCHBOSS_API_USERNAME in .env before starting}
       RESEARCHBOSS_API_PASSWORD: ${RESEARCHBOSS_API_PASSWORD:?Set RESEARCHBOSS_API_PASSWORD in .env before starting}
       RESEARCHBOSS_WORKSPACE_ROOT: /data/workspaces
       RESEARCHBOSS_API_SESSION_HOURS: ${RESEARCHBOSS_API_SESSION_HOURS:-12}
