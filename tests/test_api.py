@@ -724,6 +724,18 @@ def test_export_corpus_via_api(client: TestClient, tmp_path: Path) -> None:
     assert data["skipped_count"] == 0
 
 
+def test_export_supervisor_bundle_via_api(client: TestClient, tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+
+    response = client.post("/api/v1/export/supervisor-bundle", params={"workspace": str(workspace)})
+
+    assert response.status_code == 200
+    bundle_path = Path(response.json()["data"]["bundle_path"])
+    assert bundle_path.is_file()
+    assert bundle_path.name == "supervisor-bundle.zip"
+
+
 def test_notes_add_list_tag_and_search_via_api(client: TestClient, tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")

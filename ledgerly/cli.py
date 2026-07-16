@@ -60,7 +60,7 @@ from ledgerly.engine.cross_reference import (
 )
 from ledgerly.engine.derived_text import build_derived_text_snapshot
 from ledgerly.engine.doc_validation import validate_document
-from ledgerly.engine.export import export_accepted_source_corpus, export_evidence_bundle
+from ledgerly.engine.export import build_supervisor_bundle, export_accepted_source_corpus, export_evidence_bundle
 from ledgerly.engine.external_search import (
     ExternalSearchError,
     SearchBudgets,
@@ -2102,6 +2102,22 @@ def export_evidence(
     _slug, logger, summary, summary_path, _log_path = _run_ctx(["export", "evidence"], ws, log_level)
     output_path = export_evidence_bundle(ws)
     logger.info("Exported evidence bundle", operation="export_evidence", output_path=str(output_path))
+    _finish(summary, summary_path)
+    if not quiet:
+        console.print(f"[green]Wrote[/green] {output_path}")
+
+
+@app.command("export-supervisor-bundle")
+def export_supervisor_bundle_cmd(
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Export a single 'hand this to my supervisor' bundle: claim ledger, citation plans, and the workspace review report."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["export", "supervisor-bundle"], ws, log_level)
+    output_path = build_supervisor_bundle(ws)
+    logger.info("Exported supervisor bundle", operation="export_supervisor_bundle", output_path=str(output_path))
     _finish(summary, summary_path)
     if not quiet:
         console.print(f"[green]Wrote[/green] {output_path}")

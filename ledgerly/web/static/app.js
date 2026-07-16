@@ -1679,6 +1679,20 @@ async function exportCorpus() {
   }
 }
 
+async function exportSupervisorBundle() {
+  const messageEl = document.getElementById("export-message");
+  messageEl.hidden = false;
+  messageEl.className = "small";
+  messageEl.textContent = "Exporting...";
+  try {
+    const result = await api("POST", "/api/v1/export/supervisor-bundle", { json: {} });
+    messageEl.textContent = `Supervisor bundle written: ${result.bundle_path}`;
+  } catch (err) {
+    messageEl.textContent = err.message;
+    messageEl.classList.add("error");
+  }
+}
+
 async function showWorkspaceReport() {
   const resultEl = document.getElementById("report-result");
   resultEl.innerHTML = `<p class="muted small">Loading...</p>`;
@@ -1801,6 +1815,7 @@ async function runMergePdfs() {
 function setupExportPanel() {
   document.getElementById("export-evidence-btn").addEventListener("click", exportEvidence);
   document.getElementById("export-corpus-btn").addEventListener("click", exportCorpus);
+  document.getElementById("export-supervisor-bundle-btn").addEventListener("click", exportSupervisorBundle);
   document.getElementById("report-workspace-btn").addEventListener("click", showWorkspaceReport);
   document.getElementById("report-timeline-btn").addEventListener("click", showTimelineReport);
   document.getElementById("report-schemas-btn").addEventListener("click", showReportSchemas);

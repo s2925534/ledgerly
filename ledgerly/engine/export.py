@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from zipfile import ZIP_DEFLATED, ZipFile
@@ -141,3 +142,69 @@ def _yaml_text(data: object) -> str:
     import yaml
 
     return yaml.safe_dump(data, sort_keys=False, allow_unicode=True, width=120)
+
+
+def build_supervisor_bundle(workspace: Path) -> Path:
+    """A single self-contained "hand this to my supervisor" bundle: the claim
+    ledger, every citation plan created so far, and the workspace review
+    report, as one readable Markdown digest plus a zip. Deliberately Markdown
+    + zip rather than PDF — no PDF-generation dependency exists anywhere in
+    this project today, and a Markdown digest is trivially convertible to
+    PDF by the supervisor (or the user) with whatever tool they already have.
+    """
+    from ledgerly.engine.claims import citation_gap_claims, claim_source_validation_report, list_claims
+    from ledgerly.engine.reports import generate_workspace_report
+
+    output_dir = workspace / "outputs" / "reports"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    workspace_report_path = generate_workspace_report(workspace)
+    claims = list_claims(workspace)
+    gap_ids = {claim.get("id") for claim in citation_gap_claims(workspace)}
+    validation = claim_source_validation_report(workspace)
+    issues_by_claim = {row.get("claim_id"): row.get("issues", []) for row in validation.get("claims", [])}
+
+    plan_dir = workspace / "outputs" / "citation-plans"
+    plan_paths = sorted(plan_dir.glob("citation-plan-*.md")) if plan_dir.is_dir() else []
+
+    lines = [
+        "# Supervisor Review Bundle",
+        "",
+        f"Generated: {datetime.now(timezone.utc).replace(microsecond=0).isoformat()}",
+        "",
+        "## Claim Ledger",
+        "",
+        "| ID | Status | Citation gap | Sources | Issues | Text |",
+        "| --- | --- | --- | --- | --- | --- |",
+    ]
+    for claim in claims:
+        claim_id = claim.get("id", "")
+        issue_count = len(issues_by_claim.get(claim_id, []))
+        text = (claim.get("text") or "").replace("|", "\\|")
+        lines.append(
+            f"| {claim_id} | {claim.get('status', '')} | {'yes' if claim_id in gap_ids else 'no'} | "
+            f"{len(claim.get('linked_sources', []))} | {issue_count} | {text} |"
+        )
+    if not claims:
+        lines.append("| _none recorded yet_ | | | | | |")
+
+    lines.extend(["", "## Citation Plans", ""])
+    if plan_paths:
+        for plan_path in plan_paths:
+            lines.extend([f"### {plan_path.stem}", "", plan_path.read_text(encoding="utf-8").strip(), ""])
+    else:
+        lines.append("No citation plans created yet.")
+
+    lines.extend(["", "## Workspace Review Report", "", workspace_report_path.read_text(encoding="utf-8").strip(), ""])
+
+    digest_path = output_dir / "supervisor-bundle.md"
+    digest_path.write_text("\n".join(lines), encoding="utf-8")
+
+    bundle_path = output_dir / "supervisor-bundle.zip"
+    with ZipFile(bundle_path, "w", compression=ZIP_DEFLATED) as zf:
+        zf.write(digest_path, digest_path.name)
+        zf.write(workspace_report_path, workspace_report_path.name)
+        zf.writestr("claims-ledger.yaml", _yaml_text({"version": 1, "claims": claims}))
+        for plan_path in plan_paths:
+            zf.write(plan_path, plan_path.relative_to(workspace).as_posix())
+    return bundle_path

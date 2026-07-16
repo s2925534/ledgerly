@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 from ledgerly.api.deps import resolve_workspace
 from ledgerly.api.envelope import ok
-from ledgerly.engine.export import export_accepted_source_corpus, export_evidence_bundle
+from ledgerly.engine.export import build_supervisor_bundle, export_accepted_source_corpus, export_evidence_bundle
 from ledgerly.engine.pdf_merge import pdf_merge_report
 
 
@@ -32,6 +32,12 @@ def export_corpus(workspace: Path = Depends(resolve_workspace)) -> dict[str, Any
             "skipped_count": result.skipped_count,
         }
     )
+
+
+@router.post("/supervisor-bundle")
+def export_supervisor_bundle(workspace: Path = Depends(resolve_workspace)) -> dict[str, Any]:
+    bundle_path = build_supervisor_bundle(workspace)
+    return ok({"bundle_path": str(bundle_path)})
 
 
 class MergePdfsRequest(BaseModel):

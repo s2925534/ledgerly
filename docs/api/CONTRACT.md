@@ -877,6 +877,14 @@ Engine source:
 
 - `ledgerly.engine.export.export_accepted_source_corpus`
 
+### `POST /api/v1/export/supervisor-bundle` (implemented)
+
+Builds a single "hand this to my supervisor" bundle: a claim-ledger table (with citation-gap and claim-source-validation flags per claim), every citation plan created so far, and the workspace review report — as one readable Markdown digest (`supervisor-bundle.md`) plus a zip (`supervisor-bundle.zip`) also containing the raw claims YAML and per-plan Markdown. Markdown + zip rather than PDF: no PDF-generation dependency exists in this project, and the digest converts to PDF trivially with any tool the user already has.
+
+Engine source:
+
+- `ledgerly.engine.export.build_supervisor_bundle`
+
 ### `POST /api/v1/export/merge-pdfs` (implemented)
 
 Creates accepted-source PDF merge manifests and, when `write: true` is passed (mirroring the CLI's `--write` flag), a merged PDF artefact. Defaults to `write: false` (manifest reports only, no PDF written).
