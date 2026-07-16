@@ -920,6 +920,32 @@ async function refreshCitationRelationships() {
   }
 }
 
+async function refreshResearchProgress() {
+  const listEl = document.getElementById("progress-list");
+  const emptyEl = document.getElementById("progress-empty");
+  try {
+    const report = await api("GET", "/api/v1/reports/research-progress");
+    const events = report.events || [];
+    emptyEl.hidden = events.length > 0;
+    listEl.innerHTML = events
+      .map(
+        (event) => `
+        <div class="rq-row">
+          <div>
+            <span class="candidate-status">${escapeHtml(event.kind || "")}</span>
+            <span class="muted small">${escapeHtml(formatTimelineTimestamp(event.at))}</span>
+            <div>${escapeHtml(event.entity_id || "")}${event.detail ? ` — ${escapeHtml(event.detail)}` : ""}</div>
+          </div>
+        </div>`
+      )
+      .join("");
+  } catch (err) {
+    listEl.innerHTML = "";
+    emptyEl.hidden = false;
+    emptyEl.textContent = err.message;
+  }
+}
+
 function setupClaimsPanel() {
   document.getElementById("claim-add-btn").addEventListener("click", addClaim);
   document.getElementById("claim-gaps-btn").addEventListener("click", showClaimGapReport);
@@ -2361,6 +2387,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setupClaimsPanel();
   setupCitationPanel();
   document.getElementById("relationships-refresh-btn").addEventListener("click", refreshCitationRelationships);
+  document.getElementById("progress-refresh-btn").addEventListener("click", refreshResearchProgress);
   setupGuidelinesPanel();
   setupProjectLogPanel();
   setupDocVaultPanel();

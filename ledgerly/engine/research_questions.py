@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from ledgerly.core.yamlio import read_yaml, write_yaml
+from ledgerly.engine.progress_log import record_progress_event
 
 
 QUESTION_STARTERS = (
@@ -277,6 +278,7 @@ def approve_research_question(workspace: Path, rq_id: str) -> None:
     candidates_doc["candidates"] = candidates
     write_yaml(approved_path, approved_doc)
     write_yaml(candidates_path, candidates_doc)
+    record_progress_event(workspace, kind="rq_approved", entity_id=rq_id)
 
 
 def reject_research_question(workspace: Path, rq_id: str, *, reason: str = "") -> None:
@@ -307,3 +309,4 @@ def _move_to_rejected(workspace: Path, rq_id: str, *, status: str, reason: str) 
     write_yaml(approved_path, approved_doc)
     write_yaml(candidates_path, candidates_doc)
     write_yaml(rejected_path, rejected_doc)
+    record_progress_event(workspace, kind=f"rq_{status}", entity_id=rq_id, detail=reason)

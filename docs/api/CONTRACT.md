@@ -861,6 +861,14 @@ Engine source:
 
 - `ledgerly.engine.relationships.citation_relationship_map`
 
+### `GET /api/v1/reports/research-progress` (implemented)
+
+A lightweight, honest local record of research question / artefact activity over time (approvals, rejections, archiving, artefact registration, artefact review-status changes) — not a gamified streak feature, just what happened and when. Backed by an append-only `research-progress-log.yaml` written by the research-question and artefact lifecycle functions themselves, not derived after the fact from data that was never timestamped.
+
+Engine source:
+
+- `ledgerly.engine.progress_log.research_progress_report`
+
 ### `POST /api/v1/export/evidence` (implemented)
 
 Creates an offline evidence bundle without original source files by default.

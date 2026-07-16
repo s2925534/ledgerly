@@ -122,6 +122,7 @@ from ledgerly.engine.research_questions import (
     list_research_questions,
     reject_research_question,
 )
+from ledgerly.engine.progress_log import research_progress_report
 from ledgerly.engine.relationships import citation_relationship_map
 from ledgerly.engine.report_schemas import export_report_schemas
 from ledgerly.engine.reports import generate_workspace_report
@@ -2203,6 +2204,33 @@ def citation_relationships(
     table.add_column("Artefacts", justify="right")
     for row in report["sources"]:
         table.add_row(row.get("file_name") or row.get("source_id"), str(len(row["claims"])), str(len(row["artefacts"])))
+    console.print(table)
+
+
+@app.command("research-progress")
+def research_progress(
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Show research question / artefact activity over time — an honest local progress record, not a streak feature."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["research-progress"], ws, log_level)
+    report = research_progress_report(ws)
+    logger.info("Computed research progress report", operation="research_progress", event_count=report["event_count"])
+    _finish(summary, summary_path)
+    if quiet:
+        return
+    if not report["events"]:
+        console.print("[dim]No research question or artefact activity recorded yet.[/dim]")
+        return
+    table = Table(title="Research Progress")
+    table.add_column("At")
+    table.add_column("Kind")
+    table.add_column("Entity")
+    table.add_column("Detail")
+    for event in report["events"]:
+        table.add_row(event.get("at", ""), event.get("kind", ""), event.get("entity_id", ""), event.get("detail", ""))
     console.print(table)
 
 

@@ -692,6 +692,10 @@ def test_reports_workspace_and_timeline_via_api(client: TestClient, tmp_path: Pa
     assert relationships_data["claims"] == []
     assert relationships_data["artefacts"] == []
 
+    progress_response = client.get("/api/v1/reports/research-progress", params={"workspace": str(workspace)})
+    assert progress_response.status_code == 200
+    assert progress_response.json()["data"]["event_count"] == 0
+
 
 def test_export_evidence_and_backup_create_inspect_via_api(client: TestClient, tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"

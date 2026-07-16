@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends
 
 from ledgerly.api.deps import resolve_workspace
 from ledgerly.api.envelope import ok
+from ledgerly.engine.progress_log import research_progress_report
 from ledgerly.engine.project_log import timeline_report
 from ledgerly.engine.relationships import citation_relationship_map
 from ledgerly.engine.report_schemas import export_report_schemas
@@ -42,3 +43,8 @@ def reports_schemas(workspace: Path = Depends(resolve_workspace)) -> dict[str, A
 @router.get("/citation-relationships")
 def reports_citation_relationships(workspace: Path = Depends(resolve_workspace)) -> dict[str, Any]:
     return ok(citation_relationship_map(workspace))
+
+
+@router.get("/research-progress")
+def reports_research_progress(workspace: Path = Depends(resolve_workspace)) -> dict[str, Any]:
+    return ok(research_progress_report(workspace))

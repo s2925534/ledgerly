@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from ledgerly.core.yamlio import read_yaml, write_yaml
+from ledgerly.engine.progress_log import record_progress_event
 
 
 ARTEFACT_REVIEW_STATUSES = {"pending_review", "reviewed", "needs_revision", "accepted", "not_required"}
@@ -42,6 +43,7 @@ def register_artefact(
     artefacts.append(record)
     registry["artefacts"] = artefacts
     write_yaml(registry_path, registry)
+    record_progress_event(workspace, kind="artefact_registered", entity_id=artefact_id, detail=title)
     return record
 
 
@@ -58,6 +60,7 @@ def set_artefact_review_status(workspace: Path, artefact_id: str, status: str) -
             artefact["requires_user_review"] = status in {"pending_review", "needs_revision"}
             registry["artefacts"] = artefacts
             write_yaml(registry_path, registry)
+            record_progress_event(workspace, kind="artefact_review_status_changed", entity_id=artefact_id, detail=status)
             return
     raise ValueError(f"Unknown artefact_id: {artefact_id}")
 
