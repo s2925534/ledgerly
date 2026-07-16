@@ -409,8 +409,8 @@ A curated list of generically valuable features for any researcher using this to
 - [ ] **Deterministic** - Empty states with next-step guidance on every list view (sources, claims, artefacts, research questions) instead of a blank table, so a fresh workspace tells the user what to do first.
 - [ ] **Deterministic** - Document gallery view for source previews (grid of source thumbnails/icons, click to open in the existing popup preview) as an alternative to the flat list.
 - [ ] **Deterministic** - Confirm dialogs in the web UI for destructive actions (document restore, workspace backup restore, ignoring/removing a source) — these guardrails exist in the CLI today and should carry into the web UI too.
-- [ ] **Deterministic** - Color-coded status badges for source review status, claim status, and artefact review status across all web views, not just plain text.
-- [ ] **Deterministic** - Dark/light theme toggle for the web UI, respecting system preference by default.
+- [x] **Deterministic** - Color-coded status badges for source review status, claim status, and artefact review status across all web views, not just plain text.
+- [x] **Deterministic** - Dark/light theme toggle for the web UI, respecting system preference by default.
 - [ ] **Deterministic** - Full-text keyword/semantic search across the whole corpus (sources, notes, claims, artefacts) from a single search box, building on the existing FTS index work from Phase 7.
 - [ ] **Deterministic** - Simple local citation-relationship view — which sources support which claims, which claims feed which artefacts — no external graph service required.
 - [ ] **Deterministic** - Research timeline view: a chronological, visual surface for the decisions, terminology changes, feedback, and context-changelog entries Phase 17's project log already tracks, instead of only text reports.
