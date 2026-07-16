@@ -320,8 +320,8 @@ The source inbox/review workflow (`sources accept/maybe/ignore/note/tag`) is one
 
 ## Phase 16: Web UI — Claims and Citation Planning
 
-- [ ] **API** - Add a claims ledger view (`GET /api/v1/claims`) with an add-claim form (`POST /api/v1/claims`), status controls (`POST /api/v1/claims/{claim_id}/status`), and citation-gap (`GET /api/v1/claims/gaps`) and validation (`GET /api/v1/claims/validate`) reports.
-- [ ] **API** - Add a citation planning view: create a plan against a document target (`POST /api/v1/citations/plan`), review each proposed insertion (`POST /api/v1/citations/plan/insertion-review` — API and CLI already support this; only the web view is missing), and apply accepted insertions (`POST /api/v1/citations/apply`). This is the citation half of Phase 10's originally-scoped review-overlay work — only the cross-reference half got a web view built.
+- [x] **Done** - **API** - Add a claims ledger view (`GET /api/v1/claims`) with an add-claim form (`POST /api/v1/claims`), a per-row status dropdown (`POST /api/v1/claims/{claim_id}/status`), and citation-gap (`GET /api/v1/claims/gaps`) and validation (`GET /api/v1/claims/validate`) report buttons that show a summary count inline.
+- [x] **Done** - **API** - Add a citation planning view: create a plan against a document target (`POST /api/v1/citations/plan`), review each proposed insertion with Accept/Reject buttons (`POST /api/v1/citations/plan/insertion-review`), and apply accepted insertions (`POST /api/v1/citations/apply`) with an applied/skipped/new-version-id summary. This is the citation half of Phase 10's originally-scoped review-overlay work — the cross-reference half already had a web view; both now do. Verified against a real workspace including the zero-insertions case (no accepted sources yet) and a real apply call.
 
 ## Phase 17: Web UI — Guidelines and Project Log
 

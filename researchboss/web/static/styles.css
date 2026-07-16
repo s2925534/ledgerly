@@ -295,18 +295,19 @@ main {
   margin-top: 0.15rem;
 }
 
-/* --- sources panel --- */
-#source-scan-details {
+/* --- shared collapsible <details> form box (scan/create/link/add forms) --- */
+.detail-box {
   margin-bottom: 1rem;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 0.75rem 1rem;
 }
 
-#source-scan-details summary {
+.detail-box summary {
   cursor: pointer;
 }
 
+/* --- sources panel --- */
 .source-scan-form {
   display: flex;
   flex-direction: column;
@@ -365,18 +366,6 @@ main {
   margin-top: 0.5rem;
 }
 
-/* --- artefact registry panel --- */
-#artefact-create-details {
-  margin-bottom: 1rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 0.75rem 1rem;
-}
-
-#artefact-create-details summary {
-  cursor: pointer;
-}
-
 /* --- zotero panel --- */
 .zotero-status-row {
   display: flex;
@@ -387,17 +376,6 @@ main {
 .candidate-status.connected { background: #e3f6e6; color: #1a7d33; }
 .candidate-status.not-connected { background: var(--bg-muted); color: var(--text-muted); }
 .candidate-status.error { background: var(--error-bg); color: var(--error); }
-
-#zotero-link-details {
-  margin-bottom: 1rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 0.75rem 1rem;
-}
-
-#zotero-link-details summary {
-  cursor: pointer;
-}
 
 .zotero-link-form {
   display: flex;

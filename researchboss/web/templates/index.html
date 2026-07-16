@@ -32,7 +32,7 @@
   <section class="panel">
     <h2>Sources</h2>
 
-    <details id="source-scan-details">
+    <details id="source-scan-details" class="detail-box">
       <summary class="link">Scan a folder for new sources</summary>
       <div class="source-scan-form">
         <label class="field-label" for="source-scan-root-input">Folder path</label>
@@ -82,7 +82,7 @@
   <section class="panel">
     <h2>Artefact registry</h2>
 
-    <details id="artefact-create-details">
+    <details id="artefact-create-details" class="detail-box">
       <summary class="link">Create a deterministic artefact</summary>
       <div class="source-scan-form">
         <label class="field-label" for="artefact-create-type-select">Artefact type</label>
@@ -112,6 +112,54 @@
       <tbody id="artefacts-tbody"></tbody>
     </table>
     <p id="artefacts-empty" class="muted small" hidden>No artefacts registered yet.</p>
+  </section>
+
+  <section class="panel">
+    <h2>Claims</h2>
+
+    <details id="claim-add-details" class="detail-box">
+      <summary class="link">Add a claim</summary>
+      <div class="source-scan-form">
+        <label class="field-label" for="claim-add-text-input">Claim text</label>
+        <textarea id="claim-add-text-input" rows="3" placeholder="State the claim"></textarea>
+        <div class="zotero-link-actions">
+          <button id="claim-add-btn" type="button">Add claim</button>
+        </div>
+        <p id="claim-add-message" class="small" hidden></p>
+      </div>
+    </details>
+
+    <div class="zotero-link-actions">
+      <button id="claim-gaps-btn" type="button" class="secondary">Citation gap report</button>
+      <button id="claim-validate-btn" type="button" class="secondary">Validate claim-source links</button>
+    </div>
+    <p id="claim-report-message" class="small" hidden></p>
+
+    <table id="claims-table" class="data-table">
+      <thead>
+        <tr><th>Text</th><th>Status</th><th>Links</th></tr>
+      </thead>
+      <tbody id="claims-tbody"></tbody>
+    </table>
+    <p id="claims-empty" class="muted small" hidden>No claims recorded yet.</p>
+  </section>
+
+  <section class="panel">
+    <h2>Citation planning</h2>
+    <p class="muted small">Create a deterministic citation plan against a document target, review each proposed insertion, then apply the accepted ones. Never modifies the document until you apply.</p>
+
+    <div class="source-scan-form">
+      <label class="field-label" for="citation-target-input">Document target</label>
+      <input id="citation-target-input" type="text" placeholder="e.g. artefacts/reports/research-question-brief.md">
+      <div class="zotero-link-actions">
+        <button id="citation-plan-btn" type="button">Create plan</button>
+        <button id="citation-apply-btn" type="button" class="secondary">Apply accepted insertions</button>
+      </div>
+      <p id="citation-plan-message" class="small" hidden></p>
+    </div>
+
+    <div id="citation-insertions-list" class="rq-list"></div>
+    <p id="citation-insertions-empty" class="muted small" hidden>Create a plan to see proposed citation insertions here.</p>
   </section>
 
   <section class="panel">
@@ -150,7 +198,7 @@
       </div>
     </div>
 
-    <details id="zotero-link-details">
+    <details id="zotero-link-details" class="detail-box">
       <summary class="link">Link / manage Zotero Web API account</summary>
       <div class="zotero-link-form">
         <p class="muted small">

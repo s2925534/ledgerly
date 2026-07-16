@@ -68,6 +68,7 @@ async function loadWorkspace(workspace) {
   refreshSources();
   refreshResearchQuestions();
   refreshArtefacts();
+  refreshClaims();
 }
 
 async function loadUploadLimits() {
@@ -677,6 +678,216 @@ function setupRqAndArtefactPanels() {
   document.getElementById("artefact-create-btn").addEventListener("click", createArtefact);
 }
 
+// --- claims ledger ---
+
+const CLAIM_STATUSES = ["active", "supported", "needs_evidence", "rejected", "needs_review"];
+
+async function refreshClaims() {
+  const tbody = document.getElementById("claims-tbody");
+  const emptyEl = document.getElementById("claims-empty");
+  try {
+    const claims = await api("GET", "/api/v1/claims");
+    tbody.innerHTML = "";
+    emptyEl.hidden = claims.length > 0;
+    for (const claim of claims) {
+      const tr = document.createElement("tr");
+      const linkCount = (claim.linked_sources || []).length + (claim.linked_research_questions || []).length;
+      tr.innerHTML = `
+        <td>${escapeHtml(claim.text || "")}</td>
+        <td></td>
+        <td class="muted small">${linkCount} linked</td>
+      `;
+      const statusCell = tr.children[1];
+      const select = document.createElement("select");
+      for (const status of CLAIM_STATUSES) {
+        const option = document.createElement("option");
+        option.value = status;
+        option.textContent = status;
+        if (claim.status === status) option.selected = true;
+        select.appendChild(option);
+      }
+      select.addEventListener("change", () => setClaimStatus(claim.id, select.value));
+      statusCell.appendChild(select);
+      tbody.appendChild(tr);
+    }
+  } catch (err) {
+    tbody.innerHTML = "";
+    emptyEl.hidden = false;
+    emptyEl.textContent = err.message;
+  }
+}
+
+async function setClaimStatus(claimId, status) {
+  try {
+    await api("POST", `/api/v1/claims/${encodeURIComponent(claimId)}/status`, { json: { status } });
+    await refreshClaims();
+  } catch (err) {
+    showWorkspaceError(err.message);
+  }
+}
+
+async function addClaim() {
+  const messageEl = document.getElementById("claim-add-message");
+  const textInput = document.getElementById("claim-add-text-input");
+  const text = textInput.value.trim();
+  messageEl.hidden = false;
+  messageEl.className = "small";
+  if (!text) {
+    messageEl.textContent = "Claim text is required.";
+    messageEl.classList.add("error");
+    return;
+  }
+  try {
+    await api("POST", "/api/v1/claims", { json: { text } });
+    textInput.value = "";
+    messageEl.textContent = "Claim added.";
+    await refreshClaims();
+  } catch (err) {
+    messageEl.textContent = err.message;
+    messageEl.classList.add("error");
+  }
+}
+
+async function showClaimGapReport() {
+  const messageEl = document.getElementById("claim-report-message");
+  messageEl.hidden = false;
+  messageEl.className = "small";
+  messageEl.textContent = "Checking...";
+  try {
+    const report = await api("GET", "/api/v1/claims/gaps");
+    messageEl.textContent = `${report.gap_count} claim(s) with a citation gap.`;
+  } catch (err) {
+    messageEl.textContent = err.message;
+    messageEl.classList.add("error");
+  }
+}
+
+async function showClaimValidationReport() {
+  const messageEl = document.getElementById("claim-report-message");
+  messageEl.hidden = false;
+  messageEl.className = "small";
+  messageEl.textContent = "Checking...";
+  try {
+    const report = await api("GET", "/api/v1/claims/validate");
+    const rows = report.claims || [];
+    const needsReview = rows.filter((row) => row.status !== "ok").length;
+    messageEl.textContent = `${rows.length} claim(s) checked, ${needsReview} need review (missing or non-accepted linked source).`;
+  } catch (err) {
+    messageEl.textContent = err.message;
+    messageEl.classList.add("error");
+  }
+}
+
+function setupClaimsPanel() {
+  document.getElementById("claim-add-btn").addEventListener("click", addClaim);
+  document.getElementById("claim-gaps-btn").addEventListener("click", showClaimGapReport);
+  document.getElementById("claim-validate-btn").addEventListener("click", showClaimValidationReport);
+}
+
+// --- citation planning ---
+
+let citationPlanState = null;
+
+async function createCitationPlan() {
+  const messageEl = document.getElementById("citation-plan-message");
+  const target = document.getElementById("citation-target-input").value.trim();
+  messageEl.hidden = false;
+  messageEl.className = "small";
+  if (!target) {
+    messageEl.textContent = "Provide a document target path.";
+    messageEl.classList.add("error");
+    return;
+  }
+  messageEl.textContent = "Creating plan...";
+  try {
+    const result = await api("POST", "/api/v1/citations/plan", { json: { target } });
+    citationPlanState = { target, insertions: result.plan.insertions || [] };
+    messageEl.textContent = `Plan created: ${citationPlanState.insertions.length} proposed insertion(s).`;
+    renderCitationInsertions();
+  } catch (err) {
+    messageEl.textContent = err.message;
+    messageEl.classList.add("error");
+  }
+}
+
+function renderCitationInsertions() {
+  const listEl = document.getElementById("citation-insertions-list");
+  const emptyEl = document.getElementById("citation-insertions-empty");
+  listEl.innerHTML = "";
+  const insertions = (citationPlanState && citationPlanState.insertions) || [];
+  emptyEl.hidden = insertions.length > 0;
+  for (const insertion of insertions) {
+    const row = document.createElement("div");
+    row.className = "rq-row";
+    row.innerHTML = `
+      <div class="rq-question">${escapeHtml(insertion.target_sentence || "")}</div>
+      <p class="muted small">
+        Suggested: ${escapeHtml(insertion.suggested_inline_citation || "")}
+        &middot; confidence: ${insertion.confidence_score != null ? insertion.confidence_score : "n/a"}
+        &middot; <span class="candidate-status">${escapeHtml(insertion.review_status || "")}</span>
+      </p>
+      <div class="row-actions"></div>
+    `;
+    const actions = row.querySelector(".row-actions");
+    const acceptBtn = document.createElement("button");
+    acceptBtn.type = "button";
+    acceptBtn.textContent = "Accept";
+    acceptBtn.addEventListener("click", () => reviewCitationInsertion(insertion, "accepted"));
+    const rejectBtn = document.createElement("button");
+    rejectBtn.type = "button";
+    rejectBtn.className = "secondary";
+    rejectBtn.textContent = "Reject";
+    rejectBtn.addEventListener("click", () => reviewCitationInsertion(insertion, "rejected"));
+    actions.appendChild(acceptBtn);
+    actions.appendChild(rejectBtn);
+    listEl.appendChild(row);
+  }
+}
+
+async function reviewCitationInsertion(insertion, reviewStatus) {
+  const messageEl = document.getElementById("citation-plan-message");
+  try {
+    await api("POST", "/api/v1/citations/plan/insertion-review", {
+      json: {
+        target: citationPlanState.target,
+        sentence_index: insertion.sentence_index,
+        source_id: insertion.source_id,
+        review_status: reviewStatus,
+      },
+    });
+    insertion.review_status = reviewStatus;
+    renderCitationInsertions();
+  } catch (err) {
+    messageEl.hidden = false;
+    messageEl.className = "small error";
+    messageEl.textContent = err.message;
+  }
+}
+
+async function applyCitationPlan() {
+  const messageEl = document.getElementById("citation-plan-message");
+  messageEl.hidden = false;
+  messageEl.className = "small";
+  if (!citationPlanState) {
+    messageEl.textContent = "Create a plan first.";
+    messageEl.classList.add("error");
+    return;
+  }
+  messageEl.textContent = "Applying...";
+  try {
+    const result = await api("POST", "/api/v1/citations/apply", { json: { target: citationPlanState.target } });
+    messageEl.textContent = `Applied ${result.applied}, skipped ${result.skipped}. New version: ${result.version_id}.`;
+  } catch (err) {
+    messageEl.textContent = err.message;
+    messageEl.classList.add("error");
+  }
+}
+
+function setupCitationPanel() {
+  document.getElementById("citation-plan-btn").addEventListener("click", createCitationPlan);
+  document.getElementById("citation-apply-btn").addEventListener("click", applyCitationPlan);
+}
+
 // --- localStorage: remember the last-used workspace path ---
 
 const LAST_WORKSPACE_KEY = "researchboss:lastWorkspace";
@@ -891,6 +1102,8 @@ document.addEventListener("DOMContentLoaded", () => {
   setupZoteroPanel();
   setupSourcesPanel();
   setupRqAndArtefactPanels();
+  setupClaimsPanel();
+  setupCitationPanel();
 
   const workspaceInput = document.getElementById("workspace-input");
   // Prefer an explicit ?workspace= URL param (e.g. from a bookmark or a
