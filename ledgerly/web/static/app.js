@@ -725,6 +725,25 @@ async function scanSources() {
   }
 }
 
+async function showSourceReviewReport() {
+  const messageEl = document.getElementById("source-review-report-message");
+  messageEl.hidden = false;
+  messageEl.className = "small";
+  messageEl.textContent = "Checking...";
+  try {
+    const report = await api("GET", "/api/v1/sources/report");
+    const rows = report.sources || [];
+    const notConverted = rows.filter((row) => row.conversion_status !== "converted").length;
+    const untagged = rows.filter((row) => (row.tags || []).length === 0).length;
+    const noNotes = rows.filter((row) => !row.has_notes).length;
+    messageEl.textContent =
+      `${rows.length} source(s): ${notConverted} not yet converted, ${untagged} untagged, ${noNotes} without notes.`;
+  } catch (err) {
+    messageEl.textContent = err.message;
+    messageEl.classList.add("error");
+  }
+}
+
 function setupSourcesPanel() {
   document.querySelectorAll("#source-filter-tabs .filter-tab").forEach((tab) => {
     tab.addEventListener("click", () => {
@@ -737,6 +756,7 @@ function setupSourcesPanel() {
   document.getElementById("source-scan-btn").addEventListener("click", scanSources);
   document.getElementById("source-edit-save-note-btn").addEventListener("click", saveSourceEditNote);
   document.getElementById("source-edit-add-tag-btn").addEventListener("click", addSourceEditTag);
+  document.getElementById("source-review-report-btn").addEventListener("click", showSourceReviewReport);
 }
 
 // --- research questions ---
@@ -1638,11 +1658,32 @@ async function compareDocVersions() {
   }
 }
 
+async function buildDerivedTextAnchors() {
+  const messageEl = document.getElementById("doc-derive-text-message");
+  const versionId = document.getElementById("doc-derive-text-version-input").value.trim();
+  messageEl.hidden = false;
+  messageEl.className = "small";
+  if (!versionId) {
+    messageEl.textContent = "Provide a version ID.";
+    messageEl.classList.add("error");
+    return;
+  }
+  messageEl.textContent = "Building...";
+  try {
+    const snapshot = await api("POST", `/api/v1/doc/derive-text/${encodeURIComponent(versionId)}`, { json: {} });
+    messageEl.textContent = `Built ${snapshot.paragraph_count} paragraph anchor(s) for ${snapshot.version_id}.`;
+  } catch (err) {
+    messageEl.textContent = err.message;
+    messageEl.classList.add("error");
+  }
+}
+
 function setupDocVaultPanel() {
   document.getElementById("doc-snapshot-btn").addEventListener("click", snapshotDocument);
   document.getElementById("doc-versions-load-btn").addEventListener("click", loadDocVersions);
   document.getElementById("doc-diff-btn").addEventListener("click", diffDocVersions);
   document.getElementById("doc-compare-btn").addEventListener("click", compareDocVersions);
+  document.getElementById("doc-derive-text-btn").addEventListener("click", buildDerivedTextAnchors);
 }
 
 // --- data sources, metadata quality, conversion, backup, db admin ---

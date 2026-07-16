@@ -111,6 +111,11 @@
       <button type="button" class="filter-tab" data-status="ignored">Ignored</button>
     </div>
 
+    <div class="zotero-link-actions">
+      <button id="source-review-report-btn" type="button" class="secondary">Review report</button>
+    </div>
+    <p id="source-review-report-message" class="small" hidden></p>
+
     <table id="sources-table" class="data-table">
       <thead>
         <tr><th>File</th><th>Provider</th><th>Status</th><th>Tags</th><th>Notes</th><th></th></tr>
@@ -453,6 +458,16 @@
 
     <div id="doc-diff-result"></div>
     <div id="doc-compare-result"></div>
+
+    <div class="source-scan-form">
+      <label class="field-label" for="doc-derive-text-version-input">Build derived-text anchors for version</label>
+      <div class="zotero-search-row">
+        <input id="doc-derive-text-version-input" type="text" placeholder="e.g. docv-001">
+        <button id="doc-derive-text-btn" type="button" class="secondary">Build anchors</button>
+      </div>
+      <p id="doc-derive-text-message" class="small" hidden></p>
+      <p class="muted small">Paragraph/sentence anchors for precise citation, evidence, and future AI-suggestion traceability — prep infrastructure, not a standalone view yet.</p>
+    </div>
   </section>
 
   <section class="panel">
