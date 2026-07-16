@@ -1016,7 +1016,7 @@ Engine source:
 
 ### `POST /api/v1/export/supervisor-bundle` (implemented)
 
-Builds a single "hand this to my supervisor" bundle: a claim-ledger table (with citation-gap and claim-source-validation flags per claim), every citation plan created so far, and the workspace review report — as one readable Markdown digest (`supervisor-bundle.md`) plus a zip (`supervisor-bundle.zip`) also containing the raw claims YAML and per-plan Markdown. Markdown + zip rather than PDF: no PDF-generation dependency exists in this project, and the digest converts to PDF trivially with any tool the user already has.
+Builds a single "hand this to my supervisor" bundle: a claim-ledger table (with citation-gap and claim-source-validation flags per claim), every citation plan created so far, the workspace review report, and (added 2026-07-17) an "AI Usage Disclosure" section built from the AI-usage audit ledger (`ledgerly.engine.ai.list_ai_usage`) — a factual summary of which AI features were invoked, whether each actually called a provider or correctly refused with insufficient evidence, and grounding pass/fail counts — as one readable Markdown digest (`supervisor-bundle.md`) plus a zip (`supervisor-bundle.zip`) also containing the raw claims YAML, the raw AI-usage ledger YAML, and per-plan Markdown. Markdown + zip rather than PDF: no PDF-generation dependency exists in this project, and the digest converts to PDF trivially with any tool the user already has.
 
 Engine source:
 

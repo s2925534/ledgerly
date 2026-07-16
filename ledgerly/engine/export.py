@@ -152,6 +152,7 @@ def build_supervisor_bundle(workspace: Path) -> Path:
     this project today, and a Markdown digest is trivially convertible to
     PDF by the supervisor (or the user) with whatever tool they already have.
     """
+    from ledgerly.engine.ai import list_ai_usage
     from ledgerly.engine.claims import citation_gap_claims, claim_source_validation_report, list_claims
     from ledgerly.engine.reports import generate_workspace_report
 
@@ -197,6 +198,32 @@ def build_supervisor_bundle(workspace: Path) -> Path:
 
     lines.extend(["", "## Workspace Review Report", "", workspace_report_path.read_text(encoding="utf-8").strip(), ""])
 
+    ai_usage = list_ai_usage(workspace)
+    lines.extend(["", "## AI Usage Disclosure", ""])
+    if ai_usage:
+        used_count = sum(1 for entry in ai_usage if entry.get("ai_used"))
+        refused_count = sum(1 for entry in ai_usage if entry.get("insufficient_evidence"))
+        grounded_count = sum(1 for entry in ai_usage if entry.get("grounding_fully_grounded") is True)
+        ungrounded_count = sum(1 for entry in ai_usage if entry.get("grounding_fully_grounded") is False)
+        lines.append(
+            f"{len(ai_usage)} AI call(s) recorded against this workspace: {used_count} actually used an AI "
+            f"provider, {refused_count} correctly refused with insufficient evidence (no call made). Of the "
+            f"calls that used AI, {grounded_count} passed the deterministic grounding check fully and "
+            f"{ungrounded_count} had at least one citation flagged as not traceable to the supplied context "
+            "and require extra scrutiny before trusting. Every call required explicit per-request opt-in — "
+            "AI is never invoked automatically or in the background."
+        )
+        lines.extend(["", "| Timestamp | Kind | AI used | Grounded | Model |", "| --- | --- | --- | --- | --- |"])
+        for entry in ai_usage:
+            grounded = entry.get("grounding_fully_grounded")
+            grounded_label = "n/a" if grounded is None else ("yes" if grounded else "no")
+            lines.append(
+                f"| {entry.get('timestamp', '')} | {entry.get('kind', '')} | "
+                f"{'yes' if entry.get('ai_used') else 'no'} | {grounded_label} | {entry.get('model') or ''} |"
+            )
+    else:
+        lines.append("No AI features have been used in this workspace.")
+
     digest_path = output_dir / "supervisor-bundle.md"
     digest_path.write_text("\n".join(lines), encoding="utf-8")
 
@@ -205,6 +232,7 @@ def build_supervisor_bundle(workspace: Path) -> Path:
         zf.write(digest_path, digest_path.name)
         zf.write(workspace_report_path, workspace_report_path.name)
         zf.writestr("claims-ledger.yaml", _yaml_text({"version": 1, "claims": claims}))
+        zf.writestr("ai-usage-ledger.yaml", _yaml_text({"version": 1, "entries": ai_usage}))
         for plan_path in plan_paths:
             zf.write(plan_path, plan_path.relative_to(workspace).as_posix())
     return bundle_path

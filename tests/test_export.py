@@ -85,12 +85,43 @@ def test_build_supervisor_bundle_writes_digest_and_zip(tmp_path: Path) -> None:
     assert "Container automation reduces turnaround time." in digest
     assert "No citation plans created yet." in digest
     assert "## Workspace Review Report" in digest
+    assert "## AI Usage Disclosure" in digest
+    assert "No AI features have been used in this workspace." in digest
 
     with ZipFile(bundle_path) as zf:
         names = set(zf.namelist())
     assert "supervisor-bundle.md" in names
     assert "workspace-report.md" in names
     assert "claims-ledger.yaml" in names
+    assert "ai-usage-ledger.yaml" in names
+
+
+def test_build_supervisor_bundle_includes_ai_usage_disclosure_summary(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test Project", project_type="M.Phil", topic="Topic")
+
+    from ledgerly.engine.ai import (
+        OpenAiCredentials,
+        ai_assisted_review,
+    )
+
+    def opener(request):
+        raise AssertionError("no evidence configured -- must not reach the AI provider")
+
+    ai_assisted_review(workspace, OpenAiCredentials(api_key="sk-secret"), opener=opener)
+
+    bundle_path = build_supervisor_bundle(workspace)
+    digest = (workspace / "outputs" / "reports" / "supervisor-bundle.md").read_text(encoding="utf-8")
+
+    assert "## AI Usage Disclosure" in digest
+    assert "1 AI call(s) recorded" in digest
+    assert "0 actually used an AI provider" in digest
+    assert "1 correctly refused with insufficient evidence" in digest
+    assert "ai_assisted_review" in digest
+
+    with ZipFile(bundle_path) as zf:
+        ledger_yaml = zf.read("ai-usage-ledger.yaml").decode("utf-8")
+    assert "ai_assisted_review" in ledger_yaml
 
 
 def test_build_supervisor_bundle_handles_no_claims(tmp_path: Path) -> None:
