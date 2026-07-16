@@ -1,8 +1,11 @@
+import shutil
 import subprocess
 import sys
 import wave
 from pathlib import Path
+from zipfile import ZipFile
 
+import pytest
 from typer.testing import CliRunner
 
 import ledgerly.cli as cli
@@ -1901,6 +1904,58 @@ def test_cli_backup_creates_zip(tmp_path: Path) -> None:
 
     assert result.exit_code == 0, result.output
     assert (workspace / "outputs" / "backups" / "workspace-backup.zip").is_file()
+
+
+@pytest.mark.skipif(shutil.which("gpg") is None, reason="No local gpg binary available")
+def test_cli_backup_encrypt_and_decrypt_round_trip(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test Project", project_type="M.Phil", topic="")
+    (workspace / "memory.md").write_text("# Memory\nsecret note", encoding="utf-8")
+
+    backup_result = runner.invoke(
+        app, ["backup", "--encrypt", "--passphrase", "hunter2", "--workspace", str(workspace), "--quiet"]
+    )
+    assert backup_result.exit_code == 0, backup_result.output
+    encrypted_path = workspace / "outputs" / "backups" / "workspace-backup.zip.gpg"
+    assert encrypted_path.is_file()
+    assert not (workspace / "outputs" / "backups" / "workspace-backup.zip").exists()
+
+    decrypt_result = runner.invoke(
+        app,
+        [
+            "backup-decrypt",
+            str(encrypted_path),
+            "--passphrase",
+            "hunter2",
+            "--workspace",
+            str(workspace),
+            "--quiet",
+        ],
+    )
+    assert decrypt_result.exit_code == 0, decrypt_result.output
+    decrypted_path = workspace / "outputs" / "backups" / "workspace-backup.zip"
+    assert decrypted_path.is_file()
+    with ZipFile(decrypted_path) as zf:
+        assert "secret note" in zf.read("memory.md").decode("utf-8")
+
+
+def test_cli_backup_decrypt_wrong_passphrase_fails(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test Project", project_type="M.Phil", topic="")
+
+    result = runner.invoke(
+        app,
+        [
+            "backup-decrypt",
+            str(tmp_path / "does-not-exist.zip.gpg"),
+            "--passphrase",
+            "hunter2",
+            "--workspace",
+            str(workspace),
+            "--quiet",
+        ],
+    )
+    assert result.exit_code == 2, result.output
 
 
 def test_cli_scan_uses_configured_zotero_provider_when_kind_is_omitted(tmp_path: Path) -> None:

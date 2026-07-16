@@ -79,3 +79,5 @@ OCR is different: `ocr_readiness_report()` locates `tesseract` and `pdftoppm` (p
 ### SQLite and backups
 
 No known platform-specific packaging concern beyond the `_sqlite3` PyInstaller-bundling verification already noted above. Workspace backups (`ledgerly backup`) zip files already inside the user's chosen workspace folder and write the result back into that same folder — no packaging-specific temp-directory or permissions handling needed beyond what the OS already grants the packaged process for that folder.
+
+`ledgerly backup --encrypt`/`ledgerly backup-decrypt` (Phase 32) shell out to `gpg` via subprocess — never bundled, same "detect, don't bundle" pattern as Tesseract/poppler and SourceScribe above. Without `gpg` installed, `--encrypt` fails with a clear error naming the missing binary and how to install it (`brew install gnupg` on macOS); the default unencrypted `ledgerly backup` is entirely unaffected. `age`'s passphrase mode was evaluated first and rejected — verified live that it hard-requires an interactive terminal for the passphrase and cannot be driven non-interactively at all, so it can't back a scriptable flag.

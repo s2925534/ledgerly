@@ -33,7 +33,13 @@ from ledgerly.engine.ai import (
 from ledgerly.engine.abstracts import import_abstract_folder
 from ledgerly.engine.artefact_creation import SUPPORTED_ARTEFACT_TYPES, create_deterministic_artefact
 from ledgerly.engine.artefacts import artefact_dependency_report, list_artefacts, register_artefact, set_artefact_review_status
-from ledgerly.engine.backup import create_workspace_backup, inspect_backup
+from ledgerly.engine.backup import (
+    BackupEncryptionError,
+    create_encrypted_workspace_backup,
+    create_workspace_backup,
+    decrypt_workspace_backup,
+    inspect_backup,
+)
 from ledgerly.engine.claims import (
     DEFAULT_DUPLICATE_SIMILARITY_THRESHOLD,
     add_claim,
@@ -2192,14 +2198,67 @@ def watch(
 def backup(
     workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
     include_originals: bool = typer.Option(False, "--include-originals", help="Include sources_original in the zip."),
+    encrypt: bool = typer.Option(
+        False, "--encrypt", help="Encrypt the backup with a passphrase (gpg symmetric encryption, requires gpg installed)."
+    ),
+    passphrase: Optional[str] = typer.Option(
+        None,
+        "--passphrase",
+        help="Passphrase for --encrypt. Omit to be prompted (recommended -- avoids leaking it into shell history).",
+    ),
     log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
     quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
 ):
-    """Create a local zip backup of workspace state."""
+    """Create a local zip backup of workspace state, optionally encrypted."""
     ws = _resolve_workspace(workspace)
     _slug, logger, summary, summary_path, _log_path = _run_ctx(["backup"], ws, log_level)
-    output_path = create_workspace_backup(ws, include_originals=include_originals)
-    logger.info("Created workspace backup", operation="backup", output_path=str(output_path))
+    try:
+        if encrypt:
+            if not passphrase:
+                passphrase = typer.prompt("Backup passphrase", hide_input=True, confirmation_prompt=True)
+            output_path = create_encrypted_workspace_backup(
+                ws, passphrase=passphrase, include_originals=include_originals
+            )
+        else:
+            output_path = create_workspace_backup(ws, include_originals=include_originals)
+    except BackupEncryptionError as e:
+        logger.error("Backup failed", operation="backup", error=str(e))
+        summary.errors += 1
+        _finish(summary, summary_path)
+        if not quiet:
+            console.print(f"[red]{e}[/red]")
+        raise typer.Exit(code=2)
+    logger.info("Created workspace backup", operation="backup", output_path=str(output_path), encrypted=encrypt)
+    _finish(summary, summary_path)
+    if not quiet:
+        console.print(f"[green]Wrote[/green] {output_path}")
+
+
+@app.command("backup-decrypt")
+def backup_decrypt(
+    encrypted_path: Path = typer.Argument(..., help="Encrypted backup path (from `ledgerly backup --encrypt`)."),
+    passphrase: Optional[str] = typer.Option(
+        None, "--passphrase", help="Omit to be prompted (recommended -- avoids leaking it into shell history)."
+    ),
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path for run logs."),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Decrypt a backup created with `ledgerly backup --encrypt` back into a plain zip."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["backup", "decrypt"], ws, log_level)
+    if not passphrase:
+        passphrase = typer.prompt("Backup passphrase", hide_input=True)
+    try:
+        output_path = decrypt_workspace_backup(encrypted_path, passphrase=passphrase)
+    except BackupEncryptionError as e:
+        logger.error("Backup decryption failed", operation="backup_decrypt", error=str(e))
+        summary.errors += 1
+        _finish(summary, summary_path)
+        if not quiet:
+            console.print(f"[red]{e}[/red]")
+        raise typer.Exit(code=2)
+    logger.info("Decrypted workspace backup", operation="backup_decrypt", output_path=str(output_path))
     _finish(summary, summary_path)
     if not quiet:
         console.print(f"[green]Wrote[/green] {output_path}")
