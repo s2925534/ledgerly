@@ -21,6 +21,7 @@ from ledgerly.engine.ai import (
     ai_research_question_assessment,
     ai_workspace_report,
     build_safe_context,
+    list_ai_usage,
     openai_credentials,
     openai_readiness,
     require_ai_flag,
@@ -1599,6 +1600,41 @@ def ai_abstract_screening(
         log_level=log_level,
         quiet=quiet,
     )
+
+
+@ai_app.command("usage-log")
+def ai_usage_log(
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """List every recorded AI call against this workspace (TODO.md Phase 32 audit ledger) -- no AI opt-in needed, this is a read-only local log."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["ai", "usage-log"], ws, log_level)
+    entries = list_ai_usage(ws)
+    logger.info("Listed AI usage log", operation="ai_usage_log", count=len(entries))
+    _finish(summary, summary_path)
+    if quiet:
+        return
+    table = Table(title="AI Usage Log")
+    table.add_column("id")
+    table.add_column("timestamp")
+    table.add_column("kind")
+    table.add_column("ai_used")
+    table.add_column("insufficient_evidence")
+    table.add_column("grounded")
+    table.add_column("model")
+    for entry in entries:
+        table.add_row(
+            str(entry.get("id", "")),
+            str(entry.get("timestamp", "")),
+            str(entry.get("kind", "")),
+            str(entry.get("ai_used", "")),
+            str(entry.get("insufficient_evidence", "")),
+            str(entry.get("grounding_fully_grounded", "")),
+            str(entry.get("model", "")),
+        )
+    console.print(table)
 
 
 @search_app.command("plan")

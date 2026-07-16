@@ -15,6 +15,7 @@ from ledgerly.engine.ai import (
     ai_novelty_assessment,
     ai_research_question_assessment,
     ai_workspace_report,
+    list_ai_usage,
     openai_credentials,
     openai_readiness,
 )
@@ -136,3 +137,11 @@ router.add_api_route("/citation-gaps", _workspace_report_route("citation_gaps"),
 router.add_api_route("/artefact-cross-reference", _workspace_report_route("artefact_cross_reference"), methods=["POST"])
 router.add_api_route("/source-relevance", _workspace_report_route("source_relevance"), methods=["POST"])
 router.add_api_route("/abstract-screening", _workspace_report_route("abstract_screening"), methods=["POST"])
+
+
+@router.get("/usage-log")
+def ai_usage_log(workspace: Path = Depends(resolve_workspace)) -> dict[str, Any]:
+    """Read-only AI-usage audit log (TODO.md Phase 32) -- no `ai: true` opt-in
+    needed since this only reads an already-local record, never calls a
+    provider."""
+    return ok(list_ai_usage(workspace))

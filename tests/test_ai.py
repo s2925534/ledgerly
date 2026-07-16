@@ -15,6 +15,7 @@ from ledgerly.engine.ai import (
     ai_workspace_report,
     build_safe_context,
     extract_response_text,
+    list_ai_usage,
     load_dotenv_values,
     openai_post,
     openai_credentials,
@@ -629,3 +630,87 @@ def test_ai_citation_plan_review_returns_review_only_recommendations(tmp_path: P
     # citable IDs come from the deterministic citation plan's insertions, not build_safe_context.
     assert report["grounding"]["fully_grounded"] is True
     assert report["grounding"]["grounded_citations"] == [{"type": "source", "id": "source-001"}]
+
+
+def test_list_ai_usage_returns_empty_list_for_workspace_without_ledger_file(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    assert list_ai_usage(workspace) == []
+
+
+def test_record_ai_usage_logs_insufficient_evidence_calls(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    from ledgerly.engine.workspace import init_workspace
+
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+
+    def opener(request: Request):
+        raise AssertionError("must not call AI provider")
+
+    ai_assisted_review(workspace, OpenAiCredentials(api_key="sk-secret"), opener=opener)
+
+    entries = list_ai_usage(workspace)
+    assert len(entries) == 1
+    assert entries[0]["id"] == "ai-usage-001"
+    assert entries[0]["kind"] == "ai_assisted_review"
+    assert entries[0]["ai_used"] is False
+    assert entries[0]["insufficient_evidence"] is True
+    assert entries[0]["grounding_fully_grounded"] is None
+    assert "timestamp" in entries[0]
+
+
+def test_record_ai_usage_logs_grounded_and_ungrounded_calls_sequentially(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    source_root = tmp_path / "sources"
+    source_root.mkdir()
+    (source_root / "paper.txt").write_text("bounded evidence text", encoding="utf-8")
+
+    from ledgerly.engine.conversion import convert_sources
+    from ledgerly.engine.sources import scan_sources, set_source_status
+    from ledgerly.engine.workspace import init_workspace
+
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    scan_sources(workspace, source_root)
+    source_id = read_yaml(workspace / "source-register.yaml")["sources"][0]["source_id"]
+    set_source_status(workspace, source_id=source_id, new_status="accepted")
+    convert_sources(workspace, status="accepted")
+
+    def grounded_opener(request: Request):
+        return FakeResponse({"id": "resp-1", "output_text": f"Grounded fact [[source:{source_id}]]."})
+
+    def ungrounded_opener(request: Request):
+        return FakeResponse({"id": "resp-2", "output_text": "Fabricated fact [[source:src-fake]]."})
+
+    ai_assisted_review(workspace, OpenAiCredentials(api_key="sk-secret"), opener=grounded_opener)
+    ai_assisted_review(workspace, OpenAiCredentials(api_key="sk-secret"), opener=ungrounded_opener)
+
+    entries = list_ai_usage(workspace)
+    assert [entry["id"] for entry in entries] == ["ai-usage-001", "ai-usage-002"]
+    assert entries[0]["ai_used"] is True
+    assert entries[0]["grounding_fully_grounded"] is True
+    assert entries[0]["response_id"] == "resp-1"
+    assert entries[1]["grounding_fully_grounded"] is False
+    assert entries[1]["response_id"] == "resp-2"
+
+
+def test_record_ai_usage_covers_citation_plan_review_and_workspace_reports(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    from ledgerly.engine.workspace import init_workspace
+
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+
+    def opener(request: Request):
+        return FakeResponse({"id": "resp-cite", "output_text": "Recommendation text."})
+
+    ai_citation_plan_review(
+        workspace,
+        OpenAiCredentials(api_key="sk-secret"),
+        target_text="Claim needing a citation.",
+        citation_plan={"insertions": []},
+        opener=opener,
+    )
+    ai_workspace_report(workspace, OpenAiCredentials(api_key="sk-secret"), kind="corpus_summary")
+
+    entries = list_ai_usage(workspace)
+    kinds = [entry["kind"] for entry in entries]
+    assert kinds == ["ai_citation_plan_review", "corpus_summary"]

@@ -107,6 +107,7 @@ async function loadWorkspace(workspace) {
   refreshDataSources();
   refreshNotes();
   refreshTranscribeJobs();
+  refreshAiUsageLog();
 }
 
 async function loadUploadLimits() {
@@ -645,6 +646,7 @@ async function runAiAction() {
     const result = await api("POST", AI_ACTION_ROUTES[action], { json: body });
     if (result.insufficient_evidence) {
       messageEl.textContent = `Insufficient evidence. ${result.insufficient_evidence_reason}`;
+      refreshAiUsageLog();
       return;
     }
     messageEl.hidden = true;
@@ -663,9 +665,40 @@ async function runAiAction() {
     // per-action opt-in, not a session-wide toggle, matching the CLI's
     // per-invocation --ai flag.
     document.getElementById("ai-opt-in-checkbox").checked = false;
+    refreshAiUsageLog();
   } catch (err) {
     messageEl.textContent = err.message;
     messageEl.classList.add("error");
+  }
+}
+
+async function refreshAiUsageLog() {
+  const tbody = document.getElementById("ai-usage-log-tbody");
+  const emptyEl = document.getElementById("ai-usage-log-empty");
+  try {
+    const entries = await api("GET", "/api/v1/ai/usage-log");
+    tbody.innerHTML = "";
+    emptyEl.hidden = entries.length > 0;
+    for (const entry of entries) {
+      const row = document.createElement("tr");
+      const grounded =
+        entry.grounding_fully_grounded === null || entry.grounding_fully_grounded === undefined
+          ? "n/a"
+          : entry.grounding_fully_grounded
+          ? "yes"
+          : "no";
+      row.innerHTML = `
+        <td>${escapeHtml(entry.timestamp || "")}</td>
+        <td>${escapeHtml(entry.kind || "")}</td>
+        <td>${entry.ai_used ? "yes" : "no"}</td>
+        <td>${escapeHtml(grounded)}</td>
+        <td>${escapeHtml(entry.model || "")}</td>
+      `;
+      tbody.appendChild(row);
+    }
+  } catch (err) {
+    emptyEl.hidden = false;
+    emptyEl.textContent = err.message;
   }
 }
 
@@ -2871,6 +2904,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("compare-workspaces-btn").addEventListener("click", compareWorkspaces);
   document.getElementById("ai-readiness-btn").addEventListener("click", checkAiReadiness);
   document.getElementById("ai-run-btn").addEventListener("click", runAiAction);
+  document.getElementById("ai-usage-log-refresh-btn").addEventListener("click", refreshAiUsageLog);
   document.getElementById("corpus-search-btn").addEventListener("click", searchCorpus);
   document.getElementById("corpus-search-input").addEventListener("keydown", (event) => {
     if (event.key === "Enter") searchCorpus();

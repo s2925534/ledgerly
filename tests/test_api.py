@@ -1992,6 +1992,23 @@ def test_ai_review_returns_grounded_result_with_mocked_openai(client: TestClient
     assert data["review"] == "Review result"
     assert data["requires_user_review"] is True
 
+    usage_response = client.get("/api/v1/ai/usage-log", params={"workspace": str(workspace)})
+    assert usage_response.status_code == 200
+    entries = usage_response.json()["data"]
+    assert len(entries) == 1
+    assert entries[0]["kind"] == "ai_assisted_review"
+    assert entries[0]["ai_used"] is True
+
+
+def test_ai_usage_log_route_empty_for_fresh_workspace(client: TestClient, tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+
+    response = client.get("/api/v1/ai/usage-log", params={"workspace": str(workspace)})
+
+    assert response.status_code == 200
+    assert response.json()["data"] == []
+
 
 def test_ai_novelty_route_writes_ledger(client: TestClient, tmp_path: Path, monkeypatch) -> None:
     workspace = tmp_path / "workspace"

@@ -1193,6 +1193,12 @@ Six thin wrappers around `engine.ai.ai_workspace_report` with a fixed `kind`, on
 - `POST /api/v1/ai/source-relevance` — CLI: `ledgerly ai source-relevance --ai`.
 - `POST /api/v1/ai/abstract-screening` — CLI: `ledgerly ai abstract-screening --ai`.
 
+### `GET /api/v1/ai/usage-log` (implemented, 2026-07-17)
+
+CLI equivalent: `ledgerly ai usage-log`. Engine source: `engine.ai.list_ai_usage`. The AI-usage audit ledger (TODO.md Phase 32): every call any `engine.ai` function makes gets one entry (`_record_ai_usage`), including calls that correctly refused via `insufficient_evidence` — a single place to answer "when was AI used on this workspace, and was it grounded" without needing to know which individual feature happens to persist its own side-effect file. **Requires no `ai: true` opt-in** — unlike every other route in this section, this one never calls an AI provider itself; it only reads an already-local YAML file.
+
+Response `data`: a list of `{id, timestamp, kind, ai_used, insufficient_evidence, model, response_id, requires_user_review, grounding_fully_grounded}` entries, oldest first. `grounding_fully_grounded` is `null` for `insufficient_evidence` entries (no text was generated to check).
+
 ### `POST /api/v1/search/ai-query-plan` (implemented)
 
 CLI equivalent: `ledgerly search ai-query-plan --ai --external-search`. Engine source: `engine.ai.ai_workspace_report` (`kind="query_generation"`). Lives under `/api/v1/search/`, not `/api/v1/ai/`, matching the CLI's own `search` command group.

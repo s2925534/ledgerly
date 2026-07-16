@@ -353,6 +353,7 @@ def init_workspace(
 
     write_yaml(workspace / WORKSPACE_FILES.claims_ledger, {"version": 1, "claims": []})
     write_yaml(workspace / WORKSPACE_FILES.novelty_ledger, {"version": 1, "assessments": []})
+    write_yaml(workspace / WORKSPACE_FILES.ai_usage_ledger, {"version": 1, "entries": []})
     write_yaml(workspace / WORKSPACE_FILES.terminology, {"version": 1, "terms": []})
     write_yaml(workspace / WORKSPACE_FILES.supervisor_feedback, {"version": 1, "items": []})
     write_yaml(workspace / WORKSPACE_FILES.artefact_registry, {"version": 1, "artefacts": []})

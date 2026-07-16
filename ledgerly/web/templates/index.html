@@ -120,6 +120,21 @@
       <p id="ai-run-message" class="small" hidden></p>
       <div id="ai-run-result"></div>
     </div>
+
+    <details>
+      <summary>AI usage log</summary>
+      <p class="muted small">Every AI call recorded against this workspace, including ones that correctly refused with no evidence -- a single place to answer "when was AI used, and was it grounded". Read-only; never itself sends anything to a provider.</p>
+      <div class="zotero-link-actions">
+        <button id="ai-usage-log-refresh-btn" type="button" class="secondary">Refresh log</button>
+      </div>
+      <table>
+        <thead>
+          <tr><th>Timestamp</th><th>Kind</th><th>AI used</th><th>Grounded</th><th>Model</th></tr>
+        </thead>
+        <tbody id="ai-usage-log-tbody"></tbody>
+      </table>
+      <p id="ai-usage-log-empty" class="muted small" hidden>No AI calls recorded yet.</p>
+    </details>
   </section>
 
   <section class="panel">

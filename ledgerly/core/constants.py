@@ -20,6 +20,7 @@ class WorkspaceFiles:
 
     claims_ledger: str = "claims-ledger.yaml"
     novelty_ledger: str = "novelty-ledger.yaml"
+    ai_usage_ledger: str = "ai-usage-ledger.yaml"
     terminology: str = "terminology.yaml"
     supervisor_feedback: str = "supervisor-feedback.yaml"
     artefact_registry: str = "artefact-registry.yaml"

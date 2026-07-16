@@ -594,6 +594,35 @@ def test_cli_rqs_assess_requires_ai_flag(tmp_path: Path) -> None:
     assert result.exit_code == 2, result.output
 
 
+def test_cli_ai_usage_log_lists_recorded_calls_without_ai_flag(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    (workspace / ".env").write_text("OPENAI_API_KEY=sk-secret\n", encoding="utf-8")
+
+    # ai review with no evidence still records an insufficient_evidence entry,
+    # and reading the log itself needs no --ai opt-in (it never calls a provider).
+    review_result = runner.invoke(app, ["ai", "review", "--ai", "--workspace", str(workspace), "--quiet"])
+    assert review_result.exit_code == 0, review_result.output
+
+    result = runner.invoke(app, ["ai", "usage-log", "--workspace", str(workspace)])
+
+    assert result.exit_code == 0, result.output
+    # Rich truncates long cell text to fit the test runner's narrow terminal
+    # width, so only assert on the stable, short prefix here -- full content
+    # correctness is covered directly against list_ai_usage in test_ai.py.
+    assert "ai_assist" in result.output
+    assert "ai-usage-" in result.output
+
+
+def test_cli_ai_usage_log_empty_for_fresh_workspace(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+
+    result = runner.invoke(app, ["ai", "usage-log", "--workspace", str(workspace)])
+
+    assert result.exit_code == 0, result.output
+
+
 def test_cli_search_plan_writes_query_plan(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="container port evidence")

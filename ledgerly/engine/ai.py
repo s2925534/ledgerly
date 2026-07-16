@@ -8,6 +8,8 @@ from typing import Any, Callable
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+from ledgerly.core.constants import WORKSPACE_FILES
+from ledgerly.core.runlog import utc_now_iso
 from ledgerly.core.yamlio import read_yaml, write_yaml
 from ledgerly.engine.grounding import citation_instruction, validate_grounding
 
@@ -431,6 +433,55 @@ def _insufficient_evidence_response(kind: str, context: dict[str, Any]) -> dict[
     }
 
 
+def _record_ai_usage(workspace: Path, report: dict[str, Any]) -> dict[str, Any]:
+    """Append one entry to the AI-usage audit ledger (TODO.md Phase 32) --
+    a single place to answer "when was AI used on this workspace, and was
+    it grounded", regardless of whether the individual feature happens to
+    persist its own side-effect file (only novelty assessments do today).
+    Records every invocation, including ones that refused via
+    `insufficient_evidence`, since "AI was requested but correctly refused"
+    is itself audit-worthy. Returns `report` unchanged, so call sites can
+    write `return _record_ai_usage(workspace, report)`.
+    """
+    ledger_path = workspace / WORKSPACE_FILES.ai_usage_ledger
+    # Tolerant of a missing file (unlike other ledgers here) since this
+    # function now runs on every AI call unconditionally, including for
+    # workspaces created before this ledger existed -- a hard crash here
+    # would break every AI feature after an upgrade, not just one command.
+    ledger = read_yaml(ledger_path) if ledger_path.exists() else {}
+    entries = list(ledger.get("entries", []))
+    grounding = report.get("grounding")
+    entries.append(
+        {
+            "id": f"ai-usage-{len(entries) + 1:03d}",
+            "timestamp": utc_now_iso(),
+            "kind": report.get("kind"),
+            "ai_used": report.get("ai_used", False),
+            "insufficient_evidence": report.get("insufficient_evidence", False),
+            "model": report.get("model"),
+            "response_id": report.get("response_id"),
+            "requires_user_review": report.get("requires_user_review"),
+            "grounding_fully_grounded": grounding.get("fully_grounded") if isinstance(grounding, dict) else None,
+        }
+    )
+    ledger["version"] = ledger.get("version", 1)
+    ledger["entries"] = entries
+    write_yaml(ledger_path, ledger)
+    return report
+
+
+def list_ai_usage(workspace: Path) -> list[dict[str, Any]]:
+    """The full AI-usage audit trail (`_record_ai_usage`), oldest first --
+    the single-place answer to "when was AI used on this workspace, and was
+    it grounded" (TODO.md Phase 32). Read-only; never itself a place AI
+    usage is recorded from.
+    """
+    ledger_path = workspace / WORKSPACE_FILES.ai_usage_ledger
+    if not ledger_path.exists():
+        return []
+    return list(read_yaml(ledger_path).get("entries", []))
+
+
 def _review_prompt(context: dict[str, Any]) -> str:
     return (
         "You are assisting with a local-first, evidence-first research workspace.\n"
@@ -454,7 +505,7 @@ def ai_assisted_review(
         workspace, max_sources=max_sources, max_excerpt_chars=max_excerpt_chars, query=_workspace_topic_query(workspace)
     )
     if not context["has_evidence"]:
-        return _insufficient_evidence_response("ai_assisted_review", context)
+        return _record_ai_usage(workspace, _insufficient_evidence_response("ai_assisted_review", context))
     model = default_openai_model(workspace)
     response = openai_post(
         "responses",
@@ -466,20 +517,23 @@ def ai_assisted_review(
         opener=opener,
     )
     review_text = extract_response_text(response)
-    return {
-        "version": 1,
-        "kind": "ai_assisted_review",
-        "provider": "openai",
-        "model": model,
-        "ai_used": True,
-        "requires_user_review": True,
-        "safe_context_policy": context["policy"],
-        "limits": context["limits"],
-        "source_count": len(context["sources"]),
-        "response_id": response.get("id") if isinstance(response, dict) else None,
-        "review": review_text,
-        "grounding": validate_grounding(review_text, context=context),
-    }
+    return _record_ai_usage(
+        workspace,
+        {
+            "version": 1,
+            "kind": "ai_assisted_review",
+            "provider": "openai",
+            "model": model,
+            "ai_used": True,
+            "requires_user_review": True,
+            "safe_context_policy": context["policy"],
+            "limits": context["limits"],
+            "source_count": len(context["sources"]),
+            "response_id": response.get("id") if isinstance(response, dict) else None,
+            "review": review_text,
+            "grounding": validate_grounding(review_text, context=context),
+        },
+    )
 
 
 def _novelty_prompt(context: dict[str, Any], research_questions: dict[str, Any]) -> str:
@@ -524,7 +578,7 @@ def ai_novelty_assessment(
         report = _insufficient_evidence_response("ai_assisted_novelty_assessment", context)
         report["novelty_not_proven"] = True
         report["research_question_count"] = len(research_questions["approved"]) + len(research_questions["candidates"])
-        return report
+        return _record_ai_usage(workspace, report)
     model = default_openai_model(workspace)
     response = openai_post(
         "responses",
@@ -566,7 +620,7 @@ def ai_novelty_assessment(
             "assessment": assessment_text,
         },
     )
-    return report
+    return _record_ai_usage(workspace, report)
 
 
 def _rq_assessment_prompt(context: dict[str, Any], research_questions: dict[str, Any], rq_id: str | None) -> str:
@@ -620,7 +674,7 @@ def ai_research_question_assessment(
         report["novelty_not_proven"] = True
         report["research_question_count"] = question_count
         report["rq_id"] = rq_id
-        return report
+        return _record_ai_usage(workspace, report)
     model = default_openai_model(workspace)
     response = openai_post(
         "responses",
@@ -632,23 +686,26 @@ def ai_research_question_assessment(
         opener=opener,
     )
     assessment_text = extract_response_text(response)
-    return {
-        "version": 1,
-        "kind": "ai_research_question_assessment",
-        "provider": "openai",
-        "model": model,
-        "ai_used": True,
-        "requires_user_review": True,
-        "novelty_not_proven": True,
-        "safe_context_policy": context["policy"],
-        "limits": context["limits"],
-        "source_count": len(context["sources"]),
-        "research_question_count": question_count,
-        "rq_id": rq_id,
-        "response_id": response.get("id") if isinstance(response, dict) else None,
-        "assessment": assessment_text,
-        "grounding": validate_grounding(assessment_text, context=context),
-    }
+    return _record_ai_usage(
+        workspace,
+        {
+            "version": 1,
+            "kind": "ai_research_question_assessment",
+            "provider": "openai",
+            "model": model,
+            "ai_used": True,
+            "requires_user_review": True,
+            "novelty_not_proven": True,
+            "safe_context_policy": context["policy"],
+            "limits": context["limits"],
+            "source_count": len(context["sources"]),
+            "research_question_count": question_count,
+            "rq_id": rq_id,
+            "response_id": response.get("id") if isinstance(response, dict) else None,
+            "assessment": assessment_text,
+            "grounding": validate_grounding(assessment_text, context=context),
+        },
+    )
 
 
 AI_WORKSPACE_REPORTS = {
@@ -753,7 +810,7 @@ def ai_workspace_report(
     if not _payload_has_evidence(payload):
         report = _insufficient_evidence_response(kind, context)
         report["status_changes_applied"] = False
-        return report
+        return _record_ai_usage(workspace, report)
     model = default_openai_model(workspace)
     response = openai_post(
         "responses",
@@ -765,29 +822,32 @@ def ai_workspace_report(
         opener=opener,
     )
     text = extract_response_text(response)
-    return {
-        "version": 1,
-        "kind": kind,
-        "provider": "openai",
-        "model": model,
-        "ai_used": True,
-        "requires_user_review": True,
-        "status_changes_applied": False,
-        "safe_context_policy": context["policy"],
-        "limits": context["limits"],
-        "source_count": len(context["sources"]),
-        "claim_count": len(payload["claims"]),
-        "artefact_count": len(payload["artefacts"]),
-        "abstract_candidate_count": len(payload["abstract_candidates"].get("candidates", [])),
-        "external_candidate_count": len(payload["external_candidates"].get("candidates", [])),
-        "research_question_count": len(payload["research_questions"]["approved"])
-        + len(payload["research_questions"]["candidates"]),
-        "response_id": response.get("id") if isinstance(response, dict) else None,
-        "report": text,
-        "grounding": validate_grounding(
-            text, context=context, claims=payload["claims"], artefacts=payload["artefacts"]
-        ),
-    }
+    return _record_ai_usage(
+        workspace,
+        {
+            "version": 1,
+            "kind": kind,
+            "provider": "openai",
+            "model": model,
+            "ai_used": True,
+            "requires_user_review": True,
+            "status_changes_applied": False,
+            "safe_context_policy": context["policy"],
+            "limits": context["limits"],
+            "source_count": len(context["sources"]),
+            "claim_count": len(payload["claims"]),
+            "artefact_count": len(payload["artefacts"]),
+            "abstract_candidate_count": len(payload["abstract_candidates"].get("candidates", [])),
+            "external_candidate_count": len(payload["external_candidates"].get("candidates", [])),
+            "research_question_count": len(payload["research_questions"]["approved"])
+            + len(payload["research_questions"]["candidates"]),
+            "response_id": response.get("id") if isinstance(response, dict) else None,
+            "report": text,
+            "grounding": validate_grounding(
+                text, context=context, claims=payload["claims"], artefacts=payload["artefacts"]
+            ),
+        },
+    )
 
 
 def ai_citation_plan_review(
@@ -817,13 +877,17 @@ def ai_citation_plan_review(
     plan_source_ids = [
         item.get("source_id") for item in citation_plan.get("insertions", []) if isinstance(item, dict)
     ]
-    return {
-        "provider": "openai",
-        "model": model,
-        "ai_used": True,
-        "requires_user_review": True,
-        "original_document_modified": False,
-        "response_id": response.get("id") if isinstance(response, dict) else None,
-        "recommendations": recommendations_text,
-        "grounding": validate_grounding(recommendations_text, source_ids=plan_source_ids),
-    }
+    return _record_ai_usage(
+        workspace,
+        {
+            "kind": "ai_citation_plan_review",
+            "provider": "openai",
+            "model": model,
+            "ai_used": True,
+            "requires_user_review": True,
+            "original_document_modified": False,
+            "response_id": response.get("id") if isinstance(response, dict) else None,
+            "recommendations": recommendations_text,
+            "grounding": validate_grounding(recommendations_text, source_ids=plan_source_ids),
+        },
+    )
