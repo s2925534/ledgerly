@@ -345,11 +345,11 @@ The source inbox/review workflow (`sources accept/maybe/ignore/note/tag`) is one
 
 ## Phase 20: Web UI — Data Sources, Metadata, Conversion, and Workspace Admin
 
-- [ ] **API** - Add a data sources view: list (`GET /api/v1/data`), status counts (`GET /api/v1/data/status`), and a profile-trigger action (`POST /api/v1/data/profile`).
-- [ ] **API** - Add a metadata quality view: extraction (`POST /api/v1/metadata/extract`), validation (`GET /api/v1/metadata/validate`), and duplicate detection (`GET /api/v1/metadata/duplicates`) reports, plus an index-build action (`POST /api/v1/metadata/index`).
-- [ ] **API** - Add a conversion status view/action (`POST /api/v1/conversion/run`) showing which sources converted, were skipped, or failed.
-- [ ] **API** - Add a backup management view: create a backup (`POST /api/v1/backup`) and inspect an existing backup zip without restoring it (`GET /api/v1/backup/inspect`).
-- [ ] **API** - Add a SQLite index admin view: init/sync/rebuild actions (`POST /api/v1/db/init|sync|rebuild`), status (`GET /api/v1/db/status`), pending-change review (`GET /api/v1/db/pending`, `POST /api/v1/db/apply-pending`), and the privacy self-check (`GET /api/v1/db/privacy`). Lower priority than the rest of this phase — a power-user/admin surface, not a typical researcher workflow.
+- [x] **Done** - **API** - Add a data sources view: list (`GET /api/v1/data`) as a table with a profiled/not-profiled status badge, status counts (`GET /api/v1/data/status`) as a summary line, and a profile-trigger action (`POST /api/v1/data/profile`).
+- [x] **Done** - **API** - Add a metadata quality view: extraction (`POST /api/v1/metadata/extract`), validation (`GET /api/v1/metadata/validate`), and duplicate detection (`GET /api/v1/metadata/duplicates`) reports (each shown as an inline summary count), plus an index-build action (`POST /api/v1/metadata/index`).
+- [x] **Done** - **API** - Add a conversion status view/action (`POST /api/v1/conversion/run`, with an "allow OCR" checkbox) showing a processed/converted/skipped/failed summary.
+- [x] **Done** - **API** - Add a backup management view: create a backup (`POST /api/v1/backup`) and inspect an existing backup zip by path without restoring it (`GET /api/v1/backup/inspect`).
+- [x] **Done** - **API** - Add a SQLite index admin view (collapsed behind a "power-user" details toggle, matching this item's own lower-priority note): init/sync/rebuild actions (`POST /api/v1/db/init|sync|rebuild`), status (`GET /api/v1/db/status`), pending-change review (`GET /api/v1/db/pending`, `POST /api/v1/db/apply-pending`), and the privacy self-check (`GET /api/v1/db/privacy`), each showing a summary message with the database path.
 
 ## Phase 21: Web UI — Export and Reporting Tools
 

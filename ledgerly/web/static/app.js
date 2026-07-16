@@ -71,6 +71,7 @@ async function loadWorkspace(workspace) {
   refreshClaims();
   refreshGuidelines();
   refreshProjectLog();
+  refreshDataSources();
 }
 
 async function loadUploadLimits() {
@@ -1310,6 +1311,204 @@ function setupDocVaultPanel() {
   document.getElementById("doc-compare-btn").addEventListener("click", compareDocVersions);
 }
 
+// --- data sources, metadata quality, conversion, backup, db admin ---
+
+async function refreshDataSources() {
+  const statusLine = document.getElementById("data-status-line");
+  const tbody = document.getElementById("data-sources-tbody");
+  const emptyEl = document.getElementById("data-sources-empty");
+  try {
+    const counts = await api("GET", "/api/v1/data/status");
+    statusLine.textContent = `${counts.total || 0} data source(s): ${counts.profiled || 0} profiled, ${counts.unprofiled || 0} unprofiled.`;
+    const rows = await api("GET", "/api/v1/data");
+    tbody.innerHTML = "";
+    emptyEl.hidden = rows.length > 0;
+    for (const row of rows) {
+      const profiled = row.data_profile && row.data_profile.status === "profiled";
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${escapeHtml(row.file_name || "")}</td>
+        <td class="muted small">${escapeHtml(row.file_ext || "")}</td>
+        <td><span class="candidate-status ${profiled ? "connected" : "not-connected"}">${profiled ? "profiled" : "not profiled"}</span></td>
+      `;
+      tbody.appendChild(tr);
+    }
+  } catch (err) {
+    statusLine.textContent = "";
+    tbody.innerHTML = "";
+    emptyEl.hidden = false;
+    emptyEl.textContent = err.message;
+  }
+}
+
+async function profileDataSources() {
+  const messageEl = document.getElementById("data-message");
+  messageEl.hidden = false;
+  messageEl.className = "small";
+  messageEl.textContent = "Profiling...";
+  try {
+    const result = await api("POST", "/api/v1/data/profile", { json: {} });
+    messageEl.textContent = `Processed ${result.processed}: ${result.profiled} profiled, ${result.skipped} skipped.`;
+    await refreshDataSources();
+  } catch (err) {
+    messageEl.textContent = err.message;
+    messageEl.classList.add("error");
+  }
+}
+
+function setupDataPanel() {
+  document.getElementById("data-refresh-btn").addEventListener("click", refreshDataSources);
+  document.getElementById("data-profile-btn").addEventListener("click", profileDataSources);
+}
+
+async function extractMetadata() {
+  const messageEl = document.getElementById("metadata-message");
+  messageEl.hidden = false;
+  messageEl.className = "small";
+  messageEl.textContent = "Extracting...";
+  try {
+    const result = await api("POST", "/api/v1/metadata/extract", { json: {} });
+    messageEl.textContent = `Processed ${result.processed}, updated ${result.updated}.`;
+  } catch (err) {
+    messageEl.textContent = err.message;
+    messageEl.classList.add("error");
+  }
+}
+
+async function buildMetadataIndex() {
+  const messageEl = document.getElementById("metadata-message");
+  messageEl.hidden = false;
+  messageEl.className = "small";
+  messageEl.textContent = "Building index...";
+  try {
+    const result = await api("POST", "/api/v1/metadata/index", { json: {} });
+    const entryCount = (result.entries || []).length;
+    messageEl.textContent = `Keyword index built: ${entryCount} entr${entryCount === 1 ? "y" : "ies"}.`;
+  } catch (err) {
+    messageEl.textContent = err.message;
+    messageEl.classList.add("error");
+  }
+}
+
+async function showMetadataValidation() {
+  const messageEl = document.getElementById("metadata-message");
+  messageEl.hidden = false;
+  messageEl.className = "small";
+  messageEl.textContent = "Checking...";
+  try {
+    const report = await api("GET", "/api/v1/metadata/validate");
+    const needsReview = (report.sources || []).filter((s) => s.status !== "ok").length;
+    messageEl.textContent = `${report.source_count} source(s) checked, ${needsReview} need review (missing citation fields or invalid DOI).`;
+  } catch (err) {
+    messageEl.textContent = err.message;
+    messageEl.classList.add("error");
+  }
+}
+
+async function showMetadataDuplicates() {
+  const messageEl = document.getElementById("metadata-message");
+  messageEl.hidden = false;
+  messageEl.className = "small";
+  messageEl.textContent = "Checking...";
+  try {
+    const report = await api("GET", "/api/v1/metadata/duplicates");
+    const groups = report.duplicate_groups || [];
+    messageEl.textContent = `${groups.length} duplicate group(s) found.`;
+  } catch (err) {
+    messageEl.textContent = err.message;
+    messageEl.classList.add("error");
+  }
+}
+
+function setupMetadataPanel() {
+  document.getElementById("metadata-extract-btn").addEventListener("click", extractMetadata);
+  document.getElementById("metadata-index-btn").addEventListener("click", buildMetadataIndex);
+  document.getElementById("metadata-validate-btn").addEventListener("click", showMetadataValidation);
+  document.getElementById("metadata-duplicates-btn").addEventListener("click", showMetadataDuplicates);
+}
+
+async function runConversion() {
+  const messageEl = document.getElementById("conversion-message");
+  const allowOcr = document.getElementById("conversion-ocr-checkbox").checked;
+  messageEl.hidden = false;
+  messageEl.className = "small";
+  messageEl.textContent = "Converting...";
+  try {
+    const result = await api("POST", "/api/v1/conversion/run", { json: { allow_ocr: allowOcr } });
+    messageEl.textContent = `Processed ${result.processed}: ${result.converted} converted, ${result.skipped} skipped, ${result.failed} failed.`;
+  } catch (err) {
+    messageEl.textContent = err.message;
+    messageEl.classList.add("error");
+  }
+}
+
+function setupConversionPanel() {
+  document.getElementById("conversion-run-btn").addEventListener("click", runConversion);
+}
+
+async function createBackup() {
+  const messageEl = document.getElementById("backup-message");
+  messageEl.hidden = false;
+  messageEl.className = "small";
+  messageEl.textContent = "Creating backup...";
+  try {
+    const result = await api("POST", "/api/v1/backup", { json: {} });
+    messageEl.textContent = `Backup created: ${result.backup_path}`;
+  } catch (err) {
+    messageEl.textContent = err.message;
+    messageEl.classList.add("error");
+  }
+}
+
+async function inspectBackup() {
+  const messageEl = document.getElementById("backup-message");
+  const backupPath = document.getElementById("backup-inspect-path-input").value.trim();
+  messageEl.hidden = false;
+  messageEl.className = "small";
+  if (!backupPath) {
+    messageEl.textContent = "Provide a backup zip path.";
+    messageEl.classList.add("error");
+    return;
+  }
+  messageEl.textContent = "Inspecting...";
+  try {
+    const report = await api("GET", "/api/v1/backup/inspect", { params: { backup_path: backupPath } });
+    messageEl.textContent = `${report.file_count} file(s), ${report.total_uncompressed_bytes} bytes, ${report.contains_original_sources ? "includes" : "excludes"} original sources.`;
+  } catch (err) {
+    messageEl.textContent = err.message;
+    messageEl.classList.add("error");
+  }
+}
+
+function setupBackupPanel() {
+  document.getElementById("backup-create-btn").addEventListener("click", createBackup);
+  document.getElementById("backup-inspect-btn").addEventListener("click", inspectBackup);
+}
+
+async function runDbAction(action, method, path) {
+  const messageEl = document.getElementById("db-message");
+  messageEl.hidden = false;
+  messageEl.className = "small";
+  messageEl.textContent = `Running ${action}...`;
+  try {
+    const result = await api(method, path, method === "POST" ? { json: {} } : {});
+    messageEl.textContent = `${action} done. Database: ${result.database_path}.`;
+  } catch (err) {
+    messageEl.textContent = err.message;
+    messageEl.classList.add("error");
+  }
+}
+
+function setupDbAdminPanel() {
+  document.getElementById("db-init-btn").addEventListener("click", () => runDbAction("Init", "POST", "/api/v1/db/init"));
+  document.getElementById("db-sync-btn").addEventListener("click", () => runDbAction("Sync", "POST", "/api/v1/db/sync"));
+  document.getElementById("db-status-btn").addEventListener("click", () => runDbAction("Status", "GET", "/api/v1/db/status"));
+  document.getElementById("db-rebuild-btn").addEventListener("click", () => runDbAction("Rebuild", "POST", "/api/v1/db/rebuild"));
+  document.getElementById("db-pending-btn").addEventListener("click", () => runDbAction("Pending", "GET", "/api/v1/db/pending"));
+  document.getElementById("db-apply-pending-btn").addEventListener("click", () => runDbAction("Apply pending", "POST", "/api/v1/db/apply-pending"));
+  document.getElementById("db-privacy-btn").addEventListener("click", () => runDbAction("Privacy check", "GET", "/api/v1/db/privacy"));
+}
+
 // --- localStorage: remember the last-used workspace path ---
 
 const LAST_WORKSPACE_KEY = "ledgerly:lastWorkspace";
@@ -1529,6 +1728,11 @@ document.addEventListener("DOMContentLoaded", () => {
   setupGuidelinesPanel();
   setupProjectLogPanel();
   setupDocVaultPanel();
+  setupDataPanel();
+  setupMetadataPanel();
+  setupConversionPanel();
+  setupBackupPanel();
+  setupDbAdminPanel();
 
   const workspaceInput = document.getElementById("workspace-input");
   // Prefer an explicit ?workspace= URL param (e.g. from a bookmark or a

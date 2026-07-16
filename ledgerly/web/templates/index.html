@@ -350,6 +350,68 @@
   </section>
 
   <section class="panel">
+    <h2>Data, metadata &amp; workspace admin</h2>
+
+    <h3>Data sources</h3>
+    <p id="data-status-line" class="muted small"></p>
+    <div class="zotero-link-actions">
+      <button id="data-refresh-btn" type="button" class="secondary">Refresh list</button>
+      <button id="data-profile-btn" type="button" class="secondary">Profile all data sources</button>
+    </div>
+    <p id="data-message" class="small" hidden></p>
+    <table class="data-table">
+      <thead><tr><th>File</th><th>Type</th><th>Profiled</th></tr></thead>
+      <tbody id="data-sources-tbody"></tbody>
+    </table>
+    <p id="data-sources-empty" class="muted small" hidden>No CSV/SQLite/JSON data sources found.</p>
+
+    <h3>Metadata quality</h3>
+    <div class="zotero-link-actions">
+      <button id="metadata-extract-btn" type="button" class="secondary">Extract citation metadata</button>
+      <button id="metadata-index-btn" type="button" class="secondary">Build keyword index</button>
+      <button id="metadata-validate-btn" type="button" class="secondary">Consistency report</button>
+      <button id="metadata-duplicates-btn" type="button" class="secondary">Duplicate report</button>
+    </div>
+    <p id="metadata-message" class="small" hidden></p>
+
+    <h3>Conversion</h3>
+    <div class="zotero-link-actions">
+      <label class="field-label" style="display:inline-flex;align-items:center;gap:0.3rem;margin:0;">
+        <input id="conversion-ocr-checkbox" type="checkbox"> Allow OCR fallback
+      </label>
+      <button id="conversion-run-btn" type="button" class="secondary">Run conversion</button>
+    </div>
+    <p id="conversion-message" class="small" hidden></p>
+
+    <h3>Backup</h3>
+    <div class="zotero-link-actions">
+      <button id="backup-create-btn" type="button" class="secondary">Create backup</button>
+    </div>
+    <div class="source-scan-form">
+      <label class="field-label" for="backup-inspect-path-input">Inspect an existing backup (path)</label>
+      <div class="zotero-search-row">
+        <input id="backup-inspect-path-input" type="text" placeholder="/path/to/backup.zip">
+        <button id="backup-inspect-btn" type="button" class="secondary">Inspect</button>
+      </div>
+    </div>
+    <p id="backup-message" class="small" hidden></p>
+
+    <details id="db-admin-details" class="detail-box">
+      <summary class="link">SQLite index admin (power-user)</summary>
+      <div class="zotero-link-actions">
+        <button id="db-init-btn" type="button" class="secondary">Init</button>
+        <button id="db-sync-btn" type="button" class="secondary">Sync</button>
+        <button id="db-status-btn" type="button" class="secondary">Status</button>
+        <button id="db-rebuild-btn" type="button" class="secondary">Rebuild</button>
+        <button id="db-pending-btn" type="button" class="secondary">Pending changes</button>
+        <button id="db-apply-pending-btn" type="button" class="secondary">Apply pending</button>
+        <button id="db-privacy-btn" type="button" class="secondary">Privacy check</button>
+      </div>
+      <p id="db-message" class="small" hidden></p>
+    </details>
+  </section>
+
+  <section class="panel">
     <h2>Zotero</h2>
     <p class="muted small">Link your Zotero account and browse your library here for quick reference — read-only, nothing is ever written back to Zotero.</p>
 

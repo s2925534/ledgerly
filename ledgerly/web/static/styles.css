@@ -395,6 +395,11 @@ main {
   font-size: 0.85rem;
 }
 
+/* --- data/metadata/admin panel --- */
+#db-admin-details .zotero-link-actions {
+  flex-wrap: wrap;
+}
+
 /* --- zotero panel --- */
 .zotero-status-row {
   display: flex;
