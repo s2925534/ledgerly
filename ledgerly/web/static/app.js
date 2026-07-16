@@ -649,7 +649,15 @@ async function runAiAction() {
     }
     messageEl.hidden = true;
     const text = result.review || result.assessment || result.report || "";
-    resultEl.innerHTML = `<pre class="code-block"></pre>`;
+    const grounding = result.grounding;
+    let warningHtml = "";
+    if (grounding && !grounding.fully_grounded) {
+      warningHtml += `<p class="small error">Grounding warning: ${grounding.ungrounded_citations.length} citation(s) reference an ID not present in the supplied context -- verify manually before trusting them.</p>`;
+    }
+    if (grounding && grounding.uncited_paragraph_count) {
+      warningHtml += `<p class="small">${grounding.uncited_paragraph_count} paragraph(s) have no citation marker at all -- treat as unsupported until verified.</p>`;
+    }
+    resultEl.innerHTML = `${warningHtml}<pre class="code-block"></pre>`;
     resultEl.querySelector("pre").textContent = text;
     // Re-require the consent checkbox for the next action — a deliberate
     // per-action opt-in, not a session-wide toggle, matching the CLI's
