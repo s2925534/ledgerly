@@ -153,6 +153,87 @@ def test_create_data_profile_summary_uses_profile_metadata_only(tmp_path: Path) 
     assert result.record["linked_sources"] == ["source-001"]
 
 
+def test_create_paper_draft_assembles_deterministic_skeleton_from_real_data(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(
+        workspace,
+        project_name="Test Project",
+        project_type="PhD",
+        topic="",
+        research_questions=[
+            {
+                "question": "To what extent does automation reduce turnaround time in Asian ports?",
+                "status": "draft",
+                "subquestions": [],
+            }
+        ],
+    )
+    # Wizard-style fields aren't part of init_workspace's shape; add them directly to the candidate.
+    candidates_path = workspace / "research-question-candidates.yaml"
+    candidates_doc = read_yaml(candidates_path)
+    candidates_doc["candidates"][0].update(
+        {
+            "hypothesis": "Automation improves outcomes.",
+            "question_type": "causal",
+            "proof_criteria": "Statistically lower turnaround times.",
+            "disproof_criteria": "No significant difference.",
+        }
+    )
+    write_yaml(candidates_path, candidates_doc)
+    add_claim(
+        workspace,
+        text="Automated terminals show 20% lower turnaround time in pilot studies.",
+        linked_research_questions=["rq-001"],
+    )
+    add_claim(workspace, text="An unrelated claim about a different research question.")
+
+    result = create_deterministic_artefact(workspace, "paper-draft", rq_id="rq-001")
+
+    content = result.path.read_text(encoding="utf-8")
+    assert result.path.name == "paper-draft-rq-001.md"
+    assert "Hypothesis: Automation improves outcomes." in content
+    assert "Question type: causal" in content
+    assert "Statistically lower turnaround times." in content
+    assert "20% lower turnaround time in pilot studies." in content
+    assert "An unrelated claim about a different research question." not in content  # not linked to rq-001
+    assert "Status: DRAFT — no conclusion has been written." in content
+    assert result.record["linked_research_questions"] == ["rq-001"]
+    assert result.record["requires_user_review"] is True
+
+
+def test_create_paper_draft_requires_rq_id(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test Project", project_type="PhD", topic="")
+
+    with pytest.raises(ValueError, match="requires rq_id"):
+        create_deterministic_artefact(workspace, "paper-draft")
+
+
+def test_create_paper_draft_rejects_unknown_rq_id(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test Project", project_type="PhD", topic="")
+
+    with pytest.raises(ValueError, match="Unknown research question"):
+        create_deterministic_artefact(workspace, "paper-draft", rq_id="rq-999")
+
+
+def test_create_paper_draft_handles_no_sources_or_claims(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(
+        workspace,
+        project_name="Test Project",
+        project_type="M.Phil",
+        topic="",
+        research_questions=[{"question": "A bare question?", "status": "draft", "subquestions": []}],
+    )
+
+    result = create_deterministic_artefact(workspace, "paper-draft", rq_id="rq-001")
+
+    content = result.path.read_text(encoding="utf-8")
+    assert "No accepted sources yet" in content
+    assert "No claims linked to this research question yet" in content
+
+
 def test_create_artefact_requires_overwrite_for_existing_file(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     init_workspace(workspace, project_name="Test Project", project_type="M.Phil", topic="")

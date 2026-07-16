@@ -397,7 +397,7 @@ Engine source:
 
 ### `POST /api/v1/artefacts/create` (implemented)
 
-Creates deterministic non-AI artefacts.
+Creates deterministic non-AI artefacts. `artefact_type` is one of `source-summary-report`, `literature-review-matrix`, `claim-evidence-table`, `research-question-brief`, `data-profile-summary`, `paper-draft`. `paper-draft` (Phase 28) requires `rq_id` — a deterministic, AI-free paper skeleton scoped to one research question (hypothesis statement, background/literature review from accepted sources, evidence assembled from claims linked to that RQ, and an explicitly unfinished conclusion placeholder — claims are never auto-classified as supporting/refuting the hypothesis, since that's a judgment call, not deterministic extraction).
 
 Engine source:
 

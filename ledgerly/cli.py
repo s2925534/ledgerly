@@ -218,6 +218,7 @@ abstracts_app = typer.Typer(help="Local abstract import and screening commands."
 db_app = typer.Typer(help="Workspace SQLite index and memory commands.")
 doc_app = typer.Typer(help="Document vault version, diff, and restore commands.")
 notes_app = typer.Typer(help="Personal notes, meeting notes, and transcript commands.")
+paper_app = typer.Typer(help="Deterministic paper-draft skeleton commands.")
 
 app.add_typer(sources_app, name="sources")
 app.add_typer(config_app, name="config")
@@ -239,6 +240,7 @@ app.add_typer(cite_app, name="cite")
 app.add_typer(abstracts_app, name="abstracts")
 app.add_typer(db_app, name="db")
 app.add_typer(doc_app, name="doc")
+app.add_typer(paper_app, name="paper")
 
 console = Console()
 DEFAULT_WORKSPACES_DIR = "workspaces"
@@ -3408,6 +3410,60 @@ def artefacts_create(
     if not quiet:
         console.print(f"[green]Created[/green] {result.record['id']}")
         console.print(f"Wrote {result.path}")
+
+
+@paper_app.command("draft")
+def paper_draft(
+    rq_id: str = typer.Argument(..., help="Research question ID (e.g. rq-001) this paper draft is scoped to."),
+    title: Optional[str] = typer.Option(None, "--title", help="Optional paper title."),
+    include_maybe: bool = typer.Option(False, "--include-maybe", help="Include maybe sources as well as accepted sources."),
+    overwrite: bool = typer.Option(False, "--overwrite", help="Overwrite an existing draft for this research question."),
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Assemble a deterministic, AI-free paper skeleton for one research question from real workspace data.
+
+    Hypothesis statement, background/literature review (accepted sources), evidence sections built from the
+    real claim ledger, and an explicitly unfinished conclusion — a genuinely useful scaffold, not empty prose.
+    Claims aren't auto-sorted into supporting/refuting the hypothesis; that stays a human judgment call (or a
+    future AI-assisted pass, gated behind explicit review) rather than a guess presented as fact.
+    """
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["paper", "draft"], ws, log_level)
+    try:
+        result = create_deterministic_artefact(
+            ws,
+            "paper-draft",
+            title=title,
+            include_maybe=include_maybe,
+            rq_id=rq_id,
+            overwrite=overwrite,
+        )
+    except ValueError as e:
+        logger.error("Paper draft failed", operation="paper_draft", error=str(e))
+        summary.errors += 1
+        _finish(summary, summary_path)
+        if not quiet:
+            console.print(f"[red]{e}[/red]")
+        raise typer.Exit(code=2)
+
+    logger.info(
+        "Created paper draft skeleton",
+        operation="paper_draft",
+        artefact_id=result.record["id"],
+        rq_id=rq_id,
+        output_path=str(result.path),
+    )
+    _finish(
+        summary,
+        summary_path,
+        next_action=f"Fill in the Evidence and Conclusion sections, then run `ledgerly validate {result.path}`.",
+    )
+    if not quiet:
+        console.print(f"[green]Created[/green] {result.record['id']}")
+        console.print(f"Wrote {result.path}")
+        console.print("[yellow]Draft — the Evidence and Conclusion sections require your own work before this is final.[/yellow]")
 
 
 @artefacts_app.command("list")

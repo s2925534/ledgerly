@@ -1556,6 +1556,37 @@ def test_cli_artefacts_create_source_summary(tmp_path: Path) -> None:
     assert artefact["ai_generated"] is False
 
 
+def test_cli_paper_draft_creates_deterministic_skeleton(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(
+        workspace,
+        project_name="Test Project",
+        project_type="PhD",
+        topic="",
+        research_questions=[{"question": "A test question?", "status": "draft", "subquestions": []}],
+    )
+
+    result = runner.invoke(app, ["paper", "draft", "rq-001", "--workspace", str(workspace), "--quiet"])
+
+    assert result.exit_code == 0, result.output
+    draft_path = workspace / "artefacts" / "papers" / "paper-draft-rq-001.md"
+    assert draft_path.is_file()
+    assert "Status: DRAFT" in draft_path.read_text(encoding="utf-8")
+    artefact = read_yaml(workspace / "artefact-registry.yaml")["artefacts"][0]
+    assert artefact["type"] == "paper-draft"
+    assert artefact["ai_generated"] is False
+
+
+def test_cli_paper_draft_rejects_unknown_rq_id(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test Project", project_type="PhD", topic="")
+
+    result = runner.invoke(app, ["paper", "draft", "rq-999", "--workspace", str(workspace)])
+
+    assert result.exit_code == 2
+    assert "Unknown research question" in result.output
+
+
 def test_cli_artefact_review_dependencies_health_export_and_backup_inspect(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     init_workspace(workspace, project_name="Test Project", project_type="M.Phil", topic="")

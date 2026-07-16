@@ -16,6 +16,7 @@ SUPPORTED_ARTEFACT_TYPES = {
     "claim-evidence-table": "artefacts/tables/claim-evidence-table.md",
     "research-question-brief": "artefacts/reports/research-question-brief.md",
     "data-profile-summary": "artefacts/reports/data-profile-summary.md",
+    "paper-draft": "artefacts/papers/paper-draft-{rq_id}.md",
 }
 
 
@@ -38,8 +39,12 @@ def create_deterministic_artefact(
     if artefact_type not in SUPPORTED_ARTEFACT_TYPES:
         allowed = ", ".join(sorted(SUPPORTED_ARTEFACT_TYPES))
         raise ValueError(f"Unsupported artefact type: {artefact_type!r}. Expected one of: {allowed}")
+    if artefact_type == "paper-draft" and not rq_id:
+        raise ValueError("paper-draft requires rq_id: a paper draft is always scoped to one research question.")
 
-    output_path = _safe_workspace_path(workspace, SUPPORTED_ARTEFACT_TYPES[artefact_type])
+    path_template = SUPPORTED_ARTEFACT_TYPES[artefact_type]
+    relative_path = path_template.format(rq_id=rq_id) if "{rq_id}" in path_template else path_template
+    output_path = _safe_workspace_path(workspace, relative_path)
     if output_path.exists() and not overwrite:
         raise ValueError(f"Artefact already exists: {output_path}. Use overwrite=True to replace it.")
 
@@ -47,7 +52,7 @@ def create_deterministic_artefact(
     claims = list_claims(workspace)
     research_questions = list_research_questions(workspace)
     data_profiles = _data_profiles(workspace)
-    resolved_title = title or _default_title(artefact_type)
+    resolved_title = title or (f"Paper Draft: {rq_id}" if artefact_type == "paper-draft" else _default_title(artefact_type))
 
     if artefact_type == "source-summary-report":
         content = _source_summary_report(resolved_title, sources, include_maybe=include_maybe)
@@ -65,6 +70,14 @@ def create_deterministic_artefact(
         content = _research_question_brief(resolved_title, research_questions, rq_id=rq_id)
         linked_sources = []
         linked_rqs = _research_question_ids(research_questions, rq_id=rq_id)
+    elif artefact_type == "paper-draft":
+        rq = _find_research_question(research_questions, rq_id)
+        if rq is None:
+            raise ValueError(f"Unknown research question: {rq_id}")
+        rq_claims = [claim for claim in claims if rq_id in (claim.get("linked_research_questions") or [])]
+        content = _paper_draft(resolved_title, rq, sources, rq_claims)
+        linked_sources = _source_ids(sources)
+        linked_rqs = [rq_id]
     else:
         content = _data_profile_summary(resolved_title, data_profiles)
         linked_sources = sorted({str(profile.get("source_id")) for profile in data_profiles if profile.get("source_id")})
@@ -124,6 +137,14 @@ def _default_title(artefact_type: str) -> str:
 
 def _source_ids(sources: list[dict[str, Any]]) -> list[str]:
     return [str(source.get("source_id")) for source in sources if source.get("source_id")]
+
+
+def _find_research_question(research_questions: dict[str, list[dict[str, Any]]], rq_id: str) -> dict[str, Any] | None:
+    for items in research_questions.values():
+        for item in items:
+            if item.get("id") == rq_id:
+                return item
+    return None
 
 
 def _research_question_ids(research_questions: dict[str, list[dict[str, Any]]], *, rq_id: str | None) -> list[str]:
@@ -321,6 +342,102 @@ def _research_question_brief(
                 + " |"
             )
         lines.append("")
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def _paper_draft(
+    title: str,
+    rq: dict[str, Any],
+    sources: list[dict[str, Any]],
+    claims: list[dict[str, Any]],
+) -> str:
+    """A deterministic, AI-free paper skeleton: hypothesis statement,
+    background/literature review from accepted sources, evidence assembled
+    from the real claim ledger, and an explicitly unfinished conclusion.
+
+    This tool never auto-classifies a claim as supporting or refuting a
+    hypothesis — that's a judgment call, not a deterministic fact extraction,
+    so it stays a placeholder for the researcher (or a future explicit,
+    reviewable AI-assisted pass) rather than a guess presented as done.
+    """
+    lines = _header(title, "paper-draft")
+    lines.extend(
+        [
+            "## Research Question",
+            "",
+            f"- ID: {_unknown(rq.get('id'))}",
+            f"- Question: {_unknown(rq.get('question'))}",
+            f"- Hypothesis: {_unknown(rq.get('hypothesis'))}",
+            f"- Question type: {_unknown(rq.get('question_type'))}",
+            f"- Evidence that would SUPPORT the hypothesis: {_unknown(rq.get('proof_criteria'))}",
+            f"- Evidence that would REFUTE the hypothesis: {_unknown(rq.get('disproof_criteria'))}",
+            "",
+            "## Background / Literature Review",
+            "",
+            "| Source ID | Title | Authors | Year | DOI |",
+            "| --- | --- | --- | --- | --- |",
+        ]
+    )
+    if not sources:
+        lines.append("| Unknown | No accepted sources yet | Unknown | Unknown | Unknown |")
+    for source in sources:
+        lines.append(
+            "| "
+            + " | ".join(
+                [
+                    _unknown(source.get("source_id")),
+                    _source_title(source),
+                    _source_authors(source),
+                    _source_year(source),
+                    _source_doi(source),
+                ]
+            )
+            + " |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Evidence",
+            "",
+            "Claims from the local claim ledger linked to this research question "
+            f"(`ledgerly claims add \"...\" --rq {_unknown(rq.get('id'))}` to link more). Sorting these into "
+            "evidence for vs. against the hypothesis, and drafting supporting prose, is not done automatically "
+            "— review each claim below and write your own analysis, or use an AI-assisted drafting pass once "
+            "available (gated behind explicit review; see AGENTS.md's Core Rule: No Hallucinations).",
+            "",
+            "| Claim ID | Claim | Status | Linked sources |",
+            "| --- | --- | --- | --- |",
+        ]
+    )
+    if not claims:
+        lines.append("| Unknown | No claims linked to this research question yet | Unknown | Unknown |")
+    for claim in claims:
+        linked_sources = claim.get("linked_sources") or []
+        lines.append(
+            "| "
+            + " | ".join(
+                [
+                    _unknown(claim.get("id")),
+                    _unknown(claim.get("text")),
+                    _unknown(claim.get("status")),
+                    _unknown(linked_sources) if linked_sources else "Not linked",
+                ]
+            )
+            + " |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Conclusion",
+            "",
+            "**Status: DRAFT — no conclusion has been written.**",
+            "",
+            "This tool never generates a prove-or-disprove conclusion without evidence grounding. Write your own "
+            "conclusion here once the evidence above has been reviewed, or use an AI-assisted drafting pass once "
+            "available. This document requires human review before it can be considered final.",
+            "",
+        ]
+    )
     return "\n".join(lines).rstrip() + "\n"
 
 

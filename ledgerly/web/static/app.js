@@ -899,13 +899,19 @@ async function createArtefact() {
   const messageEl = document.getElementById("artefact-create-message");
   const artefactType = document.getElementById("artefact-create-type-select").value;
   const title = document.getElementById("artefact-create-title-input").value.trim();
+  const rqId = document.getElementById("artefact-create-rq-input").value.trim();
   const includeMaybe = document.getElementById("artefact-create-include-maybe").checked;
   messageEl.hidden = false;
   messageEl.className = "small";
+  if (artefactType === "paper-draft" && !rqId) {
+    messageEl.textContent = "Paper draft requires a research question ID.";
+    messageEl.classList.add("error");
+    return;
+  }
   messageEl.textContent = "Creating...";
   try {
     const result = await api("POST", "/api/v1/artefacts/create", {
-      json: { artefact_type: artefactType, title: title || null, include_maybe: includeMaybe },
+      json: { artefact_type: artefactType, title: title || null, include_maybe: includeMaybe, rq_id: rqId || null },
     });
     messageEl.textContent = `Created: ${result.path}`;
     await refreshArtefacts();
