@@ -300,6 +300,56 @@
   </section>
 
   <section class="panel">
+    <h2>Document vault &amp; version history</h2>
+    <p class="muted small">Snapshot a document target, browse its version history, diff or compare two versions, and restore an older version as a new copy. Restoring never overwrites the current document.</p>
+
+    <details id="doc-snapshot-details" class="detail-box">
+      <summary class="link">Snapshot a document</summary>
+      <div class="source-scan-form">
+        <label class="field-label" for="doc-snapshot-target-input">Document target</label>
+        <input id="doc-snapshot-target-input" type="text" placeholder="e.g. artefacts/reports/research-question-brief.md">
+        <label class="field-label" for="doc-snapshot-reason-input">Reason (optional)</label>
+        <input id="doc-snapshot-reason-input" type="text" placeholder="e.g. manual_snapshot">
+        <div class="zotero-link-actions">
+          <button id="doc-snapshot-btn" type="button">Snapshot</button>
+        </div>
+        <p id="doc-snapshot-message" class="small" hidden></p>
+      </div>
+    </details>
+
+    <div class="source-scan-form">
+      <label class="field-label" for="doc-versions-target-input">Filter by target (optional)</label>
+      <div class="zotero-search-row">
+        <input id="doc-versions-target-input" type="text" placeholder="Leave blank to list every version in the vault">
+        <button id="doc-versions-load-btn" type="button" class="secondary">Load versions</button>
+      </div>
+    </div>
+
+    <table id="doc-versions-table" class="data-table">
+      <thead>
+        <tr><th>Version</th><th>Target</th><th>Created</th><th>Reason</th><th></th></tr>
+      </thead>
+      <tbody id="doc-versions-tbody"></tbody>
+    </table>
+    <p id="doc-versions-empty" class="muted small" hidden>No versions loaded yet.</p>
+
+    <div class="source-scan-form">
+      <label class="field-label" for="doc-version-a-input">Version A</label>
+      <input id="doc-version-a-input" type="text" placeholder="e.g. docv-001">
+      <label class="field-label" for="doc-version-b-input">Version B</label>
+      <input id="doc-version-b-input" type="text" placeholder="e.g. docv-002">
+      <div class="zotero-link-actions">
+        <button id="doc-diff-btn" type="button" class="secondary">Diff</button>
+        <button id="doc-compare-btn" type="button" class="secondary">Compare (validation reports)</button>
+      </div>
+      <p id="doc-diff-compare-message" class="small" hidden></p>
+    </div>
+
+    <div id="doc-diff-result"></div>
+    <div id="doc-compare-result"></div>
+  </section>
+
+  <section class="panel">
     <h2>Zotero</h2>
     <p class="muted small">Link your Zotero account and browse your library here for quick reference — read-only, nothing is ever written back to Zotero.</p>
 

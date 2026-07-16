@@ -330,8 +330,8 @@ The source inbox/review workflow (`sources accept/maybe/ignore/note/tag`) is one
 
 ## Phase 18: Web UI — Document Vault and Version History
 
-- [ ] **API** - Add a document version history view per artefact/target: list versions (`GET /api/v1/doc/versions`), diff two versions (`GET /api/v1/doc/diff`), compare validation-report-derived strengths/weaknesses (`GET /api/v1/doc/compare`), and restore a version as a new copy (`POST /api/v1/doc/restore`).
-- [ ] **API** - Add a "Snapshot this document" action (`POST /api/v1/doc/version`) reachable from the artefact registry view (Phase 15).
+- [x] **Done** - **API** - Add a document version history view per target: list versions (`GET /api/v1/doc/versions`, optionally filtered by target), diff two versions as a unified-diff code block (`GET /api/v1/doc/diff`), compare validation-report-derived strengths/weaknesses/unsupported-claims/references as added/removed lists (`GET /api/v1/doc/compare`), and restore a version as a new copy with a per-row Restore button (`POST /api/v1/doc/restore`). Verified live against a real two-version document, including the "no linked validation report" not-comparable case.
+- [x] **Done** - **API** - Add a "Snapshot this document" action (`POST /api/v1/doc/version`) as a standalone form in the Document Vault panel — not wired into the artefact registry view specifically (Phase 15's table doesn't have a natural per-row hook for this today), but reachable for any target path from the same panel as the rest of version history.
 - [ ] **API** - Add a derived-text/anchor viewer (`POST /api/v1/doc/derive-text/{version_id}`) for inspecting paragraph/sentence anchors. Lower priority than the rest of this phase — it's mainly prep infrastructure for future AI edit sessions, not a standalone researcher-facing feature yet.
 
 ## Phase 19: Web UI — Zotero Integration

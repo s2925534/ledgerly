@@ -1152,6 +1152,164 @@ function setupProjectLogPanel() {
   document.getElementById("context-add-btn").addEventListener("click", addContextChange);
 }
 
+// --- document vault & version history ---
+
+async function snapshotDocument() {
+  const messageEl = document.getElementById("doc-snapshot-message");
+  const target = document.getElementById("doc-snapshot-target-input").value.trim();
+  const reason = document.getElementById("doc-snapshot-reason-input").value.trim();
+  messageEl.hidden = false;
+  messageEl.className = "small";
+  if (!target) {
+    messageEl.textContent = "Provide a document target.";
+    messageEl.classList.add("error");
+    return;
+  }
+  messageEl.textContent = "Snapshotting...";
+  try {
+    const record = await api("POST", "/api/v1/doc/version", { json: { target, reason: reason || "manual_snapshot" } });
+    messageEl.textContent = `Snapshot created: ${record.version_id}.`;
+    document.getElementById("doc-versions-target-input").value = target;
+    await loadDocVersions();
+  } catch (err) {
+    messageEl.textContent = err.message;
+    messageEl.classList.add("error");
+  }
+}
+
+async function loadDocVersions() {
+  const tbody = document.getElementById("doc-versions-tbody");
+  const emptyEl = document.getElementById("doc-versions-empty");
+  const target = document.getElementById("doc-versions-target-input").value.trim();
+  try {
+    const rows = await api("GET", "/api/v1/doc/versions", { params: target ? { target } : {} });
+    tbody.innerHTML = "";
+    emptyEl.hidden = rows.length > 0;
+    for (const row of rows) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${escapeHtml(row.version_id || "")}</td>
+        <td class="muted small">${escapeHtml(row.target || "")}</td>
+        <td class="muted small">${escapeHtml(row.created_at || "")}</td>
+        <td class="muted small">${escapeHtml(row.creation_reason || "")}</td>
+        <td class="row-actions"></td>
+      `;
+      const restoreBtn = document.createElement("button");
+      restoreBtn.type = "button";
+      restoreBtn.className = "secondary";
+      restoreBtn.textContent = "Restore";
+      restoreBtn.addEventListener("click", () => restoreDocVersion(row.version_id));
+      tr.querySelector(".row-actions").appendChild(restoreBtn);
+      tbody.appendChild(tr);
+    }
+  } catch (err) {
+    tbody.innerHTML = "";
+    emptyEl.hidden = false;
+    emptyEl.textContent = err.message;
+  }
+}
+
+async function restoreDocVersion(versionId) {
+  try {
+    const record = await api("POST", "/api/v1/doc/restore", { json: { version_id: versionId } });
+    document.getElementById("doc-diff-compare-message").hidden = false;
+    document.getElementById("doc-diff-compare-message").className = "small";
+    document.getElementById("doc-diff-compare-message").textContent = `Restored ${versionId} to ${record.restored_to_path || "a new copy"}.`;
+  } catch (err) {
+    showWorkspaceError(err.message);
+  }
+}
+
+async function diffDocVersions() {
+  const messageEl = document.getElementById("doc-diff-compare-message");
+  const resultEl = document.getElementById("doc-diff-result");
+  document.getElementById("doc-compare-result").innerHTML = "";
+  const versionIdA = document.getElementById("doc-version-a-input").value.trim();
+  const versionIdB = document.getElementById("doc-version-b-input").value.trim();
+  messageEl.hidden = false;
+  messageEl.className = "small";
+  if (!versionIdA || !versionIdB) {
+    messageEl.textContent = "Provide both version IDs.";
+    messageEl.classList.add("error");
+    return;
+  }
+  messageEl.textContent = "Diffing...";
+  try {
+    const report = await api("GET", "/api/v1/doc/diff", { params: { version_id_a: versionIdA, version_id_b: versionIdB } });
+    messageEl.textContent = "";
+    messageEl.hidden = true;
+    if (!report.diff_supported) {
+      resultEl.innerHTML = `<p class="muted small">${escapeHtml(report.reason || "Diff not supported for these file types.")}</p>`;
+      return;
+    }
+    if (!report.lines.length) {
+      resultEl.innerHTML = `<p class="muted small">No differences.</p>`;
+      return;
+    }
+    resultEl.innerHTML = `<pre class="code-block"></pre>`;
+    resultEl.querySelector("pre").textContent = report.lines.join("\n");
+  } catch (err) {
+    messageEl.textContent = err.message;
+    messageEl.classList.add("error");
+  }
+}
+
+function renderDiffList(title, addedRemoved) {
+  const added = (addedRemoved && addedRemoved.added) || [];
+  const removed = (addedRemoved && addedRemoved.removed) || [];
+  if (!added.length && !removed.length) return "";
+  return `
+    <h4>${escapeHtml(title)}</h4>
+    ${added.length ? `<p class="muted small">Added:</p><ul>${added.map((v) => `<li>${escapeHtml(v)}</li>`).join("")}</ul>` : ""}
+    ${removed.length ? `<p class="muted small">Removed:</p><ul>${removed.map((v) => `<li>${escapeHtml(v)}</li>`).join("")}</ul>` : ""}
+  `;
+}
+
+async function compareDocVersions() {
+  const messageEl = document.getElementById("doc-diff-compare-message");
+  const resultEl = document.getElementById("doc-compare-result");
+  document.getElementById("doc-diff-result").innerHTML = "";
+  const versionIdA = document.getElementById("doc-version-a-input").value.trim();
+  const versionIdB = document.getElementById("doc-version-b-input").value.trim();
+  messageEl.hidden = false;
+  messageEl.className = "small";
+  if (!versionIdA || !versionIdB) {
+    messageEl.textContent = "Provide both version IDs.";
+    messageEl.classList.add("error");
+    return;
+  }
+  messageEl.textContent = "Comparing...";
+  try {
+    const report = await api("GET", "/api/v1/doc/compare", { params: { version_id_a: versionIdA, version_id_b: versionIdB } });
+    messageEl.textContent = "";
+    messageEl.hidden = true;
+    if (!report.comparable) {
+      resultEl.innerHTML = `<p class="muted small">${escapeHtml(report.reason || "Not comparable — both versions need a linked validation report.")}</p>`;
+      return;
+    }
+    resultEl.innerHTML = `<div class="diff-summary">
+      ${renderDiffList("Strengths", report.strengths)}
+      ${renderDiffList("Weaknesses", report.weaknesses)}
+      ${renderDiffList("Unsupported claims", report.unsupported_claims)}
+      ${renderDiffList("Weakly supported claims", report.weakly_supported_claims)}
+      ${renderDiffList("References", report.references)}
+    </div>`;
+    if (!resultEl.querySelector("h4")) {
+      resultEl.innerHTML = `<p class="muted small">No differences between these two versions' validation reports.</p>`;
+    }
+  } catch (err) {
+    messageEl.textContent = err.message;
+    messageEl.classList.add("error");
+  }
+}
+
+function setupDocVaultPanel() {
+  document.getElementById("doc-snapshot-btn").addEventListener("click", snapshotDocument);
+  document.getElementById("doc-versions-load-btn").addEventListener("click", loadDocVersions);
+  document.getElementById("doc-diff-btn").addEventListener("click", diffDocVersions);
+  document.getElementById("doc-compare-btn").addEventListener("click", compareDocVersions);
+}
+
 // --- localStorage: remember the last-used workspace path ---
 
 const LAST_WORKSPACE_KEY = "researchboss:lastWorkspace";
@@ -1370,6 +1528,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setupCitationPanel();
   setupGuidelinesPanel();
   setupProjectLogPanel();
+  setupDocVaultPanel();
 
   const workspaceInput = document.getElementById("workspace-input");
   // Prefer an explicit ?workspace= URL param (e.g. from a bookmark or a

@@ -366,6 +366,35 @@ main {
   margin-top: 0.5rem;
 }
 
+/* --- document vault panel --- */
+.code-block {
+  background: var(--bg-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.75rem;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85rem;
+  margin-top: 0.75rem;
+}
+
+.diff-summary {
+  margin-top: 0.75rem;
+}
+
+.diff-summary h4 {
+  margin: 0.6rem 0 0.2rem;
+  font-size: 0.9rem;
+}
+
+.diff-summary ul {
+  margin: 0.2rem 0;
+  padding-left: 1.2rem;
+  font-size: 0.85rem;
+}
+
 /* --- zotero panel --- */
 .zotero-status-row {
   display: flex;
