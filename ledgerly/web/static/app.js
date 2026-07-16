@@ -374,18 +374,17 @@ async function applyCrossReferenceLinks() {
 
 // --- workspace dashboard ---
 
+function lastActivityLabel(days) {
+  if (days == null) return "no activity yet";
+  return days === 0 ? "today" : `${days}d ago`;
+}
+
 async function refreshDashboard() {
   const statsEl = document.getElementById("dashboard-stats");
   try {
     const summary = await api("GET", "/api/v1/projects/dashboard");
     const sourceCounts = summary.source_counts || {};
     const claimCounts = summary.claim_counts || {};
-    const lastActivityLabel =
-      summary.days_since_last_activity == null
-        ? "no activity yet"
-        : summary.days_since_last_activity === 0
-          ? "today"
-          : `${summary.days_since_last_activity}d ago`;
     const tiles = [
       ["Sources", sourceCounts.total || 0],
       ["Pending review", sourceCounts.pending_review || 0],
@@ -393,7 +392,7 @@ async function refreshDashboard() {
       ["Claims", claimCounts.total || 0],
       ["Artefacts", summary.artefact_count || 0],
       ["Open RQs", summary.open_research_question_count || 0],
-      ["Last activity", lastActivityLabel],
+      ["Last activity", lastActivityLabel(summary.days_since_last_activity)],
     ];
     statsEl.innerHTML = tiles
       .map(
@@ -422,6 +421,61 @@ async function refreshDashboard() {
     detailEl.textContent = problems.join(", ");
   } catch (err) {
     setStatusPill("dashboard-health-status", `Error: ${err.message}`, "error");
+  }
+}
+
+async function compareWorkspaces() {
+  const messageEl = document.getElementById("compare-workspaces-message");
+  const tableEl = document.getElementById("compare-workspaces-table");
+  const tbody = document.getElementById("compare-workspaces-tbody");
+  const paths = document
+    .getElementById("compare-workspaces-input")
+    .value.split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  messageEl.hidden = false;
+  messageEl.className = "small";
+  if (paths.length < 2) {
+    messageEl.textContent = "Provide at least two workspace paths, one per line.";
+    messageEl.classList.add("error");
+    tableEl.hidden = true;
+    return;
+  }
+  messageEl.textContent = "Comparing...";
+
+  try {
+    const url = new URL("/api/v1/projects/compare", window.location.origin);
+    for (const path of paths) url.searchParams.append("workspaces", path);
+    const response = await fetch(url.toString(), { credentials: "same-origin" });
+    if (response.status === 401) {
+      window.location.href = "/login?next=" + encodeURIComponent(window.location.href);
+      return;
+    }
+    const body = await response.json();
+    if (!response.ok || !body.ok) {
+      throw new Error((body.errors && body.errors[0] && body.errors[0].message) || `Request failed (${response.status})`);
+    }
+    const rows = body.data.workspaces;
+    tbody.innerHTML = rows
+      .map(
+        (row) => `
+        <tr>
+          <td>${escapeHtml(row.project_name || row.workspace)}</td>
+          <td>${row.source_counts.total || 0}</td>
+          <td>${row.claim_counts.total || 0}</td>
+          <td>${row.artefact_count}</td>
+          <td>${row.open_research_question_count}</td>
+          <td>${escapeHtml(lastActivityLabel(row.days_since_last_activity))}</td>
+        </tr>`
+      )
+      .join("");
+    tableEl.hidden = false;
+    messageEl.hidden = true;
+  } catch (err) {
+    messageEl.textContent = err.message;
+    messageEl.classList.add("error");
+    tableEl.hidden = true;
   }
 }
 
@@ -2420,6 +2474,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   document.getElementById("theme-toggle-btn").addEventListener("click", toggleTheme);
+  document.getElementById("compare-workspaces-btn").addEventListener("click", compareWorkspaces);
 
   document.getElementById("logout-btn").addEventListener("click", async () => {
     try {

@@ -93,7 +93,7 @@ from ledgerly.engine.guidelines import (
     register_guideline,
     set_default_guidelines,
 )
-from ledgerly.engine.health import workspace_health_report
+from ledgerly.engine.health import corpus_dashboard_summary, workspace_health_report
 from ledgerly.engine.metadata import extract_citation_metadata
 from ledgerly.engine.metadata_quality import (
     build_keyword_index,
@@ -684,6 +684,52 @@ def status(
     table.add_column("Count", justify="right")
     for k in sorted(counts.keys()):
         table.add_row(k, str(counts[k]))
+    console.print(table)
+
+
+@app.command("compare-workspaces")
+def compare_workspaces(
+    workspaces: list[Path] = typer.Argument(..., help="Two or more workspace paths to compare side by side."),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Compare source/claim/artefact/RQ counts and last-activity across two or more workspaces."""
+    if len(workspaces) < 2:
+        console.print("[red]Provide at least two workspace paths to compare.[/red]")
+        raise typer.Exit(code=2)
+    resolved = [_resolve_workspace(ws) for ws in workspaces]
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["compare-workspaces"], resolved[0], log_level)
+
+    rows = []
+    for ws in resolved:
+        context = read_yaml(ws / "research-context.yaml") if (ws / "research-context.yaml").exists() else {}
+        summary_data = corpus_dashboard_summary(ws)
+        rows.append({"workspace": ws, "project_name": context.get("project", {}).get("name"), **summary_data})
+    logger.info("Compared workspaces", operation="compare_workspaces", count=len(rows))
+    _finish(summary, summary_path)
+    if quiet:
+        return
+
+    table = Table(title="Workspace Comparison")
+    table.add_column("Workspace")
+    table.add_column("Sources", justify="right")
+    table.add_column("Claims", justify="right")
+    table.add_column("Artefacts", justify="right")
+    table.add_column("Open RQs", justify="right")
+    table.add_column("Last activity", justify="right")
+    for row in rows:
+        label = row["project_name"] or str(row["workspace"])
+        last_activity = (
+            "no activity yet" if row["days_since_last_activity"] is None else f"{row['days_since_last_activity']}d ago"
+        )
+        table.add_row(
+            label,
+            str(row["source_counts"].get("total", 0)),
+            str(row["claim_counts"].get("total", 0)),
+            str(row["artefact_count"]),
+            str(row["open_research_question_count"]),
+            last_activity,
+        )
     console.print(table)
 
 

@@ -124,6 +124,14 @@ Engine source:
 
 - `ledgerly.engine.health.corpus_dashboard_summary`
 
+### `GET /api/v1/projects/compare?workspaces=path1&workspaces=path2` (implemented)
+
+Dashboard summaries (same shape as `/dashboard`, plus `workspace` and `project_name`) for two or more workspaces side by side, for anyone running more than one research project at once. Requires at least two paths (`400 too_few_workspaces` otherwise). Each path goes through the same `LEDGERLY_WORKSPACE_ROOT` sandbox validation as every other workspace route — no relaxed handling just because there are several of them.
+
+Engine source:
+
+- `ledgerly.engine.health.corpus_dashboard_summary` (called once per workspace)
+
 ## Source Routes
 
 ### `GET /api/v1/sources` (implemented)

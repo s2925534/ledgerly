@@ -3,11 +3,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 
-from ledgerly.api.deps import resolve_workspace
+from ledgerly.api.deps import resolve_workspace, resolve_workspace_path
 from ledgerly.api.envelope import ApiError, ok
+from ledgerly.core.yamlio import read_yaml
 from ledgerly.engine.health import corpus_dashboard_summary, workspace_health_report
 from ledgerly.engine.sources import source_counts
 from ledgerly.engine.workspace import DEFAULT_CITATION_STYLE, init_workspace
@@ -29,6 +30,32 @@ def project_health(workspace: Path = Depends(resolve_workspace)) -> dict[str, An
 @router.get("/dashboard")
 def project_dashboard(workspace: Path = Depends(resolve_workspace)) -> dict[str, Any]:
     return ok(corpus_dashboard_summary(workspace))
+
+
+@router.get("/compare")
+def project_compare(workspaces: list[str] = Query(...)) -> dict[str, Any]:
+    """Side-by-side dashboard summaries for two or more workspaces, for anyone
+    running more than one research project at once. Each path is validated
+    the same way single-workspace routes are (including the
+    LEDGERLY_WORKSPACE_ROOT sandbox when configured) — no relaxed path
+    handling just because there are several of them.
+    """
+    if len(workspaces) < 2:
+        raise ApiError("too_few_workspaces", "Provide at least two workspace paths to compare.", status_code=400)
+
+    rows = []
+    for raw in workspaces:
+        path = resolve_workspace_path(raw)
+        context = read_yaml(path / "research-context.yaml") if (path / "research-context.yaml").exists() else {}
+        summary = corpus_dashboard_summary(path)
+        rows.append(
+            {
+                "workspace": str(path),
+                "project_name": context.get("project", {}).get("name"),
+                **summary,
+            }
+        )
+    return ok({"workspaces": rows})
 
 
 class ResearchQuestionInit(BaseModel):

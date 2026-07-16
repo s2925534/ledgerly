@@ -59,6 +59,25 @@
   </section>
 
   <section class="panel">
+    <h2>Compare workspaces</h2>
+    <p class="muted small">Source/claim/artefact/RQ counts and last activity, side by side, for anyone running more than one research project at once.</p>
+    <div class="source-scan-form">
+      <label class="field-label" for="compare-workspaces-input">Workspace paths (one per line, at least two)</label>
+      <textarea id="compare-workspaces-input" rows="3" placeholder="/path/to/project-a&#10;/path/to/project-b"></textarea>
+      <div class="zotero-link-actions">
+        <button id="compare-workspaces-btn" type="button">Compare</button>
+      </div>
+      <p id="compare-workspaces-message" class="small" hidden></p>
+    </div>
+    <table id="compare-workspaces-table" class="data-table" hidden>
+      <thead>
+        <tr><th>Workspace</th><th>Sources</th><th>Claims</th><th>Artefacts</th><th>Open RQs</th><th>Last activity</th></tr>
+      </thead>
+      <tbody id="compare-workspaces-tbody"></tbody>
+    </table>
+  </section>
+
+  <section class="panel">
     <h2>Sources</h2>
 
     <details id="source-scan-details" class="detail-box">

@@ -84,6 +84,32 @@ def test_project_status_and_health_use_shared_engine_functions(client: TestClien
     assert "claim_counts" in dashboard_data
 
 
+def test_project_compare_via_api(client: TestClient, tmp_path: Path) -> None:
+    workspace_a = tmp_path / "workspace-a"
+    workspace_b = tmp_path / "workspace-b"
+    init_workspace(workspace_a, project_name="Project A", project_type="M.Phil", topic="Topic")
+    init_workspace(workspace_b, project_name="Project B", project_type="PhD", topic="Topic")
+
+    response = client.get(
+        "/api/v1/projects/compare",
+        params={"workspaces": [str(workspace_a), str(workspace_b)]},
+    )
+
+    assert response.status_code == 200
+    rows = response.json()["data"]["workspaces"]
+    assert [row["project_name"] for row in rows] == ["Project A", "Project B"]
+
+
+def test_project_compare_requires_at_least_two_workspaces(client: TestClient, tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+
+    response = client.get("/api/v1/projects/compare", params={"workspaces": [str(workspace)]})
+
+    assert response.status_code == 400
+    assert response.json()["errors"][0]["code"] == "too_few_workspaces"
+
+
 def test_project_init_creates_workspace_via_api(client: TestClient, tmp_path: Path) -> None:
     workspace = tmp_path / "new-workspace"
 
