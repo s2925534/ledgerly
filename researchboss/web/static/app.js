@@ -57,7 +57,12 @@ async function loadWorkspace(workspace) {
     document.getElementById("app-main").hidden = false;
   } catch (err) {
     showWorkspaceError(err.message);
+    return;
   }
+  // Zotero panel failures are shown inline in that panel, not as a
+  // workspace-load error — a missing/unconfigured Zotero account shouldn't
+  // block the rest of the app from loading.
+  refreshZoteroPanel();
 }
 
 async function loadUploadLimits() {
@@ -316,6 +321,154 @@ async function applyCrossReferenceLinks() {
   }
 }
 
+// --- Zotero: link/unlink account, local status, basic browse ---
+// "Basic perusal" only: read-only views over the same GET /api/v1/zotero/*
+// routes the CLI's `researchboss zotero` commands use. Never writes inside
+// the user's local Zotero directory (see AGENTS.md's Zotero no-write rule) —
+// linking only saves API credentials into this workspace's own .env.
+
+function setStatusPill(elId, text, cssClass) {
+  const el = document.getElementById(elId);
+  el.textContent = text;
+  el.className = `candidate-status ${cssClass}`;
+}
+
+async function refreshZoteroPanel() {
+  await Promise.all([refreshZoteroApiStatus(), refreshZoteroLocalStatus()]);
+}
+
+async function refreshZoteroApiStatus() {
+  try {
+    const report = await api("GET", "/api/v1/zotero/api/test");
+    setStatusPill("zotero-api-status", `Connected (user ${report.user_id})`, "connected");
+    if (report.key_has_write_access) {
+      setStatusPill("zotero-api-status", `Connected (user ${report.user_id}) — key has write access, use read-only`, "error");
+    }
+  } catch (err) {
+    if (/Missing ZOTERO_API_KEY|Missing ZOTERO_USER_ID/.test(err.message)) {
+      setStatusPill("zotero-api-status", "Not linked", "not-connected");
+    } else {
+      setStatusPill("zotero-api-status", `Error: ${err.message}`, "error");
+    }
+  }
+}
+
+async function refreshZoteroLocalStatus() {
+  const listEl = document.getElementById("zotero-collections-list");
+  const emptyEl = document.getElementById("zotero-collections-empty");
+  try {
+    const collections = await api("GET", "/api/v1/zotero/local/collections");
+    setStatusPill(
+      "zotero-local-status",
+      collections.length ? `Detected (${collections.length} collection${collections.length === 1 ? "" : "s"})` : "Detected (no collections)",
+      "connected"
+    );
+    renderZoteroCollections(collections);
+  } catch (err) {
+    setStatusPill("zotero-local-status", "Not detected", "not-connected");
+    listEl.innerHTML = "";
+    emptyEl.hidden = false;
+    emptyEl.textContent = err.message;
+  }
+}
+
+function renderZoteroCollections(collections) {
+  const listEl = document.getElementById("zotero-collections-list");
+  const emptyEl = document.getElementById("zotero-collections-empty");
+  listEl.innerHTML = "";
+  emptyEl.hidden = collections.length > 0;
+  for (const collection of collections) {
+    const row = document.createElement("div");
+    row.className = "zotero-collection-row";
+    row.innerHTML = `
+      <span>${escapeHtml(collection.name)}</span>
+      <span class="muted small">${collection.item_count} item${collection.item_count === 1 ? "" : "s"}</span>
+    `;
+    listEl.appendChild(row);
+  }
+}
+
+async function saveZoteroCredentials() {
+  const messageEl = document.getElementById("zotero-link-message");
+  const apiKeyInput = document.getElementById("zotero-api-key-input");
+  const userIdInput = document.getElementById("zotero-user-id-input");
+  const apiKey = apiKeyInput.value.trim();
+  const userId = userIdInput.value.trim();
+  messageEl.hidden = false;
+  messageEl.className = "small";
+  if (!apiKey || !userId) {
+    messageEl.textContent = "Both an API key and a user ID are required.";
+    messageEl.classList.add("error");
+    return;
+  }
+  messageEl.textContent = "Linking...";
+  try {
+    await api("POST", "/api/v1/zotero/api/credentials", { json: { api_key: apiKey, user_id: userId } });
+    apiKeyInput.value = "";
+    userIdInput.value = "";
+    messageEl.textContent = "Linked. Credentials saved to this workspace's .env — not shown again.";
+    await refreshZoteroApiStatus();
+  } catch (err) {
+    messageEl.textContent = err.message;
+    messageEl.classList.add("error");
+  }
+}
+
+async function unlinkZoteroCredentials() {
+  const messageEl = document.getElementById("zotero-link-message");
+  try {
+    await api("DELETE", "/api/v1/zotero/api/credentials");
+    messageEl.hidden = false;
+    messageEl.className = "small";
+    messageEl.textContent = "Unlinked.";
+    await refreshZoteroApiStatus();
+  } catch (err) {
+    messageEl.hidden = false;
+    messageEl.className = "small error";
+    messageEl.textContent = err.message;
+  }
+}
+
+async function searchZoteroLocal() {
+  const query = document.getElementById("zotero-search-input").value.trim();
+  const resultsEl = document.getElementById("zotero-search-results");
+  if (!query) {
+    resultsEl.innerHTML = "";
+    return;
+  }
+  resultsEl.innerHTML = "<p class=\"muted small\">Searching...</p>";
+  try {
+    const hits = await api("GET", "/api/v1/zotero/local/search", { params: { query, limit: 20 } });
+    if (!hits.length) {
+      resultsEl.innerHTML = "<p class=\"muted small\">No matches.</p>";
+      return;
+    }
+    resultsEl.innerHTML = "";
+    for (const hit of hits) {
+      const row = document.createElement("div");
+      row.className = "zotero-search-hit";
+      const fileName = (hit.file_path || "").split("/").pop();
+      row.innerHTML = `
+        <strong>${escapeHtml(fileName || hit.storage_key)}</strong>
+        <span class="muted small">(matched: ${escapeHtml((hit.matched_terms || []).join(", "))})</span>
+        ${hit.snippet ? `<p class="small muted">${escapeHtml(hit.snippet)}</p>` : ""}
+      `;
+      resultsEl.appendChild(row);
+    }
+  } catch (err) {
+    resultsEl.innerHTML = `<p class="error small">${escapeHtml(err.message)}</p>`;
+  }
+}
+
+function setupZoteroPanel() {
+  document.getElementById("zotero-link-save-btn").addEventListener("click", saveZoteroCredentials);
+  document.getElementById("zotero-link-unlink-btn").addEventListener("click", unlinkZoteroCredentials);
+  document.getElementById("zotero-search-btn").addEventListener("click", searchZoteroLocal);
+  document.getElementById("zotero-search-input").addEventListener("keydown", (event) => {
+    if (event.key === "Enter") searchZoteroLocal();
+  });
+}
+
 // --- modal plumbing (shared by preview / cross-reference / about) ---
 
 function openModal(id) {
@@ -359,6 +512,7 @@ function setWorkspaceInUrl(workspace) {
 document.addEventListener("DOMContentLoaded", () => {
   setupDropzone();
   setupModals();
+  setupZoteroPanel();
 
   const workspaceInput = document.getElementById("workspace-input");
   const initialWorkspace = currentWorkspaceFromUrl();

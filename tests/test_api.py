@@ -513,6 +513,50 @@ def test_zotero_api_test_fails_without_credentials(client: TestClient, tmp_path:
     assert response.json()["errors"][0]["code"] == "zotero_api_error"
 
 
+def test_zotero_api_save_credentials_links_account_without_echoing_key(
+    client: TestClient, tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("ZOTERO_API_KEY", raising=False)
+    monkeypatch.delenv("ZOTERO_USER_ID", raising=False)
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+
+    save_response = client.post(
+        "/api/v1/zotero/api/credentials",
+        params={"workspace": str(workspace)},
+        json={"api_key": "super-secret-key", "user_id": "123"},
+    )
+
+    assert save_response.status_code == 200
+    body = save_response.json()
+    assert body["data"] == {"configured": True}
+    assert "super-secret-key" not in save_response.text
+
+    env_text = (workspace / ".env").read_text(encoding="utf-8")
+    assert "ZOTERO_API_KEY=super-secret-key" in env_text
+    assert "ZOTERO_USER_ID=123" in env_text
+
+    delete_response = client.delete("/api/v1/zotero/api/credentials", params={"workspace": str(workspace)})
+    assert delete_response.status_code == 200
+    assert delete_response.json()["data"] == {"configured": False}
+    assert "ZOTERO_API_KEY" not in (workspace / ".env").read_text(encoding="utf-8")
+
+
+def test_zotero_api_save_credentials_rejects_blank_fields(client: TestClient, tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+
+    response = client.post(
+        "/api/v1/zotero/api/credentials",
+        params={"workspace": str(workspace)},
+        json={"api_key": "", "user_id": "123"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["errors"][0]["code"] == "zotero_credentials_invalid"
+
+
 def test_zotero_api_select_collections_writes_only_workspace_config(client: TestClient, tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")

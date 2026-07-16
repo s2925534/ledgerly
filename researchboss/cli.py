@@ -162,6 +162,8 @@ from researchboss.engine.zotero import (
 )
 from researchboss.engine.zotero_api import (
     ZoteroApiError,
+    clear_zotero_api_credentials,
+    save_zotero_api_credentials,
     zotero_api_collections,
     zotero_api_credentials,
     zotero_api_readiness,
@@ -3504,6 +3506,54 @@ def zotero_use_entire_library(
     _finish(summary, summary_path)
     if not quiet:
         console.print("[green]Configured[/green] Zotero entire-library mode.")
+
+
+@zotero_app.command("api-link")
+def zotero_api_link(
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
+    api_key: Optional[str] = typer.Option(None, "--api-key", help="Zotero Web API key (omit to be prompted, hidden)."),
+    user_id: Optional[str] = typer.Option(None, "--user-id", help="Zotero user ID (omit to be prompted)."),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Link a Zotero Web API account by saving credentials into the workspace's .env.
+
+    Replaces hand-editing .env; never prints the key back once saved. Run
+    `researchboss zotero api-test` afterwards to verify the link works.
+    """
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["zotero", "api_link"], ws, log_level)
+    resolved_key = api_key if api_key is not None else typer.prompt("Zotero Web API key", hide_input=True)
+    resolved_user_id = user_id if user_id is not None else typer.prompt("Zotero user ID")
+    try:
+        save_zotero_api_credentials(ws, resolved_key, resolved_user_id)
+    except ZoteroApiError as e:
+        logger.error("Zotero API link failed", operation="zotero_api_link", error=str(e))
+        summary.errors += 1
+        _finish(summary, summary_path)
+        if not quiet:
+            console.print(f"[red]{e}[/red]")
+        raise typer.Exit(code=2)
+    logger.info("Linked Zotero Web API account", operation="zotero_api_link")
+    _finish(summary, summary_path, next_action="Run `researchboss zotero api-test` to verify the link.")
+    if not quiet:
+        console.print("[green]Linked[/green] Zotero Web API account (credentials saved, not shown).")
+
+
+@zotero_app.command("api-unlink")
+def zotero_api_unlink(
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Unlink a Zotero Web API account by removing saved credentials from the workspace's .env."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["zotero", "api_unlink"], ws, log_level)
+    clear_zotero_api_credentials(ws)
+    logger.info("Unlinked Zotero Web API account", operation="zotero_api_unlink")
+    _finish(summary, summary_path)
+    if not quiet:
+        console.print("[green]Unlinked[/green] Zotero Web API account.")
 
 
 @zotero_app.command("api-test")

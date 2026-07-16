@@ -31,6 +31,47 @@ def test_cli_doctor_command() -> None:
     assert "is ready" in result.output
 
 
+def test_cli_zotero_api_link_and_unlink_round_trip(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("ZOTERO_API_KEY", raising=False)
+    monkeypatch.delenv("ZOTERO_USER_ID", raising=False)
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+
+    link_result = runner.invoke(
+        app,
+        [
+            "zotero", "api-link",
+            "--workspace", str(workspace),
+            "--api-key", "super-secret-key",
+            "--user-id", "123",
+            "--quiet",
+        ],
+    )
+    assert link_result.exit_code == 0, link_result.output
+    assert "super-secret-key" not in link_result.output
+    env_text = (workspace / ".env").read_text(encoding="utf-8")
+    assert "ZOTERO_API_KEY=super-secret-key" in env_text
+    assert "ZOTERO_USER_ID=123" in env_text
+
+    unlink_result = runner.invoke(app, ["zotero", "api-unlink", "--workspace", str(workspace), "--quiet"])
+    assert unlink_result.exit_code == 0, unlink_result.output
+    assert "ZOTERO_API_KEY" not in (workspace / ".env").read_text(encoding="utf-8")
+
+
+def test_cli_zotero_api_link_rejects_blank_key(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+
+    result = runner.invoke(
+        app,
+        ["zotero", "api-link", "--workspace", str(workspace), "--api-key", "", "--user-id", "123", "--quiet"],
+    )
+
+    assert result.exit_code == 2, result.output
+
+
 def test_cli_report_schemas_writes_report_contracts(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")

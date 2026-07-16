@@ -39,6 +39,56 @@
     </table>
     <p id="uploads-empty" class="muted small" hidden>No artefacts uploaded yet.</p>
   </section>
+
+  <section class="panel">
+    <h2>Zotero</h2>
+    <p class="muted small">Link your Zotero account and browse your library here for quick reference — read-only, nothing is ever written back to Zotero.</p>
+
+    <div class="zotero-status-row">
+      <div>
+        <strong>Local storage:</strong>
+        <span id="zotero-local-status" class="candidate-status">checking&hellip;</span>
+      </div>
+      <div>
+        <strong>Web API:</strong>
+        <span id="zotero-api-status" class="candidate-status">checking&hellip;</span>
+      </div>
+    </div>
+
+    <details id="zotero-link-details">
+      <summary class="link">Link / manage Zotero Web API account</summary>
+      <div class="zotero-link-form">
+        <p class="muted small">
+          Create a read-only key at
+          <a href="https://www.zotero.org/settings/keys" target="_blank" rel="noopener">zotero.org/settings/keys</a>.
+          Your key and user ID are saved only in this workspace's local <code>.env</code> file — never sent anywhere
+          except directly to Zotero's own API, and never shown again once saved.
+        </p>
+        <label class="field-label" for="zotero-api-key-input">API key</label>
+        <input id="zotero-api-key-input" type="password" autocomplete="off" placeholder="Zotero API key">
+        <label class="field-label" for="zotero-user-id-input">User ID</label>
+        <input id="zotero-user-id-input" type="text" autocomplete="off" placeholder="Zotero numeric user ID">
+        <div class="zotero-link-actions">
+          <button id="zotero-link-save-btn" type="button">Save &amp; link</button>
+          <button id="zotero-link-unlink-btn" type="button" class="secondary">Unlink</button>
+        </div>
+        <p id="zotero-link-message" class="small" hidden></p>
+      </div>
+    </details>
+
+    <div class="zotero-browse">
+      <label class="field-label" for="zotero-search-input">Search local Zotero storage</label>
+      <div class="zotero-search-row">
+        <input id="zotero-search-input" type="text" placeholder="Keyword search across your local Zotero library">
+        <button id="zotero-search-btn" type="button" class="secondary">Search</button>
+      </div>
+      <div id="zotero-search-results"></div>
+
+      <h3>Collections</h3>
+      <div id="zotero-collections-list" class="zotero-collections-list"></div>
+      <p id="zotero-collections-empty" class="muted small" hidden>No Zotero collections found yet — link an account or check local storage detection above.</p>
+    </div>
+  </section>
 </main>
 
 <div id="preview-modal" class="modal-overlay" hidden>

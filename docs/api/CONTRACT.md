@@ -449,6 +449,28 @@ Engine source:
 
 - `researchboss.engine.zotero.search_zotero_storage`
 
+### `POST /api/v1/zotero/api/credentials` (implemented)
+
+Links a Zotero Web API account by saving `api_key`/`user_id` (request body) into the workspace's local `.env`, replacing hand-editing that file. Added 2026-07-16 so the web UI can link an account the same way the CLI's new `researchboss zotero api-link` does.
+
+Request body: `{"api_key": string, "user_id": string}`.
+
+Response `data`: `{"configured": true}` only — the submitted key and user ID are never echoed back, logged, or returned by this or any other route. Call `GET /api/v1/zotero/api/test` afterwards to verify the saved credentials actually work.
+
+Engine source:
+
+- `researchboss.engine.zotero_api.save_zotero_api_credentials`
+
+### `DELETE /api/v1/zotero/api/credentials` (implemented)
+
+Unlinks a Zotero Web API account by removing `ZOTERO_API_KEY`/`ZOTERO_USER_ID` from the workspace's local `.env`, leaving every other line untouched.
+
+Response `data`: `{"configured": false}`.
+
+Engine source:
+
+- `researchboss.engine.zotero_api.clear_zotero_api_credentials`
+
 ### `GET /api/v1/zotero/api/test` (implemented)
 
 Tests Zotero Web API credentials without exposing the key.

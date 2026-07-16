@@ -18,6 +18,8 @@ from researchboss.engine.zotero import (
 )
 from researchboss.engine.zotero_api import (
     ZoteroApiError,
+    clear_zotero_api_credentials,
+    save_zotero_api_credentials,
     zotero_api_collections,
     zotero_api_credentials,
     zotero_api_readiness,
@@ -77,6 +79,36 @@ def zotero_local_search(
             for hit in hits
         ]
     )
+
+
+class ZoteroApiCredentialsRequest(BaseModel):
+    api_key: str
+    user_id: str
+
+
+@router.post("/api/credentials")
+def zotero_web_api_save_credentials(
+    payload: ZoteroApiCredentialsRequest,
+    workspace: Path = Depends(resolve_workspace),
+) -> dict[str, Any]:
+    """Link a Zotero Web API account by saving credentials into the workspace's `.env`.
+
+    Never echoes, logs, or returns the submitted key or user ID — only
+    confirms the save succeeded. Call `GET /api/test` afterwards to verify
+    the saved credentials actually work.
+    """
+    try:
+        save_zotero_api_credentials(workspace, payload.api_key, payload.user_id)
+    except ZoteroApiError as exc:
+        raise ApiError("zotero_credentials_invalid", str(exc)) from exc
+    return ok({"configured": True})
+
+
+@router.delete("/api/credentials")
+def zotero_web_api_clear_credentials(workspace: Path = Depends(resolve_workspace)) -> dict[str, Any]:
+    """Unlink a Zotero Web API account by removing saved credentials from `.env`."""
+    clear_zotero_api_credentials(workspace)
+    return ok({"configured": False})
 
 
 @router.get("/api/test")

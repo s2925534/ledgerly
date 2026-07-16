@@ -35,6 +35,72 @@ def load_dotenv_values(path: Path) -> dict[str, str]:
     return values
 
 
+def write_dotenv_values(path: Path, updates: dict[str, str]) -> None:
+    """Upsert key=value pairs into a dotenv file, preserving every other line.
+
+    Used to let the CLI/web UI save credentials a user submits interactively
+    (e.g. linking a Zotero account) without hand-editing `.env`. Never called
+    with, and must never be used to persist, anything that should instead
+    live only in-memory or in session storage.
+    """
+    lines = path.read_text(encoding="utf-8").splitlines() if path.is_file() else []
+    remaining = dict(updates)
+    result = []
+    for raw_line in lines:
+        stripped = raw_line.strip()
+        if stripped and not stripped.startswith("#") and "=" in stripped:
+            key = stripped.split("=", 1)[0].strip()
+            if key in remaining:
+                result.append(f"{key}={remaining.pop(key)}")
+                continue
+        result.append(raw_line)
+    for key, value in remaining.items():
+        result.append(f"{key}={value}")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(result) + "\n", encoding="utf-8")
+    try:
+        path.chmod(0o600)
+    except OSError:
+        pass
+
+
+def remove_dotenv_values(path: Path, keys: list[str]) -> None:
+    """Remove the given keys from a dotenv file, leaving every other line untouched."""
+    if not path.is_file():
+        return
+    keys_set = set(keys)
+    result = []
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        stripped = raw_line.strip()
+        if stripped and not stripped.startswith("#") and "=" in stripped:
+            key = stripped.split("=", 1)[0].strip()
+            if key in keys_set:
+                continue
+        result.append(raw_line)
+    path.write_text("\n".join(result) + ("\n" if result else ""), encoding="utf-8")
+
+
+def save_zotero_api_credentials(workspace: Path, api_key: str, user_id: str) -> None:
+    """Persist Zotero Web API credentials into the workspace's local `.env` file.
+
+    This is the CLI/web-UI "link your Zotero account" entry point, replacing
+    hand-editing `.env`. Never returns, logs, or echoes the credential value
+    back to any caller — callers only learn whether the save succeeded.
+    """
+    api_key = api_key.strip()
+    user_id = user_id.strip()
+    if not api_key:
+        raise ZoteroApiError("API key is required.")
+    if not user_id:
+        raise ZoteroApiError("User ID is required.")
+    write_dotenv_values(workspace / ".env", {"ZOTERO_API_KEY": api_key, "ZOTERO_USER_ID": user_id})
+
+
+def clear_zotero_api_credentials(workspace: Path) -> None:
+    """Remove any saved Zotero Web API credentials from the workspace's `.env` file."""
+    remove_dotenv_values(workspace / ".env", ["ZOTERO_API_KEY", "ZOTERO_USER_ID"])
+
+
 def zotero_api_credentials(workspace: Path | None = None) -> ZoteroApiCredentials:
     env_values = load_dotenv_values(Path.cwd() / ".env")
     if workspace is not None:
