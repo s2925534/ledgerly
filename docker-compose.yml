@@ -1,26 +1,26 @@
-# ResearchBoss local API, for use with `synology-site deploy` from
+# Ledgerly local API, for use with `synology-site deploy` from
 # ../synology-site-deployer (see docs/DEPLOY.md) or plain `docker compose up`.
 #
 # Requires a populated .env alongside this file (copy .env.example) with at
-# least RESEARCHBOSS_API_USERNAME and RESEARCHBOSS_API_PASSWORD set --
+# least LEDGERLY_API_USERNAME and LEDGERLY_API_PASSWORD set --
 # compose refuses to start otherwise.
 #
 # Single container, single process: see the Dockerfile for why this must
 # never be scaled to multiple replicas or workers.
 
 services:
-  researchboss-api:
+  ledgerly-api:
     build: .
     restart: unless-stopped
     ports:
-      - "${RESEARCHBOSS_HOST_PORT:-8000}:8000"
+      - "${LEDGERLY_HOST_PORT:-8000}:8000"
     environment:
-      RESEARCHBOSS_API_USERNAME: ${RESEARCHBOSS_API_USERNAME:?Set RESEARCHBOSS_API_USERNAME in .env before starting}
-      RESEARCHBOSS_API_PASSWORD: ${RESEARCHBOSS_API_PASSWORD:?Set RESEARCHBOSS_API_PASSWORD in .env before starting}
-      RESEARCHBOSS_WORKSPACE_ROOT: /data/workspaces
-      RESEARCHBOSS_API_SESSION_HOURS: ${RESEARCHBOSS_API_SESSION_HOURS:-12}
-      RESEARCHBOSS_UPLOAD_MAX_FILES: ${RESEARCHBOSS_UPLOAD_MAX_FILES:-25}
-      RESEARCHBOSS_UPLOAD_MAX_FILE_SIZE_MB: ${RESEARCHBOSS_UPLOAD_MAX_FILE_SIZE_MB:-50}
+      LEDGERLY_API_USERNAME: ${LEDGERLY_API_USERNAME:?Set LEDGERLY_API_USERNAME in .env before starting}
+      LEDGERLY_API_PASSWORD: ${LEDGERLY_API_PASSWORD:?Set LEDGERLY_API_PASSWORD in .env before starting}
+      LEDGERLY_WORKSPACE_ROOT: /data/workspaces
+      LEDGERLY_API_SESSION_HOURS: ${LEDGERLY_API_SESSION_HOURS:-12}
+      LEDGERLY_UPLOAD_MAX_FILES: ${LEDGERLY_UPLOAD_MAX_FILES:-25}
+      LEDGERLY_UPLOAD_MAX_FILE_SIZE_MB: ${LEDGERLY_UPLOAD_MAX_FILE_SIZE_MB:-50}
     volumes:
       # Bind-mounted, not a named volume: a researcher may want direct
       # filesystem access to their own workspace files (backups, inspecting

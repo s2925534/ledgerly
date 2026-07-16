@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from researchboss.core.yamlio import read_yaml
-from researchboss.engine.sources import (
+from ledgerly.core.yamlio import read_yaml
+from ledgerly.engine.sources import (
     iter_source_files,
     list_sources,
     scan_sources,
@@ -14,7 +14,7 @@ from researchboss.engine.sources import (
     source_counts,
     validate_source_provider,
 )
-from researchboss.engine.workspace import init_workspace
+from ledgerly.engine.workspace import init_workspace
 
 
 def make_workspace(tmp_path: Path) -> Path:

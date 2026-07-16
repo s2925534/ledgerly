@@ -4,13 +4,13 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
-import researchboss.cli as cli
-from researchboss import __version__
-from researchboss.cli import app
-from researchboss.core.yamlio import read_yaml, write_yaml
-from researchboss.engine.artefacts import register_artefact
-from researchboss.engine.sources import scan_sources, set_source_status
-from researchboss.engine.workspace import init_workspace
+import ledgerly.cli as cli
+from ledgerly import __version__
+from ledgerly.cli import app
+from ledgerly.core.yamlio import read_yaml, write_yaml
+from ledgerly.engine.artefacts import register_artefact
+from ledgerly.engine.sources import scan_sources, set_source_status
+from ledgerly.engine.workspace import init_workspace
 
 
 runner = CliRunner()
@@ -20,14 +20,14 @@ def test_cli_version_command() -> None:
     result = runner.invoke(app, ["version"])
 
     assert result.exit_code == 0, result.output
-    assert f"ResearchBoss {__version__}" in result.output
+    assert f"Ledgerly {__version__}" in result.output
 
 
 def test_cli_doctor_command() -> None:
     result = runner.invoke(app, ["doctor"])
 
     assert result.exit_code == 0, result.output
-    assert "ResearchBoss" in result.output
+    assert "Ledgerly" in result.output
     assert "is ready" in result.output
 
 
@@ -1053,14 +1053,14 @@ def test_cli_ai_context_preview_writes_local_context_without_network(tmp_path: P
 
 def test_python_module_entrypoint_help() -> None:
     result = subprocess.run(
-        [sys.executable, "-m", "researchboss", "--help"],
+        [sys.executable, "-m", "ledgerly", "--help"],
         check=False,
         capture_output=True,
         text=True,
     )
 
     assert result.returncode == 0, result.stderr
-    assert "ResearchBoss" in result.stdout
+    assert "Ledgerly" in result.stdout
     assert "init" in result.stdout
 
 
@@ -1130,19 +1130,19 @@ def test_cli_init_prints_concrete_scan_next_action(tmp_path: Path) -> None:
 
     assert result.exit_code == 0, result.output
     output = result.output.replace("\n", "")
-    assert "researchboss scan --workspace" in result.output
+    assert "ledgerly scan --workspace" in result.output
     assert "scan --workspace <path>" not in result.output
     assert "Useful next commands" in result.output
-    assert f"researchboss config validate --workspace {workspace}" in output
-    assert f"researchboss scan --workspace {workspace} --source /path/to/your/sources" in output
-    assert f"researchboss sources review --workspace {workspace}" in output
-    assert f"researchboss sources status --workspace {workspace}" in output
-    assert f"researchboss sources list --workspace {workspace} --status accepted" in output
+    assert f"ledgerly config validate --workspace {workspace}" in output
+    assert f"ledgerly scan --workspace {workspace} --source /path/to/your/sources" in output
+    assert f"ledgerly sources review --workspace {workspace}" in output
+    assert f"ledgerly sources status --workspace {workspace}" in output
+    assert f"ledgerly sources list --workspace {workspace} --status accepted" in output
 
     summary_files = list((workspace / "outputs" / "logs" / "run-summaries").glob("*__init.yaml"))
     assert len(summary_files) == 1
     summary = read_yaml(summary_files[0])
-    assert summary["next_recommended_action"] == f"Run `researchboss scan --workspace {workspace}`"
+    assert summary["next_recommended_action"] == f"Run `ledgerly scan --workspace {workspace}`"
 
 
 def test_cli_init_next_commands_use_configured_source_path(tmp_path: Path) -> None:
@@ -1173,7 +1173,7 @@ def test_cli_init_next_commands_use_configured_source_path(tmp_path: Path) -> No
 
     assert result.exit_code == 0, result.output
     output = result.output.replace("\n", "")
-    assert f"researchboss scan --workspace {workspace} --source {source_root}" in output
+    assert f"ledgerly scan --workspace {workspace} --source {source_root}" in output
     assert "/path/to/your/sources" not in result.output
 
 
@@ -1802,7 +1802,7 @@ def test_cli_commands_prompt_for_workspace_and_remember_default(tmp_path: Path, 
     assert scan_result.exit_code == 0, scan_result.output
     assert "Select workspace" in scan_result.output
     assert "Use this workspace as the default for future commands?" in scan_result.output
-    assert read_yaml(tmp_path / "workspaces" / ".researchboss-cli.local.yaml") == {
+    assert read_yaml(tmp_path / "workspaces" / ".ledgerly-cli.local.yaml") == {
         "version": 1,
         "default_workspace": str(second_workspace),
     }

@@ -1,9 +1,9 @@
 from pathlib import Path
 from zipfile import ZipFile
 
-from researchboss.core.yamlio import write_yaml
-from researchboss.engine.export import export_accepted_source_corpus, export_evidence_bundle
-from researchboss.engine.workspace import init_workspace
+from ledgerly.core.yamlio import write_yaml
+from ledgerly.engine.export import export_accepted_source_corpus, export_evidence_bundle
+from ledgerly.engine.workspace import init_workspace
 
 
 def test_export_evidence_bundle_excludes_original_files(tmp_path: Path) -> None:

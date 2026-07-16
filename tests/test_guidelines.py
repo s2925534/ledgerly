@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from researchboss.core.yamlio import read_yaml
-from researchboss.engine.guidelines import (
+from ledgerly.core.yamlio import read_yaml
+from ledgerly.engine.guidelines import (
     build_ai_guideline_context,
     guideline_conflict_report,
     list_guidelines,
@@ -11,7 +11,7 @@ from researchboss.engine.guidelines import (
     resolve_guidelines,
     set_default_guidelines,
 )
-from researchboss.engine.workspace import init_workspace
+from ledgerly.engine.workspace import init_workspace
 
 
 def test_register_guideline_snapshots_local_text_without_modifying_original(tmp_path: Path) -> None:

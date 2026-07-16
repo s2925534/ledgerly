@@ -1,14 +1,14 @@
 from pathlib import Path
 
-from researchboss.core.yamlio import read_yaml, write_yaml
-from researchboss.engine.metadata_quality import (
+from ledgerly.core.yamlio import read_yaml, write_yaml
+from ledgerly.engine.metadata_quality import (
     build_keyword_index,
     citation_consistency_report,
     duplicate_metadata_report,
     filename_suggestion_report,
     normalize_doi,
 )
-from researchboss.engine.workspace import init_workspace
+from ledgerly.engine.workspace import init_workspace
 
 
 def make_workspace(tmp_path: Path) -> Path:

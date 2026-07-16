@@ -1,8 +1,8 @@
 from pathlib import Path
 from zipfile import ZipFile
 
-from researchboss.engine.backup import create_workspace_backup, inspect_backup
-from researchboss.engine.workspace import init_workspace
+from ledgerly.engine.backup import create_workspace_backup, inspect_backup
+from ledgerly.engine.workspace import init_workspace
 
 
 def test_create_workspace_backup_excludes_original_sources_by_default(tmp_path: Path) -> None:

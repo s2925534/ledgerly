@@ -3,11 +3,11 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from researchboss.api.app import create_app
-from researchboss.api.auth import clear_all_sessions
-from researchboss.core.yamlio import read_yaml, write_yaml
-from researchboss.engine.sources import scan_sources
-from researchboss.engine.workspace import init_workspace
+from ledgerly.api.app import create_app
+from ledgerly.api.auth import clear_all_sessions
+from ledgerly.core.yamlio import read_yaml, write_yaml
+from ledgerly.engine.sources import scan_sources
+from ledgerly.engine.workspace import init_workspace
 
 
 TEST_USERNAME = "test-user"
@@ -24,8 +24,8 @@ def _reset_sessions():
 @pytest.fixture()
 def client(monkeypatch) -> TestClient:
     """An already-authenticated client, for tests that exercise route behavior, not auth itself."""
-    monkeypatch.setenv("RESEARCHBOSS_API_USERNAME", TEST_USERNAME)
-    monkeypatch.setenv("RESEARCHBOSS_API_PASSWORD", TEST_PASSWORD)
+    monkeypatch.setenv("LEDGERLY_API_USERNAME", TEST_USERNAME)
+    monkeypatch.setenv("LEDGERLY_API_PASSWORD", TEST_PASSWORD)
     test_client = TestClient(create_app())
     login_response = test_client.post("/api/v1/auth/login", json={"username": TEST_USERNAME, "password": TEST_PASSWORD})
     assert login_response.status_code == 200, login_response.text
@@ -35,8 +35,8 @@ def client(monkeypatch) -> TestClient:
 @pytest.fixture()
 def unauthenticated_client(monkeypatch) -> TestClient:
     """Username/password configured, but no session established — for testing the auth gate itself."""
-    monkeypatch.setenv("RESEARCHBOSS_API_USERNAME", TEST_USERNAME)
-    monkeypatch.setenv("RESEARCHBOSS_API_PASSWORD", TEST_PASSWORD)
+    monkeypatch.setenv("LEDGERLY_API_USERNAME", TEST_USERNAME)
+    monkeypatch.setenv("LEDGERLY_API_PASSWORD", TEST_PASSWORD)
     return TestClient(create_app())
 
 
@@ -657,7 +657,7 @@ def test_project_log_decisions_terminology_feedback_and_changelog_via_api(
 
 def test_health_route_requires_no_authentication(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.chdir(tmp_path)
-    monkeypatch.delenv("RESEARCHBOSS_API_PASSWORD", raising=False)
+    monkeypatch.delenv("LEDGERLY_API_PASSWORD", raising=False)
     bare_client = TestClient(create_app())
 
     response = bare_client.get("/health")
@@ -668,7 +668,7 @@ def test_health_route_requires_no_authentication(monkeypatch, tmp_path: Path) ->
 
 def test_protected_route_fails_closed_when_auth_not_configured(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.chdir(tmp_path)
-    monkeypatch.delenv("RESEARCHBOSS_API_PASSWORD", raising=False)
+    monkeypatch.delenv("LEDGERLY_API_PASSWORD", raising=False)
     bare_client = TestClient(create_app())
 
     response = bare_client.get("/api/v1/projects/status", params={"workspace": str(tmp_path)})
@@ -679,8 +679,8 @@ def test_protected_route_fails_closed_when_auth_not_configured(monkeypatch, tmp_
 
 def test_login_fails_closed_when_auth_not_configured(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.chdir(tmp_path)
-    monkeypatch.delenv("RESEARCHBOSS_API_USERNAME", raising=False)
-    monkeypatch.delenv("RESEARCHBOSS_API_PASSWORD", raising=False)
+    monkeypatch.delenv("LEDGERLY_API_USERNAME", raising=False)
+    monkeypatch.delenv("LEDGERLY_API_PASSWORD", raising=False)
     bare_client = TestClient(create_app())
 
     response = bare_client.post("/api/v1/auth/login", json={"username": "anyone", "password": "anything"})
@@ -691,8 +691,8 @@ def test_login_fails_closed_when_auth_not_configured(monkeypatch, tmp_path: Path
 
 def test_login_fails_closed_when_only_password_configured(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.chdir(tmp_path)
-    monkeypatch.delenv("RESEARCHBOSS_API_USERNAME", raising=False)
-    monkeypatch.setenv("RESEARCHBOSS_API_PASSWORD", TEST_PASSWORD)
+    monkeypatch.delenv("LEDGERLY_API_USERNAME", raising=False)
+    monkeypatch.setenv("LEDGERLY_API_PASSWORD", TEST_PASSWORD)
     bare_client = TestClient(create_app())
 
     response = bare_client.post("/api/v1/auth/login", json={"username": TEST_USERNAME, "password": TEST_PASSWORD})
@@ -1051,7 +1051,7 @@ def test_resolve_workspace_accepts_relative_path_inside_configured_root(
     root.mkdir()
     workspace = root / "project-a"
     init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
-    monkeypatch.setenv("RESEARCHBOSS_WORKSPACE_ROOT", str(root))
+    monkeypatch.setenv("LEDGERLY_WORKSPACE_ROOT", str(root))
 
     response = client.get("/api/v1/projects/status", params={"workspace": "project-a"})
 
@@ -1065,7 +1065,7 @@ def test_resolve_workspace_accepts_absolute_path_inside_configured_root(
     root.mkdir()
     workspace = root / "project-a"
     init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
-    monkeypatch.setenv("RESEARCHBOSS_WORKSPACE_ROOT", str(root))
+    monkeypatch.setenv("LEDGERLY_WORKSPACE_ROOT", str(root))
 
     response = client.get("/api/v1/projects/status", params={"workspace": str(workspace)})
 
@@ -1079,7 +1079,7 @@ def test_resolve_workspace_rejects_path_outside_configured_root(
     root.mkdir()
     outside_workspace = tmp_path / "outside" / "workspace"
     init_workspace(outside_workspace, project_name="Test", project_type="M.Phil", topic="Topic")
-    monkeypatch.setenv("RESEARCHBOSS_WORKSPACE_ROOT", str(root))
+    monkeypatch.setenv("LEDGERLY_WORKSPACE_ROOT", str(root))
 
     response = client.get("/api/v1/projects/status", params={"workspace": str(outside_workspace)})
 
@@ -1094,7 +1094,7 @@ def test_resolve_workspace_rejects_traversal_outside_configured_root(
     root.mkdir()
     outside_workspace = tmp_path / "outside" / "workspace"
     init_workspace(outside_workspace, project_name="Test", project_type="M.Phil", topic="Topic")
-    monkeypatch.setenv("RESEARCHBOSS_WORKSPACE_ROOT", str(root))
+    monkeypatch.setenv("LEDGERLY_WORKSPACE_ROOT", str(root))
 
     response = client.get(
         "/api/v1/projects/status", params={"workspace": "../outside/workspace"}
@@ -1107,7 +1107,7 @@ def test_resolve_workspace_rejects_traversal_outside_configured_root(
 def test_resolve_workspace_without_configured_root_keeps_local_first_flexibility(
     client: TestClient, tmp_path: Path, monkeypatch
 ) -> None:
-    monkeypatch.delenv("RESEARCHBOSS_WORKSPACE_ROOT", raising=False)
+    monkeypatch.delenv("LEDGERLY_WORKSPACE_ROOT", raising=False)
     workspace = tmp_path / "anywhere" / "workspace"
     init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
 
@@ -1169,7 +1169,7 @@ def test_artefacts_upload_rejects_disallowed_extension_via_api(client: TestClien
 def test_artefacts_upload_rejects_whole_batch_over_max_files_via_api(
     client: TestClient, tmp_path: Path, monkeypatch
 ) -> None:
-    monkeypatch.setenv("RESEARCHBOSS_UPLOAD_MAX_FILES", "1")
+    monkeypatch.setenv("LEDGERLY_UPLOAD_MAX_FILES", "1")
     workspace = tmp_path / "workspace"
     init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
 
@@ -1189,7 +1189,7 @@ def test_artefacts_upload_rejects_whole_batch_over_max_files_via_api(
 
 
 def test_artefacts_upload_enforces_max_file_size_via_api(client: TestClient, tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.setenv("RESEARCHBOSS_UPLOAD_MAX_FILE_SIZE_MB", "0.00001")  # ~10 bytes
+    monkeypatch.setenv("LEDGERLY_UPLOAD_MAX_FILE_SIZE_MB", "0.00001")  # ~10 bytes
     workspace = tmp_path / "workspace"
     init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
 

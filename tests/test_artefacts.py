@@ -2,16 +2,16 @@ from pathlib import Path
 
 import pytest
 
-from researchboss.core.yamlio import read_yaml, write_yaml
-from researchboss.engine.artefact_creation import create_deterministic_artefact
-from researchboss.engine.artefacts import (
+from ledgerly.core.yamlio import read_yaml, write_yaml
+from ledgerly.engine.artefact_creation import create_deterministic_artefact
+from ledgerly.engine.artefacts import (
     artefact_dependency_report,
     list_artefacts,
     register_artefact,
     set_artefact_review_status,
 )
-from researchboss.engine.claims import add_claim
-from researchboss.engine.workspace import init_workspace
+from ledgerly.engine.claims import add_claim
+from ledgerly.engine.workspace import init_workspace
 
 
 def test_register_artefact_records_links_and_review_flags(tmp_path: Path) -> None:

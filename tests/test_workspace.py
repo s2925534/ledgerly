@@ -2,9 +2,9 @@ from pathlib import Path
 
 import pytest
 
-from researchboss.core.constants import WORKSPACE_DIRS, WORKSPACE_FILES
-from researchboss.core.yamlio import read_yaml
-from researchboss.engine.workspace import (
+from ledgerly.core.constants import WORKSPACE_DIRS, WORKSPACE_FILES
+from ledgerly.core.yamlio import read_yaml
+from ledgerly.engine.workspace import (
     citation_style_choices,
     citation_styles_from_zotero_styles_dir,
     default_documents_dir,
@@ -77,7 +77,7 @@ def test_init_workspace_creates_expected_files_and_dirs(tmp_path: Path) -> None:
         "selected_collections": [],
         "include_subcollections": True,
         "metadata_source": "local_sqlite",
-        "strict_one_way_from_zotero_to_researchboss": True,
+        "strict_one_way_from_zotero_to_ledgerly": True,
         "block_writes_to_zotero_directory": True,
     }
     assert context["artefacts"] == {
@@ -294,7 +294,7 @@ def test_init_workspace_configures_zotero_root_from_storage(tmp_path: Path) -> N
         "selected_collections": [],
         "include_subcollections": True,
         "metadata_source": "local_sqlite",
-        "strict_one_way_from_zotero_to_researchboss": True,
+        "strict_one_way_from_zotero_to_ledgerly": True,
         "block_writes_to_zotero_directory": True,
     }
 
@@ -305,7 +305,7 @@ def test_init_workspace_blocks_workspace_inside_zotero_root(tmp_path: Path) -> N
 
     with pytest.raises(ValueError, match="Blocked write inside local Zotero directory"):
         init_workspace(
-            storage.parent / "ResearchBossWorkspace",
+            storage.parent / "LedgerlyWorkspace",
             project_name="Test Project",
             project_type="M.Phil",
             topic="",

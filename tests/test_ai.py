@@ -4,8 +4,8 @@ from urllib.request import Request
 
 import pytest
 
-from researchboss.core.yamlio import read_yaml, write_yaml
-from researchboss.engine.ai import (
+from ledgerly.core.yamlio import read_yaml, write_yaml
+from ledgerly.engine.ai import (
     OpenAiCredentials,
     OpenAiError,
     ai_citation_plan_review,
@@ -25,9 +25,9 @@ from researchboss.engine.ai import (
     require_full_source_document_ai_opt_in,
     require_full_target_document_ai_opt_in,
 )
-from researchboss.engine.conversion import convert_sources
-from researchboss.engine.sources import scan_sources, set_source_status
-from researchboss.engine.workspace import init_workspace
+from ledgerly.engine.conversion import convert_sources
+from ledgerly.engine.sources import scan_sources, set_source_status
+from ledgerly.engine.workspace import init_workspace
 
 
 class FakeResponse:

@@ -1,10 +1,10 @@
-# ResearchBoss Local API Contract
+# Ledgerly Local API Contract
 
-This document defines the FastAPI boundary for ResearchBoss.
+This document defines the FastAPI boundary for Ledgerly.
 
-Contract status: implementation started in project version `0.7.0`; every route documented below is now implemented in `researchboss.api` (run with `researchboss serve`) except the disabled Future AI Routes section, which is a shape-only planning sketch (see that section) covering `POST /api/v1/ai/{test,review,novelty,rqs/assess}`. Novelty assessment has no deterministic engine path (`researchboss.engine.ai.ai_novelty_assessment` is AI-only) — it belongs at `POST /api/v1/ai/novelty` under the same AI opt-in and privacy-boundary rules as the rest of that section, not as a separate `/api/v1/novelty` route implying a deterministic path that doesn't exist.
+Contract status: implementation started in project version `0.7.0`; every route documented below is now implemented in `ledgerly.api` (run with `ledgerly serve`) except the disabled Future AI Routes section, which is a shape-only planning sketch (see that section) covering `POST /api/v1/ai/{test,review,novelty,rqs/assess}`. Novelty assessment has no deterministic engine path (`ledgerly.engine.ai.ai_novelty_assessment` is AI-only) — it belongs at `POST /api/v1/ai/novelty` under the same AI opt-in and privacy-boundary rules as the rest of that section, not as a separate `/api/v1/novelty` route implying a deterministic path that doesn't exist.
 
-The API must be local-first, workspace-scoped, and a thin transport layer over `researchboss.engine` functions. It must not duplicate business logic already implemented in the engine.
+The API must be local-first, workspace-scoped, and a thin transport layer over `ledgerly.engine` functions. It must not duplicate business logic already implemented in the engine.
 
 ## Non-Negotiable Boundaries
 
@@ -24,19 +24,19 @@ The API must be local-first, workspace-scoped, and a thin transport layer over `
 
 ## Authentication
 
-`researchboss serve` is a single-user local tool, not a multi-tenant service (see `TODO.md`'s multi-tenant item for the separate, larger feature that would change this for commercial deployments). Set both `RESEARCHBOSS_API_USERNAME` and `RESEARCHBOSS_API_PASSWORD` (env vars, or `.env` in the server's working directory) before starting the server; every `/api/v1` route except `/api/v1/auth/login` requires a valid session. `GET /health` never requires a session, so deploy/update health checks keep working regardless of login state.
+`ledgerly serve` is a single-user local tool, not a multi-tenant service (see `TODO.md`'s multi-tenant item for the separate, larger feature that would change this for commercial deployments). Set both `LEDGERLY_API_USERNAME` and `LEDGERLY_API_PASSWORD` (env vars, or `.env` in the server's working directory) before starting the server; every `/api/v1` route except `/api/v1/auth/login` requires a valid session. `GET /health` never requires a session, so deploy/update health checks keep working regardless of login state.
 
 ### `POST /api/v1/auth/login` (implemented)
 
-Accepts `{"username": "...", "password": "..."}`. Returns `503 auth_not_configured` if either isn't set, `401 invalid_credentials` on a wrong username or password (the two aren't distinguished in the response, to avoid confirming which one was wrong), or `200` with a session token (also set as an httponly `researchboss_session` cookie) on success. Sessions expire after `RESEARCHBOSS_API_SESSION_HOURS` hours (default 12) and live in server memory only, so a server restart invalidates all sessions. This is still one shared credential pair, not a per-user account system — the username field matches the login UX of a real account without implying multi-tenancy exists yet.
+Accepts `{"username": "...", "password": "..."}`. Returns `503 auth_not_configured` if either isn't set, `401 invalid_credentials` on a wrong username or password (the two aren't distinguished in the response, to avoid confirming which one was wrong), or `200` with a session token (also set as an httponly `ledgerly_session` cookie) on success. Sessions expire after `LEDGERLY_API_SESSION_HOURS` hours (default 12) and live in server memory only, so a server restart invalidates all sessions. This is still one shared credential pair, not a per-user account system — the username field matches the login UX of a real account without implying multi-tenancy exists yet.
 
 Engine source:
 
-- `researchboss.api.auth` (server-local, not a `researchboss.engine` module — there is no workspace-scoped concept of a login)
+- `ledgerly.api.auth` (server-local, not a `ledgerly.engine` module — there is no workspace-scoped concept of a login)
 
 ### `POST /api/v1/auth/logout` (implemented)
 
-Invalidates the session named by the `Authorization: Bearer <token>` header or the `researchboss_session` cookie, and clears the cookie. No public self-registration route exists.
+Invalidates the session named by the `Authorization: Bearer <token>` header or the `ledgerly_session` cookie, and clears the cookie. No public self-registration route exists.
 
 Callers may authenticate with either the cookie set by `/login` or an `Authorization: Bearer <token>` header carrying the same token.
 
@@ -53,7 +53,7 @@ Workspace selection:
 - All workspace-scoped routes accept a `workspace` query parameter or a configured workspace ID later.
 - Initial MVP may use absolute local workspace paths.
 - Future UI layers should pass opaque workspace IDs once a project registry exists.
-- When `RESEARCHBOSS_WORKSPACE_ROOT` is set (e.g. a deployed instance pointed at a mounted NAS volume), `workspace` may be a relative path joined to that root, and every resolved workspace must fall inside it — absolute paths outside the root are rejected with `400 workspace_outside_root` rather than accepted. Without it, any path reachable by the server process is accepted, matching local-first single-user CLI behavior.
+- When `LEDGERLY_WORKSPACE_ROOT` is set (e.g. a deployed instance pointed at a mounted NAS volume), `workspace` may be a relative path joined to that root, and every resolved workspace must fall inside it — absolute paths outside the root are rejected with `400 workspace_outside_root` rather than accepted. Without it, any path reachable by the server process is accepted, matching local-first single-user CLI behavior.
 
 Response shape:
 
@@ -96,7 +96,7 @@ Returns workspace status and source counts.
 
 Engine source:
 
-- `researchboss.engine.sources.source_counts`
+- `ledgerly.engine.sources.source_counts`
 
 ### `POST /api/v1/projects/init` (implemented)
 
@@ -104,7 +104,7 @@ Creates a local workspace. Returns `409 workspace_already_exists` if the target 
 
 Engine source:
 
-- `researchboss.engine.workspace.init_workspace`
+- `ledgerly.engine.workspace.init_workspace`
 
 Body fields mirror the CLI init fields, including project type, topic, source mode, citation style, output type, AI preference metadata, and privacy preferences.
 
@@ -114,7 +114,7 @@ Returns deterministic workspace health checks.
 
 Engine source:
 
-- `researchboss.engine.health.workspace_health_report`
+- `ledgerly.engine.health.workspace_health_report`
 
 ## Source Routes
 
@@ -124,7 +124,7 @@ Lists sources, optionally filtered by status.
 
 Engine source:
 
-- `researchboss.engine.sources.list_sources`
+- `ledgerly.engine.sources.list_sources`
 
 ### `POST /api/v1/sources/scan` (implemented)
 
@@ -132,7 +132,7 @@ Scans local folders or Zotero storage.
 
 Engine source:
 
-- `researchboss.engine.sources.scan_sources`
+- `ledgerly.engine.sources.scan_sources`
 
 Allowed providers:
 
@@ -145,7 +145,7 @@ Sets source review status.
 
 Engine source:
 
-- `researchboss.engine.sources.set_source_status`
+- `ledgerly.engine.sources.set_source_status`
 
 Allowed statuses:
 
@@ -159,7 +159,7 @@ Sets a local note for a source.
 
 Engine source:
 
-- `researchboss.engine.sources.set_source_note`
+- `ledgerly.engine.sources.set_source_note`
 
 ### `POST /api/v1/sources/{source_id}/tags` (implemented)
 
@@ -167,7 +167,7 @@ Adds a manual tag to a source.
 
 Engine source:
 
-- `researchboss.engine.sources.add_source_tag`
+- `ledgerly.engine.sources.add_source_tag`
 
 ### `GET /api/v1/sources/report` (implemented)
 
@@ -175,7 +175,7 @@ Returns source review report data.
 
 Engine source:
 
-- `researchboss.engine.sources.source_review_report`
+- `ledgerly.engine.sources.source_review_report`
 
 ## Conversion And Metadata Routes
 
@@ -185,7 +185,7 @@ Converts registered sources to local text.
 
 Engine source:
 
-- `researchboss.engine.conversion.convert_sources`
+- `ledgerly.engine.conversion.convert_sources`
 
 ### `POST /api/v1/metadata/extract` (implemented)
 
@@ -193,7 +193,7 @@ Extracts deterministic citation metadata.
 
 Engine source:
 
-- `researchboss.engine.metadata.extract_citation_metadata`
+- `ledgerly.engine.metadata.extract_citation_metadata`
 
 ### `GET /api/v1/metadata/validate` (implemented)
 
@@ -201,7 +201,7 @@ Returns citation consistency and DOI validation results.
 
 Engine source:
 
-- `researchboss.engine.metadata_quality.citation_consistency_report`
+- `ledgerly.engine.metadata_quality.citation_consistency_report`
 
 ### `GET /api/v1/metadata/duplicates` (implemented)
 
@@ -209,7 +209,7 @@ Returns duplicate metadata candidates.
 
 Engine source:
 
-- `researchboss.engine.metadata_quality.duplicate_metadata_report`
+- `ledgerly.engine.metadata_quality.duplicate_metadata_report`
 
 ### `POST /api/v1/metadata/index` (implemented)
 
@@ -217,7 +217,7 @@ Builds a local keyword index over converted text.
 
 Engine source:
 
-- `researchboss.engine.metadata_quality.build_keyword_index`
+- `ledgerly.engine.metadata_quality.build_keyword_index`
 
 ## Data Routes
 
@@ -227,7 +227,7 @@ Profiles local CSV, SQLite, DB, and JSON sources.
 
 Engine source:
 
-- `researchboss.engine.data.profile_data_sources`
+- `ledgerly.engine.data.profile_data_sources`
 
 ### `GET /api/v1/data` (implemented)
 
@@ -235,7 +235,7 @@ Lists local data sources.
 
 Engine source:
 
-- `researchboss.engine.data.list_data_sources`
+- `ledgerly.engine.data.list_data_sources`
 
 ### `GET /api/v1/data/status` (implemented)
 
@@ -243,7 +243,7 @@ Returns data profile counts.
 
 Engine source:
 
-- `researchboss.engine.data.data_source_counts`
+- `ledgerly.engine.data.data_source_counts`
 
 ## Research Question Routes
 
@@ -253,7 +253,7 @@ Lists approved, candidate, and rejected research questions.
 
 Engine source:
 
-- `researchboss.engine.research_questions.list_research_questions`
+- `ledgerly.engine.research_questions.list_research_questions`
 
 ### `POST /api/v1/rqs/check` (implemented)
 
@@ -261,7 +261,7 @@ Runs deterministic research question readiness checks.
 
 Engine source:
 
-- `researchboss.engine.research_questions.check_research_question_readiness`
+- `ledgerly.engine.research_questions.check_research_question_readiness`
 
 ### `POST /api/v1/rqs/{rq_id}/approve` (implemented)
 
@@ -269,7 +269,7 @@ Approves a candidate research question.
 
 Engine source:
 
-- `researchboss.engine.research_questions.approve_research_question`
+- `ledgerly.engine.research_questions.approve_research_question`
 
 ### `POST /api/v1/rqs/{rq_id}/reject` (implemented)
 
@@ -277,7 +277,7 @@ Rejects a research question.
 
 Engine source:
 
-- `researchboss.engine.research_questions.reject_research_question`
+- `ledgerly.engine.research_questions.reject_research_question`
 
 ### `POST /api/v1/rqs/{rq_id}/archive` (implemented)
 
@@ -285,7 +285,7 @@ Archives a research question.
 
 Engine source:
 
-- `researchboss.engine.research_questions.archive_research_question`
+- `ledgerly.engine.research_questions.archive_research_question`
 
 ## Claim Routes
 
@@ -295,7 +295,7 @@ Lists claims.
 
 Engine source:
 
-- `researchboss.engine.claims.list_claims`
+- `ledgerly.engine.claims.list_claims`
 
 ### `POST /api/v1/claims` (implemented)
 
@@ -303,7 +303,7 @@ Adds a manual claim.
 
 Engine source:
 
-- `researchboss.engine.claims.add_claim`
+- `ledgerly.engine.claims.add_claim`
 
 ### `POST /api/v1/claims/{claim_id}/status` (implemented)
 
@@ -311,7 +311,7 @@ Sets claim review status.
 
 Engine source:
 
-- `researchboss.engine.claims.set_claim_status`
+- `ledgerly.engine.claims.set_claim_status`
 
 ### `GET /api/v1/claims/gaps` (implemented)
 
@@ -319,7 +319,7 @@ Returns citation gap report data.
 
 Engine source:
 
-- `researchboss.engine.claims.write_citation_gap_report`
+- `ledgerly.engine.claims.write_citation_gap_report`
 
 ### `GET /api/v1/claims/validate` (implemented)
 
@@ -327,7 +327,7 @@ Validates that claims link only to existing accepted sources.
 
 Engine source:
 
-- `researchboss.engine.claims.claim_source_validation_report`
+- `ledgerly.engine.claims.claim_source_validation_report`
 
 ## Artefact Routes
 
@@ -337,7 +337,7 @@ Lists artefacts.
 
 Engine source:
 
-- `researchboss.engine.artefacts.list_artefacts`
+- `ledgerly.engine.artefacts.list_artefacts`
 
 ### `POST /api/v1/artefacts` (implemented)
 
@@ -345,7 +345,7 @@ Registers a local artefact.
 
 Engine source:
 
-- `researchboss.engine.artefacts.register_artefact`
+- `ledgerly.engine.artefacts.register_artefact`
 
 ### `POST /api/v1/artefacts/create` (implemented)
 
@@ -353,7 +353,7 @@ Creates deterministic non-AI artefacts.
 
 Engine source:
 
-- `researchboss.engine.artefact_creation.create_deterministic_artefact`
+- `ledgerly.engine.artefact_creation.create_deterministic_artefact`
 
 ### `POST /api/v1/artefacts/{artefact_id}/review` (implemented)
 
@@ -361,7 +361,7 @@ Sets artefact review status.
 
 Engine source:
 
-- `researchboss.engine.artefacts.set_artefact_review_status`
+- `ledgerly.engine.artefacts.set_artefact_review_status`
 
 ### `GET /api/v1/artefacts/dependencies` (implemented)
 
@@ -369,15 +369,15 @@ Checks artefact links against accepted sources and approved research questions.
 
 Engine source:
 
-- `researchboss.engine.artefacts.artefact_dependency_report`
+- `ledgerly.engine.artefacts.artefact_dependency_report`
 
 ### `POST /api/v1/artefacts/upload` (implemented)
 
-Batch-uploads externally created artefact files (multipart form data, field name `files`) into the document vault. Rejects the whole batch with `400 upload_batch_too_large` if it exceeds `RESEARCHBOSS_UPLOAD_MAX_FILES` (default 25) before writing anything; each file is capped at `RESEARCHBOSS_UPLOAD_MAX_FILE_SIZE_MB` (default 50) and must have an extension from `researchboss.engine.sources.ALLOWED_EXTENSIONS`. Returns a per-batch report (`processed`/`accepted`/`duplicate`/`rejected`/`failed` counts and per-file rows), also persisted to `outputs/validation/upload-batch-report.yaml`. Duplicate detection is by content hash against artefacts already uploaded in the workspace. Uploaded bytes are streamed to a size-bounded temporary file and the temp directory is always removed after the request, whether it succeeds or fails.
+Batch-uploads externally created artefact files (multipart form data, field name `files`) into the document vault. Rejects the whole batch with `400 upload_batch_too_large` if it exceeds `LEDGERLY_UPLOAD_MAX_FILES` (default 25) before writing anything; each file is capped at `LEDGERLY_UPLOAD_MAX_FILE_SIZE_MB` (default 50) and must have an extension from `ledgerly.engine.sources.ALLOWED_EXTENSIONS`. Returns a per-batch report (`processed`/`accepted`/`duplicate`/`rejected`/`failed` counts and per-file rows), also persisted to `outputs/validation/upload-batch-report.yaml`. Duplicate detection is by content hash against artefacts already uploaded in the workspace. Uploaded bytes are streamed to a size-bounded temporary file and the temp directory is always removed after the request, whether it succeeds or fails.
 
 Engine source:
 
-- `researchboss.engine.vault.intake_uploaded_artefact_batch`
+- `ledgerly.engine.vault.intake_uploaded_artefact_batch`
 
 ### `GET /api/v1/artefacts/cross-reference` (implemented)
 
@@ -385,9 +385,9 @@ Proposes deterministic links between an uploaded artefact (by `upload_id`) and e
 
 Engine source:
 
-- `researchboss.engine.cross_reference.cross_reference_candidates`
+- `ledgerly.engine.cross_reference.cross_reference_candidates`
 
-CLI equivalent: `researchboss doc cross-reference <upload_id>`.
+CLI equivalent: `ledgerly doc cross-reference <upload_id>`.
 
 ### `POST /api/v1/artefacts/cross-reference/candidate-review` (implemented)
 
@@ -397,29 +397,29 @@ Named `candidate-review`, not `review` — `POST /api/v1/artefacts/cross-referen
 
 Engine source:
 
-- `researchboss.engine.cross_reference.set_cross_reference_candidate_review_status`
+- `ledgerly.engine.cross_reference.set_cross_reference_candidate_review_status`
 
-CLI equivalent: `researchboss doc cross-reference-review <upload_id> <target_kind> <target_id> <review_status>`.
+CLI equivalent: `ledgerly doc cross-reference-review <upload_id> <target_kind> <target_id> <review_status>`.
 
 ### `POST /api/v1/artefacts/cross-reference/apply` (implemented)
 
 Writes reviewed cross-reference candidates as metadata on the *upload* record — a `cross_references` list, mirroring how artefact records already track `linked_sources`/`linked_research_questions` — following the same review-before-apply pattern citation plans use: only candidates whose `review_status` in the persisted candidates report has been set to `accepted`/`approved` (via `candidate-review` above, or by hand-editing the report file directly) are applied. Deliberately does not insert text into any artefact, source, or claim document's content (the other reading of "write the link" this contract previously left open): a keyword-overlap match is weaker evidence than a validated missing-citation match, so auto-inserting text on that basis would be a worse default than recording it as reviewable metadata. Content insertion analogous to `cite apply` (needing per-format `.md`/`.docx`/`.pdf` handling) was considered and deliberately not chosen. Idempotent — re-applying does not duplicate already-recorded links.
 
-CLI equivalent: `researchboss doc cross-reference-apply <upload_id>`.
+CLI equivalent: `ledgerly doc cross-reference-apply <upload_id>`.
 
 Engine source:
 
-- `researchboss.engine.cross_reference.apply_cross_reference_links`
+- `ledgerly.engine.cross_reference.apply_cross_reference_links`
 
 ### `GET /api/v1/artefacts/uploads` (implemented)
 
-Lists artefacts previously uploaded into the document vault. Found missing during Phase 10 UI planning: `POST /api/v1/artefacts/upload` returns a batch report at upload time, but nothing let a web client re-list uploads after that (e.g. on a page reload) — the CLI already had this via `researchboss doc uploads`.
+Lists artefacts previously uploaded into the document vault. Found missing during Phase 10 UI planning: `POST /api/v1/artefacts/upload` returns a batch report at upload time, but nothing let a web client re-list uploads after that (e.g. on a page reload) — the CLI already had this via `ledgerly doc uploads`.
 
 Engine source:
 
-- `researchboss.engine.vault.list_uploaded_artefacts`
+- `ledgerly.engine.vault.list_uploaded_artefacts`
 
-CLI equivalent: `researchboss doc uploads`.
+CLI equivalent: `ledgerly doc uploads`.
 
 ### `GET /api/v1/artefacts/uploads/{upload_id}/file` (implemented)
 
@@ -427,9 +427,9 @@ Serves the raw bytes of an uploaded artefact's renamed vault copy, for a browser
 
 Engine source:
 
-- `researchboss.engine.vault.resolve_uploaded_artefact_file`
+- `ledgerly.engine.vault.resolve_uploaded_artefact_file`
 
-No CLI equivalent — the CLI already has direct filesystem access to `vault_renamed_path` from `researchboss doc uploads`; this route exists only because a browser client cannot read the local filesystem directly.
+No CLI equivalent — the CLI already has direct filesystem access to `vault_renamed_path` from `ledgerly doc uploads`; this route exists only because a browser client cannot read the local filesystem directly.
 
 ## Zotero Routes
 
@@ -439,7 +439,7 @@ Lists collections from local `zotero.sqlite`.
 
 Engine source:
 
-- `researchboss.engine.zotero.list_zotero_collections`
+- `ledgerly.engine.zotero.list_zotero_collections`
 
 ### `GET /api/v1/zotero/local/search` (implemented)
 
@@ -447,11 +447,11 @@ Searches local Zotero storage and local metadata.
 
 Engine source:
 
-- `researchboss.engine.zotero.search_zotero_storage`
+- `ledgerly.engine.zotero.search_zotero_storage`
 
 ### `POST /api/v1/zotero/api/credentials` (implemented)
 
-Links a Zotero Web API account by saving `api_key`/`user_id` (request body) into the workspace's local `.env`, replacing hand-editing that file. Added 2026-07-16 so the web UI can link an account the same way the CLI's new `researchboss zotero api-link` does.
+Links a Zotero Web API account by saving `api_key`/`user_id` (request body) into the workspace's local `.env`, replacing hand-editing that file. Added 2026-07-16 so the web UI can link an account the same way the CLI's new `ledgerly zotero api-link` does.
 
 Request body: `{"api_key": string, "user_id": string}`.
 
@@ -459,7 +459,7 @@ Response `data`: `{"configured": true}` only — the submitted key and user ID a
 
 Engine source:
 
-- `researchboss.engine.zotero_api.save_zotero_api_credentials`
+- `ledgerly.engine.zotero_api.save_zotero_api_credentials`
 
 ### `DELETE /api/v1/zotero/api/credentials` (implemented)
 
@@ -469,7 +469,7 @@ Response `data`: `{"configured": false}`.
 
 Engine source:
 
-- `researchboss.engine.zotero_api.clear_zotero_api_credentials`
+- `ledgerly.engine.zotero_api.clear_zotero_api_credentials`
 
 ### `GET /api/v1/zotero/api/test` (implemented)
 
@@ -477,7 +477,7 @@ Tests Zotero Web API credentials without exposing the key.
 
 Engine source:
 
-- `researchboss.engine.zotero_api.zotero_api_readiness`
+- `ledgerly.engine.zotero_api.zotero_api_readiness`
 
 ### `GET /api/v1/zotero/api/collections` (implemented)
 
@@ -485,7 +485,7 @@ Lists Zotero Web API collections using read-only credentials.
 
 Engine source:
 
-- `researchboss.engine.zotero_api.zotero_api_collections`
+- `ledgerly.engine.zotero_api.zotero_api_collections`
 
 ### `POST /api/v1/zotero/api/collections/select` (implemented)
 
@@ -493,7 +493,7 @@ Stores selected Zotero Web API collection keys in workspace config.
 
 Rules:
 
-- This route writes only to the ResearchBoss workspace.
+- This route writes only to the Ledgerly workspace.
 - It must not modify Zotero.
 - It must not call Zotero write endpoints.
 
@@ -505,7 +505,7 @@ Snapshots a target document into the local document vault.
 
 Engine source:
 
-- `researchboss.engine.vault.create_document_version`
+- `ledgerly.engine.vault.create_document_version`
 
 ### `GET /api/v1/doc/versions` (implemented)
 
@@ -513,7 +513,7 @@ Lists document vault versions, optionally filtered by target.
 
 Engine source:
 
-- `researchboss.engine.vault.list_document_versions`
+- `ledgerly.engine.vault.list_document_versions`
 
 ### `GET /api/v1/doc/diff` (implemented)
 
@@ -521,7 +521,7 @@ Compares two document vault versions.
 
 Engine source:
 
-- `researchboss.engine.vault.diff_document_versions`
+- `ledgerly.engine.vault.diff_document_versions`
 
 ### `POST /api/v1/doc/restore` (implemented)
 
@@ -529,7 +529,7 @@ Restores a document vault version as a new copy without overwriting the current 
 
 Engine source:
 
-- `researchboss.engine.vault.restore_document_version`
+- `ledgerly.engine.vault.restore_document_version`
 
 ### `GET /api/v1/doc/compare` (implemented)
 
@@ -537,7 +537,7 @@ Compares how document strengths, weaknesses, unsupported claims, and references 
 
 Engine source:
 
-- `researchboss.engine.vault.compare_document_versions`
+- `ledgerly.engine.vault.compare_document_versions`
 
 ### `POST /api/v1/doc/derive-text/{version_id}` (implemented)
 
@@ -545,7 +545,7 @@ Builds (or rebuilds) a derived text snapshot for a document version: sections (f
 
 Engine source:
 
-- `researchboss.engine.derived_text.build_derived_text_snapshot`
+- `ledgerly.engine.derived_text.build_derived_text_snapshot`
 
 ## Validation Routes
 
@@ -555,7 +555,7 @@ Deterministically validates a document target against accepted sources, Zotero-d
 
 Engine source:
 
-- `researchboss.engine.doc_validation.validate_document`
+- `ledgerly.engine.doc_validation.validate_document`
 
 ## Citation Plan Routes
 
@@ -565,9 +565,9 @@ Creates a reviewable, non-destructive citation insertion plan from a validation 
 
 Engine source:
 
-- `researchboss.engine.citations.create_citation_plan`
+- `ledgerly.engine.citations.create_citation_plan`
 
-CLI equivalent: `researchboss cite plan <target>`.
+CLI equivalent: `ledgerly cite plan <target>`.
 
 ### `POST /api/v1/citations/plan/insertion-review` (implemented)
 
@@ -575,9 +575,9 @@ Sets one citation-plan insertion's `review_status` (`needs_human_review`/`accept
 
 Engine source:
 
-- `researchboss.engine.citations.set_citation_plan_insertion_review_status`
+- `ledgerly.engine.citations.set_citation_plan_insertion_review_status`
 
-CLI equivalent: `researchboss cite review <target> <sentence_index> <source_id> <review_status>`.
+CLI equivalent: `ledgerly cite review <target> <sentence_index> <source_id> <review_status>`.
 
 ### `POST /api/v1/citations/apply` (implemented)
 
@@ -585,7 +585,7 @@ Applies a reviewed citation plan's accepted insertions to a revised output copy 
 
 Engine source:
 
-- `researchboss.engine.citations.apply_citation_plan`
+- `ledgerly.engine.citations.apply_citation_plan`
 
 ## Guideline Routes
 
@@ -595,7 +595,7 @@ Lists registered guidelines.
 
 Engine source:
 
-- `researchboss.engine.guidelines.list_guidelines`
+- `ledgerly.engine.guidelines.list_guidelines`
 
 ### `POST /api/v1/guidelines` (implemented)
 
@@ -603,7 +603,7 @@ Registers a local file or remote URL guideline, snapshotting it and extracting t
 
 Engine source:
 
-- `researchboss.engine.guidelines.register_guideline`
+- `ledgerly.engine.guidelines.register_guideline`
 
 ### `POST /api/v1/guidelines/defaults` (implemented)
 
@@ -611,7 +611,7 @@ Sets the workspace's default guideline IDs and their precedence order, applied a
 
 Engine source:
 
-- `researchboss.engine.guidelines.set_default_guidelines`
+- `ledgerly.engine.guidelines.set_default_guidelines`
 
 ### `GET /api/v1/guidelines/conflicts` (implemented)
 
@@ -619,7 +619,7 @@ Returns a deterministic report of contradictory guideline requirements for human
 
 Engine source:
 
-- `researchboss.engine.guidelines.guideline_conflict_report`
+- `ledgerly.engine.guidelines.guideline_conflict_report`
 
 ## SQLite Sync Status Routes
 
@@ -629,7 +629,7 @@ Initializes the optional workspace SQLite index database.
 
 Engine source:
 
-- `researchboss.engine.database.init_database`
+- `ledgerly.engine.database.init_database`
 
 ### `POST /api/v1/db/sync` (implemented)
 
@@ -637,7 +637,7 @@ Syncs workspace YAML/Markdown metadata into the local SQLite index. YAML and Mar
 
 Engine source:
 
-- `researchboss.engine.database.sync_database`
+- `ledgerly.engine.database.sync_database`
 
 ### `GET /api/v1/db/status` (implemented)
 
@@ -645,7 +645,7 @@ Returns SQLite index health, sync counts, and repair guidance.
 
 Engine source:
 
-- `researchboss.engine.database.database_status`
+- `ledgerly.engine.database.database_status`
 
 ### `POST /api/v1/db/rebuild` (implemented)
 
@@ -653,7 +653,7 @@ Rebuilds the SQLite index from workspace YAML/Markdown source-of-truth files.
 
 Engine source:
 
-- `researchboss.engine.database.rebuild_database`
+- `ledgerly.engine.database.rebuild_database`
 
 ### `GET /api/v1/db/pending` (implemented)
 
@@ -661,7 +661,7 @@ Returns SQLite-to-file pending changes for review, without applying them.
 
 Engine source:
 
-- `researchboss.engine.database.pending_changes_report`
+- `ledgerly.engine.database.pending_changes_report`
 
 ### `POST /api/v1/db/apply-pending` (implemented)
 
@@ -669,7 +669,7 @@ Reviews (`apply: false`) or applies (`apply: true`) reviewed SQLite-to-YAML/Mark
 
 Engine source:
 
-- `researchboss.engine.database.apply_pending_changes`
+- `ledgerly.engine.database.apply_pending_changes`
 
 ### `GET /api/v1/db/privacy` (implemented)
 
@@ -677,7 +677,7 @@ Checks that the SQLite database does not intentionally store secrets or original
 
 Engine source:
 
-- `researchboss.engine.database.database_privacy_report`
+- `ledgerly.engine.database.database_privacy_report`
 
 ## Report And Export Routes
 
@@ -687,7 +687,7 @@ Generates local Markdown workspace report.
 
 Engine source:
 
-- `researchboss.engine.reports.generate_workspace_report`
+- `ledgerly.engine.reports.generate_workspace_report`
 
 ### `GET /api/v1/reports/timeline` (implemented)
 
@@ -695,7 +695,7 @@ Generates a local timeline report.
 
 Engine source:
 
-- `researchboss.engine.project_log.timeline_report`
+- `ledgerly.engine.project_log.timeline_report`
 
 ### `POST /api/v1/export/evidence` (implemented)
 
@@ -703,7 +703,7 @@ Creates an offline evidence bundle without original source files by default.
 
 Engine source:
 
-- `researchboss.engine.export.export_evidence_bundle`
+- `ledgerly.engine.export.export_evidence_bundle`
 
 ### `POST /api/v1/backup` (implemented)
 
@@ -711,7 +711,7 @@ Creates a local backup.
 
 Engine source:
 
-- `researchboss.engine.backup.create_workspace_backup`
+- `ledgerly.engine.backup.create_workspace_backup`
 
 ### `GET /api/v1/backup/inspect` (implemented)
 
@@ -719,7 +719,7 @@ Inspects a backup zip without restoring it.
 
 Engine source:
 
-- `researchboss.engine.backup.inspect_backup`
+- `ledgerly.engine.backup.inspect_backup`
 
 ## Project Log Routes
 
@@ -731,7 +731,7 @@ Lists recorded decisions as structured `{id, decision, reason}` records, parsed 
 
 Engine source:
 
-- `researchboss.engine.project_log.list_decisions`
+- `ledgerly.engine.project_log.list_decisions`
 
 ### `POST /api/v1/decisions` (implemented)
 
@@ -739,7 +739,7 @@ Adds a structured local decision.
 
 Engine source:
 
-- `researchboss.engine.project_log.add_decision`
+- `ledgerly.engine.project_log.add_decision`
 
 ### `GET /api/v1/terminology` (implemented)
 
@@ -747,7 +747,7 @@ Lists glossary terms as `{term, definition}` records.
 
 Engine source:
 
-- `researchboss.engine.project_log.list_terminology`
+- `ledgerly.engine.project_log.list_terminology`
 
 ### `POST /api/v1/terminology` (implemented)
 
@@ -755,7 +755,7 @@ Adds or updates a glossary term.
 
 Engine source:
 
-- `researchboss.engine.project_log.add_terminology`
+- `ledgerly.engine.project_log.add_terminology`
 
 ### `GET /api/v1/feedback` (implemented)
 
@@ -763,7 +763,7 @@ Lists supervisor/stakeholder feedback as `{id, source, text, status}` records.
 
 Engine source:
 
-- `researchboss.engine.project_log.list_feedback`
+- `ledgerly.engine.project_log.list_feedback`
 
 ### `POST /api/v1/feedback` (implemented)
 
@@ -771,7 +771,7 @@ Adds supervisor or stakeholder feedback.
 
 Engine source:
 
-- `researchboss.engine.project_log.add_feedback`
+- `ledgerly.engine.project_log.add_feedback`
 
 ### `GET /api/v1/context/changelog` (implemented)
 
@@ -779,7 +779,7 @@ Lists context changelog items as `{id, text}` records, parsed from `context-chan
 
 Engine source:
 
-- `researchboss.engine.project_log.list_context_changes`
+- `ledgerly.engine.project_log.list_context_changes`
 
 ### `POST /api/v1/context/changelog` (implemented)
 
@@ -787,11 +787,11 @@ Adds a context changelog item.
 
 Engine source:
 
-- `researchboss.engine.project_log.add_context_change`
+- `ledgerly.engine.project_log.add_context_change`
 
 ## Web UI Routes (implemented)
 
-`researchboss/web/` mounts a server-rendered HTML shell onto the same FastAPI app as everything above — same process, same `researchboss serve`, no separate deployment step. These routes serve HTML (or static files), not the `{"ok","data","warnings","errors"}` envelope, and are outside `/api/v1`, but the Non-Negotiable Boundaries above still apply in full: the web layer has no import path to `researchboss.engine` at all (`researchboss/web/app.py` only imports session-cookie helpers from `researchboss.api.auth`, plus Jinja2/Starlette), and every data operation happens client-side via `fetch()` calls to the `/api/v1/*` routes documented above — the web UI is architecturally just another API client, enforced by import structure rather than convention.
+`ledgerly/web/` mounts a server-rendered HTML shell onto the same FastAPI app as everything above — same process, same `ledgerly serve`, no separate deployment step. These routes serve HTML (or static files), not the `{"ok","data","warnings","errors"}` envelope, and are outside `/api/v1`, but the Non-Negotiable Boundaries above still apply in full: the web layer has no import path to `ledgerly.engine` at all (`ledgerly/web/app.py` only imports session-cookie helpers from `ledgerly.api.auth`, plus Jinja2/Starlette), and every data operation happens client-side via `fetch()` calls to the `/api/v1/*` routes documented above — the web UI is architecturally just another API client, enforced by import structure rather than convention.
 
 - `GET /login` — public, no session required. Serves the login form; the form itself posts to `POST /api/v1/auth/login`.
 - `GET /` — the app shell. Session-gated *server-side*: reads the session cookie directly and issues a `303` redirect to `/login?next=<url>` before rendering anything if there's no valid session, rather than sending an empty shell that discovers it's unauthenticated only after a client-side API call. Workspace selection is a `?workspace=` query param, mirroring how every `/api/v1/*` route already takes an explicit `workspace` — there is no server-side session-scoped "current workspace."
@@ -799,7 +799,7 @@ Engine source:
 
 ## Future AI Routes
 
-**Not implemented.** The route shapes below are a planning sketch only, modeled directly on the equivalent CLI commands and their `researchboss.engine.ai` functions (which already exist and are exercised by the CLI today) so that a future implementation has no ambiguity to resolve at build time. Adding these routes for real still requires: (1) an explicit product decision on how a *web* client performs the CLI's per-invocation `--ai` opt-in (sketched below as a required `"ai": true` request-body field, mirroring the CLI rather than introducing a session-wide or workspace-wide AI toggle), and (2) the privacy-boundary tests listed under "Required Tests Before Implementation." Until both exist, these routes must stay disabled/unregistered — do not wire them into `researchboss/api/app.py`.
+**Not implemented.** The route shapes below are a planning sketch only, modeled directly on the equivalent CLI commands and their `ledgerly.engine.ai` functions (which already exist and are exercised by the CLI today) so that a future implementation has no ambiguity to resolve at build time. Adding these routes for real still requires: (1) an explicit product decision on how a *web* client performs the CLI's per-invocation `--ai` opt-in (sketched below as a required `"ai": true` request-body field, mirroring the CLI rather than introducing a session-wide or workspace-wide AI toggle), and (2) the privacy-boundary tests listed under "Required Tests Before Implementation." Until both exist, these routes must stay disabled/unregistered — do not wire them into `ledgerly/api/app.py`.
 
 Every route in this section shares the same server-side credential rule: the OpenAI API key is resolved server-side only, the same way the CLI resolves it (`OPENAI_API_KEY` env var, or `.env` in the workspace via `engine.ai.openai_credentials`). **No route may accept an API key in the request body or from the client** — that would hand a browser client the ability to exfiltrate or misuse server-side credentials, which is a straight OWASP-relevant boundary violation, not just a style preference. If the key is missing, the route must return the same "not configured" failure the CLI raises (`OpenAiError("Missing OPENAI_API_KEY")`), not a generic 500.
 
@@ -811,7 +811,7 @@ Per AGENTS.md's "Core Rule: No Hallucinations," a real implementation must also 
 
 ### `POST /api/v1/ai/test` (not implemented — shape only)
 
-CLI equivalent: `researchboss ai test`. Engine source: `engine.ai.openai_readiness`.
+CLI equivalent: `ledgerly ai test`. Engine source: `engine.ai.openai_readiness`.
 
 Request body: `{"ai": bool = false}` — `ai: true` additionally performs a live `GET /models` credential check against OpenAI (mirrors the CLI's `--ai` flag meaning "allow a live check", not "allow AI use" in this one case, since checking readiness doesn't send any workspace content). `ai: false` (or omitted) checks key/config presence only, with no outbound request.
 
@@ -819,7 +819,7 @@ Response `data`: `{key_loaded, key_exposed: false, workspace_ai_enabled, openai_
 
 ### `POST /api/v1/ai/review` (not implemented — shape only)
 
-CLI equivalent: `researchboss ai review --ai`. Engine source: `engine.ai.ai_assisted_review`.
+CLI equivalent: `ledgerly ai review --ai`. Engine source: `engine.ai.ai_assisted_review`.
 
 Request body: `{"ai": true, "max_sources": int = 10, "max_excerpt_chars": int = 1200}`. `400 ai_not_enabled` if `ai` is not `true`.
 
@@ -827,7 +827,7 @@ Response `data`: common envelope fields above, plus `review` (markdown text with
 
 ### `POST /api/v1/ai/novelty` (not implemented — shape only)
 
-CLI equivalent: `researchboss assess-novelty --ai`. Engine source: `engine.ai.ai_novelty_assessment`. This is the route that resolves the "novelty assessment has no deterministic engine path" note at the top of this document — `ai_novelty_assessment` is AI-only, so novelty assessment belongs under `/api/v1/ai/`, not as a separate `/api/v1/novelty` route implying a deterministic engine path that doesn't exist.
+CLI equivalent: `ledgerly assess-novelty --ai`. Engine source: `engine.ai.ai_novelty_assessment`. This is the route that resolves the "novelty assessment has no deterministic engine path" note at the top of this document — `ai_novelty_assessment` is AI-only, so novelty assessment belongs under `/api/v1/ai/`, not as a separate `/api/v1/novelty` route implying a deterministic engine path that doesn't exist.
 
 Request body: `{"ai": true, "max_sources": int = 10, "max_excerpt_chars": int = 1200}`. `400 ai_not_enabled` if `ai` is not `true`.
 
@@ -835,7 +835,7 @@ Response `data`: common envelope fields, plus `novelty_not_proven: true` (the as
 
 ### `POST /api/v1/ai/rqs/assess` (not implemented — shape only)
 
-CLI equivalent: `researchboss rqs assess --ai [--rq <id>]`. Engine source: `engine.ai.ai_research_question_assessment`.
+CLI equivalent: `ledgerly rqs assess --ai [--rq <id>]`. Engine source: `engine.ai.ai_research_question_assessment`.
 
 Request body: `{"ai": true, "rq_id": Optional[str] = None, "max_sources": int = 10, "max_excerpt_chars": int = 1200}`. `400 ai_not_enabled` if `ai` is not `true`. `404 unknown_research_question` if `rq_id` is supplied but matches no approved or candidate research question (mirrors `OpenAiError(f"Unknown research question: {rq_id}")`).
 
@@ -843,7 +843,7 @@ Response `data`: common envelope fields, plus `novelty_not_proven: true`, `resea
 
 Rules (all four routes):
 
-- Disabled by default — not registered in `researchboss/api/app.py` until implemented.
+- Disabled by default — not registered in `ledgerly/api/app.py` until implemented.
 - Must require the per-request `ai: true` opt-in described above; there is no workspace-level or session-level AI toggle that bypasses it.
 - Must never log or echo the API key.
 - Must never upload whole PDFs, CSVs, SQLite databases, or original documents — only `build_safe_context` excerpts, capped at the requested `max_excerpt_chars`.
@@ -864,8 +864,8 @@ The following route classes must not be added:
 
 Before a route group is marked implemented, tests must prove that:
 
-- The route calls shared `researchboss.engine` behavior instead of duplicating business logic in the API layer.
-- Workspace writes are limited to ResearchBoss workspace files.
+- The route calls shared `ledgerly.engine` behavior instead of duplicating business logic in the API layer.
+- Workspace writes are limited to Ledgerly workspace files.
 - Original source files are not modified.
 - Local Zotero directories are never modified.
 - Zotero Web API routes use read-only operations only.

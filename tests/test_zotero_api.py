@@ -4,7 +4,7 @@ from urllib.request import Request
 
 import pytest
 
-from researchboss.engine.zotero_api import (
+from ledgerly.engine.zotero_api import (
     ZoteroApiCredentials,
     ZoteroApiError,
     clear_zotero_api_credentials,

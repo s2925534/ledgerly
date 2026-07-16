@@ -1,6 +1,6 @@
-# ResearchBoss Architecture
+# Ledgerly Architecture
 
-ResearchBoss is planned as a layered local-first research workspace.
+Ledgerly is planned as a layered local-first research workspace.
 
 ## Layers
 
@@ -8,10 +8,10 @@ ResearchBoss is planned as a layered local-first research workspace.
 CLI / future API / future UI
         |
         v
-researchboss.engine
+ledgerly.engine
         |
         v
-researchboss.core
+ledgerly.core
         |
         v
 local workspace files
@@ -19,7 +19,7 @@ local workspace files
 
 ## Core
 
-`researchboss.core` contains small utilities with minimal policy:
+`ledgerly.core` contains small utilities with minimal policy:
 
 - workspace file and folder constants
 - YAML read/write helpers
@@ -28,7 +28,7 @@ local workspace files
 
 ## Engine
 
-`researchboss.engine` contains reusable business logic:
+`ledgerly.engine` contains reusable business logic:
 
 - workspace initialization
 - source discovery
@@ -56,23 +56,23 @@ The CLI should call engine functions instead of duplicating file mutation logic.
 
 ## CLI
 
-`researchboss.cli` is the Typer command layer. It handles prompts, options, progress display, tables, and command-level logging.
+`ledgerly.cli` is the Typer command layer. It handles prompts, options, progress display, tables, and command-level logging.
 
 The CLI should stay thin so a future FastAPI backend can use the same engine logic.
 
 CLI-only responsibilities include:
 
 - interactive init questions and numbered menu validation
-- runtime readiness checks before init and through `researchboss doctor`
+- runtime readiness checks before init and through `ledgerly doctor`
 - workspace discovery when `--workspace` is omitted
-- local default workspace selection stored in `workspaces/.researchboss-cli.local.yaml`
+- local default workspace selection stored in `workspaces/.ledgerly-cli.local.yaml`
 - user-facing next-step command examples
 
 The workspace selector is intentionally local and file-based. It does not introduce a remote registry or database.
 
 ## Workspace
 
-A ResearchBoss workspace is a local folder containing YAML, Markdown, source, artefact, output, and log files. The current implementation creates the workspace skeleton and stores source review, conversion, metadata, data profile, research question, claim, artefact, report, and migration state in local files.
+A Ledgerly workspace is a local folder containing YAML, Markdown, source, artefact, output, and log files. The current implementation creates the workspace skeleton and stores source review, conversion, metadata, data profile, research question, claim, artefact, report, and migration state in local files.
 
 Workspace identity is currently inferred by the presence of `research-context.yaml` and `source-register.yaml`. Commands that need workspace context can receive `--workspace` explicitly. If omitted, the CLI discovers workspaces from the current directory and `./workspaces/*`; a single discovered workspace is selected automatically, and multiple workspaces are presented as a numbered list.
 
@@ -82,23 +82,23 @@ The planned FastAPI backend should expose the same engine behavior through local
 
 ## Future UI
 
-The future desktop/web/mobile UI should consume the local API contract. UI state should not be mixed into `researchboss.core` or `researchboss.engine`.
+The future desktop/web/mobile UI should consume the local API contract. UI state should not be mixed into `ledgerly.core` or `ledgerly.engine`.
 
 ## Privacy Boundary
 
-ResearchBoss should treat original source files as read-only inputs. MVP operation should not require cloud services, remote databases, or external academic search. Optional AI features must use a safe context builder and must not upload whole documents or datasets.
+Ledgerly should treat original source files as read-only inputs. MVP operation should not require cloud services, remote databases, or external academic search. Optional AI features must use a safe context builder and must not upload whole documents or datasets.
 
 AI behavior is not implemented. Init records only local AI preference metadata and writes `ai.enabled: false` in workspace settings.
 
-Local Zotero support intentionally avoids the Zotero API for now. The engine can scan the `storage/` folder, register supported source files, store the Zotero storage item key, detect `.zotero-ft-cache`, read `zotero.sqlite` through immutable read-only SQLite connections, list and filter collections, enrich source records with metadata, generate local reports, snapshot metadata, detect duplicate candidates, export conservative BibTeX, and search filename/cache/metadata text deterministically. ResearchBoss must not write into Zotero storage or modify Zotero-owned files.
+Local Zotero support intentionally avoids the Zotero API for now. The engine can scan the `storage/` folder, register supported source files, store the Zotero storage item key, detect `.zotero-ft-cache`, read `zotero.sqlite` through immutable read-only SQLite connections, list and filter collections, enrich source records with metadata, generate local reports, snapshot metadata, detect duplicate candidates, export conservative BibTeX, and search filename/cache/metadata text deterministically. Ledgerly must not write into Zotero storage or modify Zotero-owned files.
 
-The entire local Zotero directory is a hard no-write boundary. No current command, development workflow, or future AI feature may modify anything inside Zotero's local directory. All derived outputs must be written inside the ResearchBoss workspace.
+The entire local Zotero directory is a hard no-write boundary. No current command, development workflow, or future AI feature may modify anything inside Zotero's local directory. All derived outputs must be written inside the Ledgerly workspace.
 
 Workspace Zotero config includes strict one-way flags:
 
 ```yaml
-strict_one_way_from_zotero_to_researchboss: true
+strict_one_way_from_zotero_to_ledgerly: true
 block_writes_to_zotero_directory: true
 ```
 
-Future AI whole-file, whole-directory, full-paper reasoning, and artefact cross-reference modes may be added only as explicit opt-in options. They must remain disabled by default, write outputs only inside the ResearchBoss workspace, and preserve the Zotero no-write boundary.
+Future AI whole-file, whole-directory, full-paper reasoning, and artefact cross-reference modes may be added only as explicit opt-in options. They must remain disabled by default, write outputs only inside the Ledgerly workspace, and preserve the Zotero no-write boundary.

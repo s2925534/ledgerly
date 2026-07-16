@@ -1,10 +1,10 @@
 from pathlib import Path
 import sqlite3
 
-from researchboss.core.yamlio import read_yaml
-from researchboss.engine.data import data_source_counts, list_data_sources, profile_data_sources
-from researchboss.engine.sources import iter_source_files, scan_sources
-from researchboss.engine.workspace import init_workspace
+from ledgerly.core.yamlio import read_yaml
+from ledgerly.engine.data import data_source_counts, list_data_sources, profile_data_sources
+from ledgerly.engine.sources import iter_source_files, scan_sources
+from ledgerly.engine.workspace import init_workspace
 
 
 def make_workspace(tmp_path: Path) -> Path:

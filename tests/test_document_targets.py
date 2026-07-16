@@ -2,10 +2,10 @@ from pathlib import Path
 
 import pytest
 
-from researchboss.core.yamlio import write_yaml
-from researchboss.engine.artefacts import register_artefact
-from researchboss.engine.document_targets import resolve_document_target
-from researchboss.engine.workspace import init_workspace
+from ledgerly.core.yamlio import write_yaml
+from ledgerly.engine.artefacts import register_artefact
+from ledgerly.engine.document_targets import resolve_document_target
+from ledgerly.engine.workspace import init_workspace
 
 
 def test_resolve_document_target_from_existing_path(tmp_path: Path) -> None:

@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from researchboss.engine.health import workspace_health_report
-from researchboss.engine.workspace import init_workspace
+from ledgerly.engine.health import workspace_health_report
+from ledgerly.engine.workspace import init_workspace
 
 
 def test_workspace_health_report_writes_local_validation_report(tmp_path: Path) -> None:

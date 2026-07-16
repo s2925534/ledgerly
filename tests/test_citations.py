@@ -3,14 +3,14 @@ from pathlib import Path
 
 import pytest
 
-from researchboss.core.yamlio import read_yaml, write_yaml
-from researchboss.engine.citations import (
+from ledgerly.core.yamlio import read_yaml, write_yaml
+from ledgerly.engine.citations import (
     apply_citation_plan,
     create_citation_plan,
     set_citation_plan_insertion_review_status,
 )
-from researchboss.engine.conversion import extract_text
-from researchboss.engine.workspace import init_workspace
+from ledgerly.engine.conversion import extract_text
+from ledgerly.engine.workspace import init_workspace
 
 
 def test_create_citation_plan_writes_reviewable_plan_without_editing_target(tmp_path: Path) -> None:

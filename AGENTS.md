@@ -1,10 +1,10 @@
 # AGENTS.md
 
-This file gives coding agents and contributors the working rules for ResearchBoss.
+This file gives coding agents and contributors the working rules for Ledgerly.
 
 ## Project Intent
 
-ResearchBoss is a local-first, evidence-first research workspace. The MVP must work without cloud storage, remote databases, or external academic search.
+Ledgerly is a local-first, evidence-first research workspace. The MVP must work without cloud storage, remote databases, or external academic search.
 
 A core goal (not yet built — see `TODO.md` Phase 28) is guiding a user from a vague research idea to a refined, falsifiable research question, by default framed around proving or disproving a specific claim, and from there toward an actual paper draft — AI-assisted if requested, always behind an explicit deterministic review gate. This project is not just source/citation bookkeeping for an already-formed question; helping form the question, in service of genuinely novel knowledge, is part of the point.
 
@@ -38,7 +38,7 @@ Do not start FastAPI, UI, packaging, or OpenAI-heavy features until their engine
 - Do not add external academic search during the MVP phase.
 - Do not send whole PDFs, CSV files, SQLite databases, or original documents to AI providers.
 - Never modify anything inside the user's local Zotero directory. This applies to current CLI workflows, development workflows, tests, and any future AI implementation.
-- Zotero-derived files such as reports, snapshots, BibTeX exports, metadata, and converted text must be written only inside the ResearchBoss workspace.
+- Zotero-derived files such as reports, snapshots, BibTeX exports, metadata, and converted text must be written only inside the Ledgerly workspace.
 - Future AI modes that read whole files, directories, or full papers must be explicit opt-in settings and must still preserve the Zotero no-write boundary.
 - Every AI mode, current or future, must also preserve the "Core Rule: No Hallucinations" above — grounded-only output, explicit refusal on insufficient evidence, no exceptions.
 - Do not print or log API keys.
@@ -49,7 +49,7 @@ Do not start FastAPI, UI, packaging, or OpenAI-heavy features until their engine
 Run these before committing changes:
 
 ```bash
-python -m py_compile researchboss/cli.py
+python -m py_compile ledgerly/cli.py
 python -m pytest
 ```
 
@@ -62,9 +62,9 @@ python -m pytest
 
 ## Code Organization
 
-- `researchboss/core`: low-level helpers, constants, YAML I/O, logging.
-- `researchboss/engine`: reusable business logic.
-- `researchboss/cli.py`: Typer command layer only.
+- `ledgerly/core`: low-level helpers, constants, YAML I/O, logging.
+- `ledgerly/engine`: reusable business logic.
+- `ledgerly/cli.py`: Typer command layer only.
 - `tests`: pytest coverage for engine and CLI behavior.
 
 Future phases should add focused modules rather than expanding `cli.py` with business logic.

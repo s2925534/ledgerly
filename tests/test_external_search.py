@@ -4,8 +4,8 @@ from urllib.request import Request
 
 import pytest
 
-from researchboss.core.yamlio import read_yaml, write_yaml
-from researchboss.engine.external_search import (
+from ledgerly.core.yamlio import read_yaml, write_yaml
+from ledgerly.engine.external_search import (
     ExternalSearchError,
     SearchBudgets,
     SearchThresholds,
@@ -24,7 +24,7 @@ from researchboss.engine.external_search import (
     scopus_readiness,
     scopus_search,
 )
-from researchboss.engine.workspace import init_workspace
+from ledgerly.engine.workspace import init_workspace
 
 
 class FakeResponse:

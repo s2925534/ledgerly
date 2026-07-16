@@ -1,8 +1,8 @@
 from pathlib import Path
 
-from researchboss.core.yamlio import read_yaml, write_yaml
-from researchboss.engine.pdf_merge import pdf_merge_report
-from researchboss.engine.workspace import init_workspace
+from ledgerly.core.yamlio import read_yaml, write_yaml
+from ledgerly.engine.pdf_merge import pdf_merge_report
+from ledgerly.engine.workspace import init_workspace
 
 
 def test_pdf_merge_report_writes_dry_run_manifest_and_csv(tmp_path: Path) -> None:

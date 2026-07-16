@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from researchboss.core.yamlio import read_yaml
-from researchboss.engine.research_questions import (
+from ledgerly.core.yamlio import read_yaml
+from ledgerly.engine.research_questions import (
     assess_research_question_readiness,
     check_research_question_readiness,
     approve_research_question,
@@ -11,7 +11,7 @@ from researchboss.engine.research_questions import (
     list_research_questions,
     reject_research_question,
 )
-from researchboss.engine.workspace import init_workspace
+from ledgerly.engine.workspace import init_workspace
 
 
 def make_workspace(tmp_path: Path) -> Path:

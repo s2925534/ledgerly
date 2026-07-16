@@ -1,14 +1,14 @@
-# ResearchBoss Detailed Roadmap
+# Ledgerly Detailed Roadmap
 
 Project version: 0.5.4
 
 Last updated: 2026-07-04
 
-This roadmap tracks implementation progress for ResearchBoss. Update this file whenever development changes feature status, project scope, version, or recommended next steps.
+This roadmap tracks implementation progress for Ledgerly. Update this file whenever development changes feature status, project scope, version, or recommended next steps.
 
 ## 1. Executive Summary
 
-ResearchBoss is currently past the local deterministic Phase 2-6 foundation for core workspace, source, artefact, external-search, document-validation, and guideline-registration workflows. SQLite memory, document vault/versioning, FastAPI, UI, and packaging remain future phases.
+Ledgerly is currently past the local deterministic Phase 2-6 foundation for core workspace, source, artefact, external-search, document-validation, and guideline-registration workflows. SQLite memory, document vault/versioning, FastAPI, UI, and packaging remain future phases.
 
 Implemented:
 
@@ -44,15 +44,15 @@ Implemented:
 - Workspace health reports and backup restore dry-run inspection.
 - Config migration and workspace schema versioning.
 - Zotero-style citation style wording, including explicit `American Psychological Association 7th edition`.
-- Strict one-way Zotero-to-ResearchBoss blocker config that prevents writes inside the local Zotero directory.
+- Strict one-way Zotero-to-Ledgerly blocker config that prevents writes inside the local Zotero directory.
 - Source review statuses: `pending_review`, `accepted`, `maybe`, `ignored`.
 - Workspace discovery, selection, and local default workspace memory.
 - JSONL logs and YAML run summaries.
-- OpenAI readiness checks through `researchboss ai test`, with live requests requiring explicit `--ai`.
+- OpenAI readiness checks through `ledgerly ai test`, with live requests requiring explicit `--ai`.
 - Safe AI context preview generation that excludes original files, whole documents, whole CSVs, and whole SQLite databases by default.
 - AI-assisted review, novelty assessment, and research-question assessment behind explicit `--ai`.
 - Document target resolution for file paths, artefact IDs, artefact titles, primary aliases, and deterministic artefact types.
-- Deterministic `researchboss validate <target>` reports with source comparison, strengths, weaknesses, unsupported or weakly supported sentences, missing citations, evidence confidence factors, conservative confidence scores, and APA7 references.
+- Deterministic `ledgerly validate <target>` reports with source comparison, strengths, weaknesses, unsupported or weakly supported sentences, missing citations, evidence confidence factors, conservative confidence scores, and APA7 references.
 - Guideline registration with workspace-local snapshots, extracted text, and validated scopes.
 - README, AGENTS.md, architecture notes, TODO, changelog, detailed roadmap, and tests.
 - Planned local FastAPI API contract in `docs/api/CONTRACT.md`.
@@ -84,7 +84,7 @@ Deterministic boundary:
 Current important structure:
 
 ```text
-researchboss/
+ledgerly/
   core/
     constants.py
     runlog.py
@@ -140,9 +140,9 @@ pyproject.toml
 
 Important folders:
 
-- `researchboss/core`: low-level constants, YAML I/O, logging, and run summaries.
-- `researchboss/engine`: reusable business logic for workspace creation, source scanning, source review, and local Zotero storage helpers.
-- `researchboss/cli.py`: Typer command layer.
+- `ledgerly/core`: low-level constants, YAML I/O, logging, and run summaries.
+- `ledgerly/engine`: reusable business logic for workspace creation, source scanning, source review, and local Zotero storage helpers.
+- `ledgerly/cli.py`: Typer command layer.
 - `tests`: pytest coverage for CLI and engine behavior.
 - `docs`: architecture and planning notes.
 - `workspaces`: ignored generated local workspaces.
@@ -153,38 +153,38 @@ Expected future folders:
 
 Now exist (this section was written before Phase 9/11 started and was not kept current — see the phase-by-phase audit below for actual status):
 
-- `researchboss/api` for FastAPI (Phase 9).
+- `ledgerly/api` for FastAPI (Phase 9).
 - `docs/PACKAGING.md` for desktop packaging notes (Phase 11; a single file, not a `docs/packaging/` folder).
 
 ## 3. Implemented Features
 
 | Feature | Status | Evidence | Notes |
 | --- | --- | --- | --- |
-| Python package structure | Implemented | `researchboss/`, `pyproject.toml` | Package installs as `researchboss`. |
-| Typer CLI | Implemented | `researchboss/cli.py` | CLI commands are tested. |
-| `researchboss init` | Implemented | `researchboss/cli.py`, `researchboss/engine/workspace.py` | Creates local workspace skeleton. |
-| Workspace files | Implemented | `researchboss/core/constants.py`, `workspace.py` | YAML and Markdown state files are created. |
-| Local scan | Implemented | `researchboss/engine/sources.py` | Scans supported source files. |
+| Python package structure | Implemented | `ledgerly/`, `pyproject.toml` | Package installs as `ledgerly`. |
+| Typer CLI | Implemented | `ledgerly/cli.py` | CLI commands are tested. |
+| `ledgerly init` | Implemented | `ledgerly/cli.py`, `ledgerly/engine/workspace.py` | Creates local workspace skeleton. |
+| Workspace files | Implemented | `ledgerly/core/constants.py`, `workspace.py` | YAML and Markdown state files are created. |
+| Local scan | Implemented | `ledgerly/engine/sources.py` | Scans supported source files. |
 | Zotero storage scan | Implemented | `sources.py`, `zotero.py` | Reads local `storage/`; no API use. |
-| Zotero SQLite metadata | Implemented | `researchboss/engine/zotero.py` | Uses read-only immutable SQLite connections. |
-| Zotero collection workflows | Implemented | `researchboss/cli.py`, `zotero.py` | Local collection listing, selection, and collection scans. |
-| Zotero storage search | Implemented | `researchboss/engine/zotero.py`, `cli.py` | Searches filenames, `.zotero-ft-cache`, and SQLite metadata. |
-| Zotero offline reports | Implemented | `researchboss/engine/zotero.py`, `cli.py` | Metadata, notes, tags, relations, attachment, full-text, duplicates, snapshots, BibTeX. |
-| Conversion | Implemented | `researchboss/engine/conversion.py`, `cli.py` | TXT, MD, DOCX, simple page-marked PDF, cache, failures. |
-| Citation metadata | Implemented | `researchboss/engine/metadata.py`, `researchboss/engine/metadata_quality.py`, `cli.py` | DOI/year/title extraction, DOI validation, citation consistency, duplicate metadata reports, keyword index. |
-| Data profiling | Implemented | `researchboss/engine/data.py`, `cli.py` | CSV, SQLite, JSON profiles. |
-| Deterministic artefact creation | Implemented | `researchboss/engine/artefact_creation.py`, `cli.py` | Non-AI workspace reports/tables requiring user review. |
-| Artefact registry | Implemented | `researchboss/engine/artefacts.py`, `researchboss/engine/export.py`, `cli.py` | Linked sources/RQs, review and AI flags, dependency checks, evidence bundle export. |
+| Zotero SQLite metadata | Implemented | `ledgerly/engine/zotero.py` | Uses read-only immutable SQLite connections. |
+| Zotero collection workflows | Implemented | `ledgerly/cli.py`, `zotero.py` | Local collection listing, selection, and collection scans. |
+| Zotero storage search | Implemented | `ledgerly/engine/zotero.py`, `cli.py` | Searches filenames, `.zotero-ft-cache`, and SQLite metadata. |
+| Zotero offline reports | Implemented | `ledgerly/engine/zotero.py`, `cli.py` | Metadata, notes, tags, relations, attachment, full-text, duplicates, snapshots, BibTeX. |
+| Conversion | Implemented | `ledgerly/engine/conversion.py`, `cli.py` | TXT, MD, DOCX, simple page-marked PDF, cache, failures. |
+| Citation metadata | Implemented | `ledgerly/engine/metadata.py`, `ledgerly/engine/metadata_quality.py`, `cli.py` | DOI/year/title extraction, DOI validation, citation consistency, duplicate metadata reports, keyword index. |
+| Data profiling | Implemented | `ledgerly/engine/data.py`, `cli.py` | CSV, SQLite, JSON profiles. |
+| Deterministic artefact creation | Implemented | `ledgerly/engine/artefact_creation.py`, `cli.py` | Non-AI workspace reports/tables requiring user review. |
+| Artefact registry | Implemented | `ledgerly/engine/artefacts.py`, `ledgerly/engine/export.py`, `cli.py` | Linked sources/RQs, review and AI flags, dependency checks, evidence bundle export. |
 | Research stages/questions | Implemented | `workspace.py`, `research_questions.py`, `cli.py` | M.Phil/PhD stages, RQ workflow commands, and deterministic readiness checks. |
-| Claims and citation gaps | Implemented | `researchboss/engine/claims.py`, `cli.py` | Manual claims and gap report. |
-| Document validation | Implemented | `researchboss/engine/document_targets.py`, `researchboss/engine/doc_validation.py`, `cli.py` | Resolves target documents and writes deterministic validation reports with confidence factors, scores, citation gaps, and APA7 references. |
-| Guideline registration | Implemented | `researchboss/engine/guidelines.py`, `cli.py` | Snapshots local or remote guideline sources inside the workspace, extracts text, and stores validated scopes. |
+| Claims and citation gaps | Implemented | `ledgerly/engine/claims.py`, `cli.py` | Manual claims and gap report. |
+| Document validation | Implemented | `ledgerly/engine/document_targets.py`, `ledgerly/engine/doc_validation.py`, `cli.py` | Resolves target documents and writes deterministic validation reports with confidence factors, scores, citation gaps, and APA7 references. |
+| Guideline registration | Implemented | `ledgerly/engine/guidelines.py`, `cli.py` | Snapshots local or remote guideline sources inside the workspace, extracts text, and stores validated scopes. |
 | Reports/watch/backup/migration | Implemented | `reports.py`, `watch.py`, `backup.py`, `health.py`, `migrations.py` | Local deterministic utility workflows, workspace health, backup dry-run inspection. |
 | Hashing | Implemented | `sha256_file` in `sources.py` | SHA-256 content hash. |
 | Duplicate detection | Implemented | `scan_sources` in `sources.py` | Duplicate by content hash. |
 | Source statuses | Implemented | `SOURCE_STATUSES` in `sources.py` | Pending, accepted, maybe, ignored. |
 | Source review workflow | Implemented | `set_source_status`, CLI source commands | Local YAML-only state updates. |
-| Logs and summaries | Implemented | `researchboss/core/runlog.py` | JSONL logs and YAML summaries. |
+| Logs and summaries | Implemented | `ledgerly/core/runlog.py` | JSONL logs and YAML summaries. |
 | Progress bars | Implemented | `scan` in `cli.py` | Rich progress display. |
 | Tests | Implemented | `tests/` | Current suite covers Phase 1 and Zotero storage helpers. |
 | README and AGENTS.md | Implemented | `README.md`, `AGENTS.md` | Contributor and user docs exist. |
@@ -283,18 +283,18 @@ Implemented:
 
 - Local AI preference metadata only.
 - AI disabled in generated app settings.
-- `researchboss ai test`.
+- `ledgerly ai test`.
 - `OPENAI_API_KEY` loading from environment or local `.env` without printing or logging the key.
 - Explicit `--ai` opt-in for live OpenAI credential checks.
-- `researchboss ai context-preview --ai` for local safe-context preview generation.
-- `researchboss ai review --ai` for AI-assisted source/corpus review.
-- `researchboss assess-novelty --ai` with `novelty-ledger.yaml` updates.
-- `researchboss rqs assess --ai` for AI-assisted research question strength, novelty, field usefulness, and evidence-quality review.
-- `researchboss ai corpus-summary --ai` for safe-context corpus summary reports.
-- `researchboss ai claim-check --ai` for safe-context claim-checking recommendations.
-- `researchboss ai citation-gaps --ai` for safe-context citation-gap recommendations.
-- `researchboss ai artefact-cross-reference --ai` for safe-context artefact cross-reference review.
-- `researchboss ai source-relevance --ai` for safe-context source relevance recommendations.
+- `ledgerly ai context-preview --ai` for local safe-context preview generation.
+- `ledgerly ai review --ai` for AI-assisted source/corpus review.
+- `ledgerly assess-novelty --ai` with `novelty-ledger.yaml` updates.
+- `ledgerly rqs assess --ai` for AI-assisted research question strength, novelty, field usefulness, and evidence-quality review.
+- `ledgerly ai corpus-summary --ai` for safe-context corpus summary reports.
+- `ledgerly ai claim-check --ai` for safe-context claim-checking recommendations.
+- `ledgerly ai citation-gaps --ai` for safe-context citation-gap recommendations.
+- `ledgerly ai artefact-cross-reference --ai` for safe-context artefact cross-reference review.
+- `ledgerly ai source-relevance --ai` for safe-context source relevance recommendations.
 - Privacy-boundary tests for missing keys, key non-disclosure, explicit `--ai`, and whole-document/dataset exclusion.
 
 Next work:
@@ -310,7 +310,7 @@ Implemented:
 
 - APA7 is the default workspace citation style unless configured otherwise.
 - Document target resolution for paths, artefact IDs, artefact titles, primary aliases, and deterministic artefact type names.
-- `researchboss validate <target>` compares a target document against accepted workspace sources and explicitly supplied source paths.
+- `ledgerly validate <target>` compares a target document against accepted workspace sources and explicitly supplied source paths.
 - Validation reports include strengths, weaknesses, unsupported and weakly supported sentences, missing citations, candidate supporting sources, evidence confidence factors, conservative confidence scores, and APA7 references.
 - Guideline registration writes snapshots and extracted text inside the workspace.
 - Guideline scopes are validated for validation, citation, structure, style, journal submission, thesis, supervisor, rubric, and all-purpose rules.
@@ -328,12 +328,12 @@ Status: implemented for deterministic local MVP paths.
 
 Implemented:
 
-- Optional local `researchboss.sqlite` inside each workspace.
+- Optional local `ledgerly.sqlite` inside each workspace.
 - YAML and Markdown remain the human-readable source of truth.
 - SQLite is a rebuildable index, cache, memory layer, and controlled sync layer.
-- `researchboss db init`, `researchboss db sync`, `researchboss db status`, and `researchboss db rebuild`.
+- `ledgerly db init`, `ledgerly db sync`, `ledgerly db status`, and `ledgerly db rebuild`.
 - Sync metadata with file hashes, last synced timestamps, database revisions, file revisions, dirty flags, and conflict status.
-- Reviewed pending-change write-back through `researchboss db apply-pending --review` and `researchboss db apply-pending --apply`.
+- Reviewed pending-change write-back through `ledgerly db apply-pending --review` and `ledgerly db apply-pending --apply`.
 - Memory tables for query patterns, user preferences, guideline decisions, citation decisions, validation notes, claim-source links, and AI-safe context choices.
 - Explicit research index tables for validation runs, evidence matches, citation plans, guideline registrations, search query history, and document version metadata.
 - Document aliases for primary outputs and artefact registry IDs/titles.
@@ -348,13 +348,13 @@ Status: deterministic MVP paths complete.
 Done:
 
 - Local document vault layout (`document_vault/originals`, `versions`, `derived_text`, `diffs`, `manifests`, `ai_edit_sessions`, `uploads/originals`, `uploads/renamed`) created at workspace init.
-- Document version records (version ID, parent version ID, content hash, creation reason, source command, model metadata, guideline IDs, validation report ID, citation plan ID) through `researchboss doc version`/`doc versions`.
+- Document version records (version ID, parent version ID, content hash, creation reason, source command, model metadata, guideline IDs, validation report ID, citation plan ID) through `ledgerly doc version`/`doc versions`.
 - Text diff (`doc diff`) and validation-based version comparison (`doc compare`) reports.
 - Restore-as-copy behavior (`doc restore`) that never overwrites the current document or deletes newer versions.
 - Automatic pre/post-change snapshots wired into `cite apply`, the only current command that creates a modified document copy.
 - `document_versions` SQLite sync and document vault inclusion in local backups.
-- Uploaded-artefact intake (`doc upload`/`doc uploads`, `vault.intake_uploaded_artefact`): copies an externally created file into `uploads/originals` (collision-safe suffix) and a renamed `uploads/renamed` copy (author/year/title tokens plus an embedded upload ID for guaranteed uniqueness) without ever touching the uploaded file. The author/year/title tokenizing helpers moved out of `metadata_quality.py` into a shared `researchboss.engine.filenames` module so both source filename suggestions and upload renaming use the same logic.
-- Derived text snapshots with paragraph/sentence anchors (`researchboss.engine.derived_text`, `doc derive-text`, `POST /api/v1/doc/derive-text/{version_id}`): paragraphs with character offsets, sentences with a `citation_insertion_anchor` (matching `citations._insert_citation`'s actual "before final punctuation" behavior), `claim_ids` (claims whose text appears in the sentence), and `reference_ids` (source IDs from a linked validation report's `sentence_checks`, joined by exact normalized sentence text rather than positional index — more robust to reordering). Section maps only work for `.md` targets: headings are recovered by scanning the *raw* source for `#`-prefixed lines (since `extract_text()` strips heading syntax entirely) and matching each heading's surviving text against extracted paragraphs in order; `.txt`/`.docx`/`.pdf` get no section detection rather than a guessed one, since DOCX heading styles aren't preserved by `_extract_docx_text` and plain text/PDF text has no structural marker at all. `text_analysis.py` extracted from `doc_validation.py`'s private `_sentences`/`_has_inline_citation` (mirroring the `filenames.py` extraction pattern) so both modules share one sentence-splitting/citation-detection implementation.
+- Uploaded-artefact intake (`doc upload`/`doc uploads`, `vault.intake_uploaded_artefact`): copies an externally created file into `uploads/originals` (collision-safe suffix) and a renamed `uploads/renamed` copy (author/year/title tokens plus an embedded upload ID for guaranteed uniqueness) without ever touching the uploaded file. The author/year/title tokenizing helpers moved out of `metadata_quality.py` into a shared `ledgerly.engine.filenames` module so both source filename suggestions and upload renaming use the same logic.
+- Derived text snapshots with paragraph/sentence anchors (`ledgerly.engine.derived_text`, `doc derive-text`, `POST /api/v1/doc/derive-text/{version_id}`): paragraphs with character offsets, sentences with a `citation_insertion_anchor` (matching `citations._insert_citation`'s actual "before final punctuation" behavior), `claim_ids` (claims whose text appears in the sentence), and `reference_ids` (source IDs from a linked validation report's `sentence_checks`, joined by exact normalized sentence text rather than positional index — more robust to reordering). Section maps only work for `.md` targets: headings are recovered by scanning the *raw* source for `#`-prefixed lines (since `extract_text()` strips heading syntax entirely) and matching each heading's surviving text against extracted paragraphs in order; `.txt`/`.docx`/`.pdf` get no section detection rather than a guessed one, since DOCX heading styles aren't preserved by `_extract_docx_text` and plain text/PDF text has no structural marker at all. `text_analysis.py` extracted from `doc_validation.py`'s private `_sentences`/`_has_inline_citation` (mirroring the `filenames.py` extraction pattern) so both modules share one sentence-splitting/citation-detection implementation.
 - Found and fixed a real pre-existing bug in `conversion._markdown_to_text` while building the above (not something the new feature caused — it affects all markdown conversion): the heading/blockquote/list-stripping regexes used `\s` for leading same-line indentation, which also matches newlines. A match could therefore start at a preceding *blank* line's own line-start position and reach forward across it into the marker, silently deleting the blank line and merging that block into the previous paragraph in every downstream blank-line-based paragraph split. Fixed to `[ \t]` (same-line indentation only); added a dedicated regression test covering all four affected patterns (heading, blockquote, bullet list, numbered list). Full existing test suite re-run to confirm nothing depended on the buggy behavior — it didn't.
 
 Next work:
@@ -367,7 +367,7 @@ Status: every route currently documented in `docs/api/CONTRACT.md` is implemente
 
 Done:
 
-- App factory (`researchboss/api/app.py`) with the documented `{ok, data, warnings, errors}` response envelope and `ApiError`-to-JSON exception handling.
+- App factory (`ledgerly/api/app.py`) with the documented `{ok, data, warnings, errors}` response envelope and `ApiError`-to-JSON exception handling.
 - Workspace-resolution dependency requiring an explicit `workspace` query parameter (no interactive discovery, unlike the CLI).
 - `GET /health` outside `/api/v1`, with no workspace or auth dependency.
 - Projects (`status`, `init` with a 409 rather than silently overwriting, `health`).
@@ -379,29 +379,29 @@ Done:
 - Zotero: read-only local (`collections`, `search`) and Web API (`test`, `collections`) routes, plus a collection-selection route that writes only to the workspace's `research-context.yaml`, never to Zotero.
 - Document vault (`version`, `versions`, `diff`, `compare`, `restore`).
 - Reports (`workspace`, `timeline`), evidence export, backup (`create`, `inspect`), and project log (`decisions`, `terminology`, `feedback`, `context/changelog`).
-- `researchboss serve` to run the app with uvicorn; route tests via `fastapi.testclient.TestClient`, plus live-HTTP smoke tests during development.
-- Moved `resolve_zotero_paths`/`configured_source_root`/`configured_zotero`/`write_zotero_config` out of private `cli.py` helpers into `researchboss.engine.zotero` so the CLI and the API share one implementation instead of duplicating Zotero config resolution.
-- Single-user login protection: `RESEARCHBOSS_API_PASSWORD`-configured, `POST /api/v1/auth/login`/`logout`, an in-memory expiring session store (`researchboss/api/auth.py`), and a `require_session` dependency applied via `dependencies=[...]` on every protected router's `include_router()` call rather than touching each route handler. Fails closed with `503 auth_not_configured` when no password is set — never silently open. Accepts either the httponly session cookie or an `Authorization: Bearer` token. Password/tokens never logged or persisted to YAML/SQLite/git.
+- `ledgerly serve` to run the app with uvicorn; route tests via `fastapi.testclient.TestClient`, plus live-HTTP smoke tests during development.
+- Moved `resolve_zotero_paths`/`configured_source_root`/`configured_zotero`/`write_zotero_config` out of private `cli.py` helpers into `ledgerly.engine.zotero` so the CLI and the API share one implementation instead of duplicating Zotero config resolution.
+- Single-user login protection: `LEDGERLY_API_PASSWORD`-configured, `POST /api/v1/auth/login`/`logout`, an in-memory expiring session store (`ledgerly/api/auth.py`), and a `require_session` dependency applied via `dependencies=[...]` on every protected router's `include_router()` call rather than touching each route handler. Fails closed with `503 auth_not_configured` when no password is set — never silently open. Accepts either the httponly session cookie or an `Authorization: Bearer` token. Password/tokens never logged or persisted to YAML/SQLite/git.
 - Validation (`POST /api/v1/validation/run`), citation plans (`POST /api/v1/citations/plan|apply`), guidelines (`GET/POST /api/v1/guidelines`, `.../defaults`, `.../conflicts`), and SQLite sync status (`POST /api/v1/db/init|sync|rebuild|apply-pending`, `GET /api/v1/db/status|pending|privacy`) — added the route shapes to `docs/api/CONTRACT.md` and implemented them in the same pass, since each mapped 1:1 to an already-tested engine function.
-- `RESEARCHBOSS_WORKSPACE_ROOT`: when set, `resolve_workspace` (`researchboss/api/deps.py`) requires every workspace to resolve inside that root — relative paths joined to it, absolute paths outside it rejected with `400 workspace_outside_root` — closing a path-traversal gap that existed before (any absolute path reachable by the server process was accepted as a "workspace"). Unset, behavior is unchanged. This is the NAS-mounted-volume prerequisite for Phase 12.
-- `POST /api/v1/artefacts/upload`: real multipart batch upload (`researchboss/api/routers/artefacts.py`), backed by a new `vault.intake_uploaded_artefact_batch` engine function. Rejects the whole batch (`400 upload_batch_too_large`) before writing anything if it exceeds `RESEARCHBOSS_UPLOAD_MAX_FILES`; each file capped at `RESEARCHBOSS_UPLOAD_MAX_FILE_SIZE_MB` and checked against `sources.ALLOWED_EXTENSIONS`. Uploaded bytes are streamed to a bounded-size temp file (capped at roughly `max_size + 1 chunk`, never buffered whole in memory) in a per-file temp subdirectory — nesting rather than filename-prefixing was needed after an initial version leaked an internal `000-`-style prefix into the reported filename and the renamed vault copy's title, caught by a live-HTTP smoke test rather than the unit tests. Temp directory always removed via `finally`. Content-hash duplicate detection against prior uploads in the workspace. Report persisted to `outputs/validation/upload-batch-report.yaml`, mirroring `source_review_report`.
-- `GET /api/v1/artefacts/cross-reference`: new `researchboss.engine.cross_reference` module. Proposes candidates by shared keyword tokens (title/filename, stop-word-filtered) between an uploaded artefact and existing artefacts, sources, and claims — claim matches require ≥2 shared keywords rather than 1, since claim text is long and generic enough that a single shared word is weak evidence. Read-only: writes a candidate report to `outputs/recommendations/cross-reference-<upload_id>.yaml` but never touches an artefact, source, or claim record.
+- `LEDGERLY_WORKSPACE_ROOT`: when set, `resolve_workspace` (`ledgerly/api/deps.py`) requires every workspace to resolve inside that root — relative paths joined to it, absolute paths outside it rejected with `400 workspace_outside_root` — closing a path-traversal gap that existed before (any absolute path reachable by the server process was accepted as a "workspace"). Unset, behavior is unchanged. This is the NAS-mounted-volume prerequisite for Phase 12.
+- `POST /api/v1/artefacts/upload`: real multipart batch upload (`ledgerly/api/routers/artefacts.py`), backed by a new `vault.intake_uploaded_artefact_batch` engine function. Rejects the whole batch (`400 upload_batch_too_large`) before writing anything if it exceeds `LEDGERLY_UPLOAD_MAX_FILES`; each file capped at `LEDGERLY_UPLOAD_MAX_FILE_SIZE_MB` and checked against `sources.ALLOWED_EXTENSIONS`. Uploaded bytes are streamed to a bounded-size temp file (capped at roughly `max_size + 1 chunk`, never buffered whole in memory) in a per-file temp subdirectory — nesting rather than filename-prefixing was needed after an initial version leaked an internal `000-`-style prefix into the reported filename and the renamed vault copy's title, caught by a live-HTTP smoke test rather than the unit tests. Temp directory always removed via `finally`. Content-hash duplicate detection against prior uploads in the workspace. Report persisted to `outputs/validation/upload-batch-report.yaml`, mirroring `source_review_report`.
+- `GET /api/v1/artefacts/cross-reference`: new `ledgerly.engine.cross_reference` module. Proposes candidates by shared keyword tokens (title/filename, stop-word-filtered) between an uploaded artefact and existing artefacts, sources, and claims — claim matches require ≥2 shared keywords rather than 1, since claim text is long and generic enough that a single shared word is weak evidence. Read-only: writes a candidate report to `outputs/recommendations/cross-reference-<upload_id>.yaml` but never touches an artefact, source, or claim record.
 - `POST /api/v1/artefacts/cross-reference/apply`: resolved the registry-metadata-vs-document-editing question left open above. Chose registry metadata — `vault.add_cross_references_to_upload` appends to a `cross_references` list on the *upload* record (mirroring `linked_sources`/`linked_research_questions` on artefact records), deduplicated by `(target_kind, target_id)` so re-applying is idempotent. `apply_cross_reference_links` re-reads the persisted candidates report and only applies rows hand-edited to `review_status: accepted`/`approved`, exactly mirroring `create_citation_plan`/`apply_citation_plan`'s convention. Rationale for not choosing document-content insertion: a keyword-overlap match is meaningfully weaker evidence than `cite apply`'s validated missing-citation match, so auto-inserting text into a document on that basis would be a worse default than recording it as reviewable metadata — and nothing forecloses adding a content-insertion mode later if reviewable metadata turns out to be insufficient. Verified live over real HTTP end to end.
 
 Next work:
 
-- Novelty assessment has no deterministic engine path (`ai_novelty_assessment` in `researchboss/engine/ai.py` is AI-only) — a route needs the same explicit AI opt-in, cost-awareness, and privacy-boundary rules as the Future AI Routes section, not just a contract addition.
+- Novelty assessment has no deterministic engine path (`ai_novelty_assessment` in `ledgerly/engine/ai.py` is AI-only) — a route needs the same explicit AI opt-in, cost-awareness, and privacy-boundary rules as the Future AI Routes section, not just a contract addition.
 - AI-assisted cross-reference suggestions (AI-tagged, needs the same opt-in/privacy-boundary treatment as novelty).
 
 ### Phase 10: Cross-Platform UI Preparation
 
 Status: complete. UI strategy decided and implemented.
 
-Decision: FastAPI + Jinja2 server-rendered shell + vanilla JavaScript (`researchboss/web/`), no build toolchain, no third-party JS/CSS dependency, no CDN assets. Mounted onto the same FastAPI app `researchboss serve` already runs — no separate process, port, or deployment step. The web layer has no import path to `researchboss.engine`: it only imports session-cookie helpers from `researchboss.api.auth`, and every data operation happens client-side via `fetch()` calls to the existing, tested `/api/v1/*` routes — the web UI is architecturally just another API client. React/Vue/Svelte/Flutter were considered and passed on; `docs/PACKAGING.md`'s conditional Flutter desktop-sidecar section is now historical.
+Decision: FastAPI + Jinja2 server-rendered shell + vanilla JavaScript (`ledgerly/web/`), no build toolchain, no third-party JS/CSS dependency, no CDN assets. Mounted onto the same FastAPI app `ledgerly serve` already runs — no separate process, port, or deployment step. The web layer has no import path to `ledgerly.engine`: it only imports session-cookie helpers from `ledgerly.api.auth`, and every data operation happens client-side via `fetch()` calls to the existing, tested `/api/v1/*` routes — the web UI is architecturally just another API client. React/Vue/Svelte/Flutter were considered and passed on; `docs/PACKAGING.md`'s conditional Flutter desktop-sidecar section is now historical.
 
 Built: `GET /login` (public) and `GET /` (server-side session-gated — redirects to `/login` before rendering anything, not just after a failed client-side call) shell pages; drag-and-drop batch upload with pre-submission limits (new `GET /api/v1/artefacts/upload/limits` route); a batch-upload results view; a popup preview modal (PDF via `<iframe>`, text/Markdown/CSV/JSON fetched into `<pre>`, download-fallback for unsupported types); a cross-reference review overlay (accept/reject per candidate, then apply); an About/License footer modal. Two new API routes were needed and added along the way: `GET /api/v1/artefacts/uploads` (list) and `GET /api/v1/artefacts/uploads/{upload_id}/file` (inline file bytes for preview) — nothing previously served raw file bytes at all.
 
-Found and fixed two real bugs while verifying this against an actual `pip install` rather than just the source-tree test suite: (1) a circular import (`api/__init__.py` eagerly re-exported `create_app`, which round-tripped through `web/app.py` back into `api.auth`; fixed by emptying the unused re-export) that only manifested if `researchboss.web.app` was imported before `researchboss.api`, which every test/smoke script in this repo happened never to do; and (2) missing `package-data` in `pyproject.toml`, so a real wheel install wouldn't have shipped the `templates/`/`static/` files at all. Both confirmed fixed by building a real wheel and installing it into a throwaway venv — not just re-running pytest.
+Found and fixed two real bugs while verifying this against an actual `pip install` rather than just the source-tree test suite: (1) a circular import (`api/__init__.py` eagerly re-exported `create_app`, which round-tripped through `web/app.py` back into `api.auth`; fixed by emptying the unused re-export) that only manifested if `ledgerly.web.app` was imported before `ledgerly.api`, which every test/smoke script in this repo happened never to do; and (2) missing `package-data` in `pyproject.toml`, so a real wheel install wouldn't have shipped the `templates/`/`static/` files at all. Both confirmed fixed by building a real wheel and installing it into a throwaway venv — not just re-running pytest.
 
 Not built, and not needed yet: a separate desktop or mobile shell (the responsive web page covers the stated use case; nothing currently asks for one). Citation-plan-specific review UI beyond the cross-reference overlay (citations already have their own `POST /api/v1/citations/plan/insertion-review` API route and CLI command, just no dedicated web view yet) — a reasonable next increment if it's ever asked for, not added speculatively here.
 
@@ -411,10 +411,10 @@ Status: planning complete (`docs/PACKAGING.md`); no actual packaged build has be
 
 Done:
 
-- Packaging plan covering CLI, local API, workspace SQLite (stdlib `sqlite3`, nothing to bundle), document vault files (plain workspace files, not a packaging concern), and the web UI (Phase 10 decided against Flutter; `researchboss/web/` ships as part of the same package via `[tool.setuptools.package-data]`, verified against a real wheel install — no separate packaging concern).
-- PyInstaller recipe plus two gotchas identified from known uvicorn/PyInstaller interaction patterns rather than verified against a real build yet: uvicorn's dynamic loop/protocol imports and `python-multipart` (only imported at upload-request time) both need explicit `--hidden-import`/`--collect-all` treatment or the packaged binary will fail specifically at `researchboss serve` / file-upload time despite a clean `pyinstaller` exit code.
+- Packaging plan covering CLI, local API, workspace SQLite (stdlib `sqlite3`, nothing to bundle), document vault files (plain workspace files, not a packaging concern), and the web UI (Phase 10 decided against Flutter; `ledgerly/web/` ships as part of the same package via `[tool.setuptools.package-data]`, verified against a real wheel install — no separate packaging concern).
+- PyInstaller recipe plus two gotchas identified from known uvicorn/PyInstaller interaction patterns rather than verified against a real build yet: uvicorn's dynamic loop/protocol imports and `python-multipart` (only imported at upload-request time) both need explicit `--hidden-import`/`--collect-all` treatment or the packaged binary will fail specifically at `ledgerly serve` / file-upload time despite a clean `pyinstaller` exit code.
 - Flutter desktop sidecar notes: now historical/moot — Phase 10 chose a Jinja2 + vanilla-JS web UI mounted directly on the existing FastAPI app instead, with no separate shell process for this section's sidecar model to apply to.
-- Fixed a real, concrete gap found while researching platform coverage: `workspace.zotero_storage_candidates()` had no Linux branch at all (fell through to an empty list — `researchboss init` could never auto-detect Zotero on Linux). Added native (`~/Zotero/storage`, `~/.zotero/zotero/*/zotero/storage`) and Flatpak (`~/.var/app/org.zotero.Zotero/data/zotero/storage`) candidates, matching the existing macOS/Windows "first existing candidate wins" pattern. Snap-packaged Zotero left as an explicit known gap rather than guessed at.
+- Fixed a real, concrete gap found while researching platform coverage: `workspace.zotero_storage_candidates()` had no Linux branch at all (fell through to an empty list — `ledgerly init` could never auto-detect Zotero on Linux). Added native (`~/Zotero/storage`, `~/.zotero/zotero/*/zotero/storage`) and Flatpak (`~/.var/app/org.zotero.Zotero/data/zotero/storage`) candidates, matching the existing macOS/Windows "first existing candidate wins" pattern. Snap-packaged Zotero left as an explicit known gap rather than guessed at.
 - Confirmed (by reading `ocr_readiness_report()`, not assuming) that OCR fallback depends on system-installed `tesseract`/`pdftoppm` located via `shutil.which()` — external CLI tools PyInstaller cannot bundle. Documented as an explicit end-user prerequisite for packaged builds rather than left to silently report "unavailable."
 
 Next work:
@@ -427,67 +427,67 @@ Status: Dockerfile, Compose file, and deploy documentation written; nothing has 
 
 Done:
 
-- `Dockerfile`: `python:3.11-slim`, `pip install .`, single-process `uvicorn researchboss.api.app:app` (no `--workers` — see the file's own comment: session state in `researchboss/api/auth.py` is an in-memory dict, so more than one process/replica would randomly fail logins depending which one handled a given request), a `HEALTHCHECK` hitting `/health`, and `tesseract`/`poppler-utils` installed so a deployed instance can actually use the `--ocr` conversion fallback (unlike a PyInstaller desktop build, a container can bundle these).
-- `docker-compose.yml`: bind-mounts `./data/workspaces` to `/data/workspaces` (matching `RESEARCHBOSS_WORKSPACE_ROOT`) rather than an opaque named volume, so workspace files stay directly inspectable/backupable on the host's own filesystem; `RESEARCHBOSS_API_PASSWORD` required via Compose's `:?` syntax (refuses to start rather than silently running without one, consistent with the API's own fail-closed behavior); other `RESEARCHBOSS_*` env vars optional with the same defaults the app itself uses.
-- Extended the existing `.env.example` (already the file `researchboss/api/auth.py`, `zotero_api.py`, and `ai.py` all read via the shared `Path.cwd()/.env` convention) with the new deployment-related variables, rather than inventing a second env-file mechanism.
-- `docs/DEPLOY.md`: local test-before-deploy steps, generic guidance on what any deploy tool needs to be told (Compose file, `.env`, source dir, port 8000, `/health` health-check path), setting up a workspace per research project via `POST /api/v1/projects/init` against the mounted root, `update`/rollback behavior (session invalidation on restart is expected, not a bug), and why license/developer-info consistency (the last Phase 12 TODO item) is blocked on an actual deployment — Phase 10 now has a page to check (the About/License footer modal in `researchboss/web/`), so that half of the earlier blocker is resolved.
+- `Dockerfile`: `python:3.11-slim`, `pip install .`, single-process `uvicorn ledgerly.api.app:app` (no `--workers` — see the file's own comment: session state in `ledgerly/api/auth.py` is an in-memory dict, so more than one process/replica would randomly fail logins depending which one handled a given request), a `HEALTHCHECK` hitting `/health`, and `tesseract`/`poppler-utils` installed so a deployed instance can actually use the `--ocr` conversion fallback (unlike a PyInstaller desktop build, a container can bundle these).
+- `docker-compose.yml`: bind-mounts `./data/workspaces` to `/data/workspaces` (matching `LEDGERLY_WORKSPACE_ROOT`) rather than an opaque named volume, so workspace files stay directly inspectable/backupable on the host's own filesystem; `LEDGERLY_API_PASSWORD` required via Compose's `:?` syntax (refuses to start rather than silently running without one, consistent with the API's own fail-closed behavior); other `LEDGERLY_*` env vars optional with the same defaults the app itself uses.
+- Extended the existing `.env.example` (already the file `ledgerly/api/auth.py`, `zotero_api.py`, and `ai.py` all read via the shared `Path.cwd()/.env` convention) with the new deployment-related variables, rather than inventing a second env-file mechanism.
+- `docs/DEPLOY.md`: local test-before-deploy steps, generic guidance on what any deploy tool needs to be told (Compose file, `.env`, source dir, port 8000, `/health` health-check path), setting up a workspace per research project via `POST /api/v1/projects/init` against the mounted root, `update`/rollback behavior (session invalidation on restart is expected, not a bug), and why license/developer-info consistency (the last Phase 12 TODO item) is blocked on an actual deployment — Phase 10 now has a page to check (the About/License footer modal in `ledgerly/web/`), so that half of the earlier blocker is resolved.
 - Verified what could be verified without Docker (not available in this environment): a genuinely clean-venv `pip install .` followed by running the Dockerfile's exact `CMD` served `/health` successfully, and separately, a real wheel build+install confirmed the web UI's templates/static assets ship correctly and both import orderings resolve (see the Phase 10 circular-import fix). The container build itself (base image, `apt-get` layer, healthcheck) was not verified and is documented as the reader's first step, not claimed as done.
 
 Next work:
 
 - Actually deploy somewhere — this is now explicitly a per-person infrastructure step tracked outside this repo (each deployer's own gitignored `docs/DEPLOY.personal.md`), not a project TODO with one canonical answer.
-- Confirm license/developer-info consistency on any live deployment once one exists — the content itself (`researchboss/web/templates/index.html`'s About modal) is already in place and matches the README/LICENSE; this step is purely "check it renders correctly once actually deployed."
+- Confirm license/developer-info consistency on any live deployment once one exists — the content itself (`ledgerly/web/templates/index.html`'s About modal) is already in place and matches the README/LICENSE; this step is purely "check it renders correctly once actually deployed."
 
 ## 5. CLI Audit
 
 | Command | Status | Notes |
 | --- | --- | --- |
-| `researchboss init` | Implemented | Creates workspace and prompts for initial context. |
-| `researchboss status` | Implemented | Shows source counts. |
-| `researchboss config validate` | Implemented | Checks required workspace paths and YAML readability. |
-| `researchboss config migrate` | Implemented | Fills missing deterministic workspace config fields. |
-| `researchboss scan` | Implemented | Scans configured or provided source root. |
-| `researchboss convert` | Implemented | Converts TXT, MD, DOCX, and simple PDFs. |
-| `researchboss metadata extract` | Implemented | Extracts deterministic citation metadata. |
-| `researchboss data profile` | Implemented | Profiles CSV, SQLite, and JSON sources. |
-| `researchboss data list` | Implemented | Lists data sources. |
-| `researchboss data status` | Implemented | Shows data profile counts. |
-| `researchboss report` | Implemented | Generates local Markdown workspace report. |
-| `researchboss validate` | Implemented | Resolves target documents and writes deterministic validation reports. |
-| `researchboss watch` | Implemented | Writes unregistered source candidate report. |
-| `researchboss backup` | Implemented | Creates local workspace zip backup. |
-| `researchboss sources list` | Implemented | Lists source register records. |
-| `researchboss sources review` | Implemented | Interactive pending source review. |
-| `researchboss sources accept` | Implemented | Marks source accepted. |
-| `researchboss sources ignore` | Implemented | Marks source ignored with reason. |
-| `researchboss sources maybe` | Implemented | Marks source maybe. |
-| `researchboss sources status` | Implemented | Shows source status counts. |
-| `researchboss zotero search` | Implemented | Local storage and metadata keyword search; no AI/API. |
-| `researchboss zotero collections` | Implemented | Lists collections from local SQLite. |
-| `researchboss zotero select-collections` | Implemented | Stores selected collection config locally. |
-| `researchboss zotero use-entire-library` | Implemented | Restores entire-library mode. |
-| `researchboss zotero scan-collection` | Implemented | One-off scan of a local collection. |
-| `researchboss zotero metadata-report` | Implemented | Writes metadata quality report. |
-| `researchboss zotero attachment-health` | Implemented | Writes attachment/storage health report. |
-| `researchboss zotero fulltext-report` | Implemented | Writes `.zotero-ft-cache` availability report. |
-| `researchboss zotero duplicates` | Implemented | Writes DOI/title-year duplicate candidates. |
-| `researchboss zotero snapshot` | Implemented | Writes local metadata snapshot. |
-| `researchboss zotero export-bibtex` | Implemented | Writes conservative BibTeX from local metadata. |
-| `researchboss zotero test` | Implemented | Validates local storage, SQLite, and cache availability. |
-| `researchboss rqs list` | Implemented | Lists RQ groups. |
-| `researchboss rqs check` | Implemented | Deterministic readiness checks only; no novelty or contribution-strength claims. |
-| `researchboss rqs suggest` | Missing | Future AI or template workflow. |
-| `researchboss rqs approve` | Implemented | Approves draft RQs. |
-| `researchboss rqs reject` | Implemented | Rejects RQs. |
-| `researchboss rqs archive` | Implemented | Archives RQs. |
-| `researchboss claims add/list/gaps` | Implemented | Manual claim ledger and citation gaps. |
-| `researchboss artefacts register/list` | Implemented | Artefact registry workflow. |
-| `researchboss artefacts create` | Implemented | Deterministic non-AI artefact creation from existing workspace state. |
-| `researchboss guidelines add/list` | Implemented | Registers guideline snapshots and extracted text inside the workspace with validated scopes. |
-| `researchboss review` | Missing | Later integrated review workflow. |
-| `researchboss rqs assess` | Implemented | AI-assisted RQ assessment; requires `--ai`. |
-| `researchboss assess-novelty` | Implemented | AI-assisted novelty assessment; requires `--ai`; updates novelty ledger. |
-| `researchboss ai test` | Implemented | Local readiness check; live OpenAI request requires explicit `--ai`. |
+| `ledgerly init` | Implemented | Creates workspace and prompts for initial context. |
+| `ledgerly status` | Implemented | Shows source counts. |
+| `ledgerly config validate` | Implemented | Checks required workspace paths and YAML readability. |
+| `ledgerly config migrate` | Implemented | Fills missing deterministic workspace config fields. |
+| `ledgerly scan` | Implemented | Scans configured or provided source root. |
+| `ledgerly convert` | Implemented | Converts TXT, MD, DOCX, and simple PDFs. |
+| `ledgerly metadata extract` | Implemented | Extracts deterministic citation metadata. |
+| `ledgerly data profile` | Implemented | Profiles CSV, SQLite, and JSON sources. |
+| `ledgerly data list` | Implemented | Lists data sources. |
+| `ledgerly data status` | Implemented | Shows data profile counts. |
+| `ledgerly report` | Implemented | Generates local Markdown workspace report. |
+| `ledgerly validate` | Implemented | Resolves target documents and writes deterministic validation reports. |
+| `ledgerly watch` | Implemented | Writes unregistered source candidate report. |
+| `ledgerly backup` | Implemented | Creates local workspace zip backup. |
+| `ledgerly sources list` | Implemented | Lists source register records. |
+| `ledgerly sources review` | Implemented | Interactive pending source review. |
+| `ledgerly sources accept` | Implemented | Marks source accepted. |
+| `ledgerly sources ignore` | Implemented | Marks source ignored with reason. |
+| `ledgerly sources maybe` | Implemented | Marks source maybe. |
+| `ledgerly sources status` | Implemented | Shows source status counts. |
+| `ledgerly zotero search` | Implemented | Local storage and metadata keyword search; no AI/API. |
+| `ledgerly zotero collections` | Implemented | Lists collections from local SQLite. |
+| `ledgerly zotero select-collections` | Implemented | Stores selected collection config locally. |
+| `ledgerly zotero use-entire-library` | Implemented | Restores entire-library mode. |
+| `ledgerly zotero scan-collection` | Implemented | One-off scan of a local collection. |
+| `ledgerly zotero metadata-report` | Implemented | Writes metadata quality report. |
+| `ledgerly zotero attachment-health` | Implemented | Writes attachment/storage health report. |
+| `ledgerly zotero fulltext-report` | Implemented | Writes `.zotero-ft-cache` availability report. |
+| `ledgerly zotero duplicates` | Implemented | Writes DOI/title-year duplicate candidates. |
+| `ledgerly zotero snapshot` | Implemented | Writes local metadata snapshot. |
+| `ledgerly zotero export-bibtex` | Implemented | Writes conservative BibTeX from local metadata. |
+| `ledgerly zotero test` | Implemented | Validates local storage, SQLite, and cache availability. |
+| `ledgerly rqs list` | Implemented | Lists RQ groups. |
+| `ledgerly rqs check` | Implemented | Deterministic readiness checks only; no novelty or contribution-strength claims. |
+| `ledgerly rqs suggest` | Missing | Future AI or template workflow. |
+| `ledgerly rqs approve` | Implemented | Approves draft RQs. |
+| `ledgerly rqs reject` | Implemented | Rejects RQs. |
+| `ledgerly rqs archive` | Implemented | Archives RQs. |
+| `ledgerly claims add/list/gaps` | Implemented | Manual claim ledger and citation gaps. |
+| `ledgerly artefacts register/list` | Implemented | Artefact registry workflow. |
+| `ledgerly artefacts create` | Implemented | Deterministic non-AI artefact creation from existing workspace state. |
+| `ledgerly guidelines add/list` | Implemented | Registers guideline snapshots and extracted text inside the workspace with validated scopes. |
+| `ledgerly review` | Missing | Later integrated review workflow. |
+| `ledgerly rqs assess` | Implemented | AI-assisted RQ assessment; requires `--ai`. |
+| `ledgerly assess-novelty` | Implemented | AI-assisted novelty assessment; requires `--ai`; updates novelty ledger. |
+| `ledgerly ai test` | Implemented | Local readiness check; live OpenAI request requires explicit `--ai`. |
 
 ## 6. Config and Workspace Audit
 
@@ -540,7 +540,7 @@ Implemented:
 - Avoid modifying Zotero files.
 - Avoid writing into Zotero storage.
 - Enforce the hard project rule that no CLI workflow, development workflow, or future AI feature may modify anything inside the local Zotero directory.
-- Workspace config stores `strict_one_way_from_zotero_to_researchboss: true` and `block_writes_to_zotero_directory: true`.
+- Workspace config stores `strict_one_way_from_zotero_to_ledgerly: true` and `block_writes_to_zotero_directory: true`.
 
 Missing:
 
@@ -584,11 +584,11 @@ Implemented:
 - `.env.example` exists.
 - `OPENAI_API_KEY` loaded from environment or local `.env`.
 - API key is not printed or logged.
-- `researchboss ai test` writes a local readiness report.
-- `researchboss ai context-preview --ai` writes a local safe context preview without making an OpenAI request.
-- `researchboss ai review --ai` writes a local AI-assisted review report.
-- `researchboss assess-novelty --ai` writes a local novelty report and appends `novelty-ledger.yaml`.
-- `researchboss rqs assess --ai` writes a local AI-assisted research-question assessment report.
+- `ledgerly ai test` writes a local readiness report.
+- `ledgerly ai context-preview --ai` writes a local safe context preview without making an OpenAI request.
+- `ledgerly ai review --ai` writes a local AI-assisted review report.
+- `ledgerly assess-novelty --ai` writes a local novelty report and appends `novelty-ledger.yaml`.
+- `ledgerly rqs assess --ai` writes a local AI-assisted research-question assessment report.
 - Tests cover missing key behavior, key non-disclosure, explicit `--ai`, no default whole-document/dataset inclusion, mocked AI workflow outputs, and explicit external-search opt-in.
 
 Missing:
@@ -604,7 +604,7 @@ Planned AI options:
 - Explicit user-controlled options to allow AI to read a directory of files when the user approves that level of context.
 - Optional full-paper reasoning mode for consuming entire papers.
 - Optional cross-reference mode where AI can compare full papers against in-progress artefacts.
-- These modes must be disabled by default, must never modify Zotero, and must keep outputs inside the ResearchBoss workspace.
+- These modes must be disabled by default, must never modify Zotero, and must keep outputs inside the Ledgerly workspace.
 
 Future AI work that makes sense to implement next:
 
@@ -619,10 +619,10 @@ Goal: use external scholarly search as a controlled evidence-discovery workflow,
 
 Implemented baseline:
 
-- `researchboss search plan` creates deterministic query plans from project context and research questions.
-- `researchboss search scopus --external-search` runs explicit Scopus searches and stores response snapshots.
-- `researchboss search scopus-test --external-search` checks credentials without printing keys.
-- Search query history and no-result snapshots are written inside the ResearchBoss workspace.
+- `ledgerly search plan` creates deterministic query plans from project context and research questions.
+- `ledgerly search scopus --external-search` runs explicit Scopus searches and stores response snapshots.
+- `ledgerly search scopus-test --external-search` checks credentials without printing keys.
+- Search query history and no-result snapshots are written inside the Ledgerly workspace.
 - Scopus search runs now write quality-scored candidate registers, threshold-filtered candidate lists, query validation reports, low-result logs, and metadata-only full-text availability signals.
 - Query planning now supports legacy params-file import, broad/balanced/strict strategy modes, structured query records, query group labels, and research-question links.
 
@@ -652,7 +652,7 @@ Planned AI-assisted work:
 
 ## 11.2 Legacy Project Lessons
 
-The old `../pdf-merge` project is useful as workflow evidence, but ResearchBoss should not inherit its ad hoc file movement, cloud sync assumptions, automatic full-text retrieval attempts, or deletion of intermediate text. The useful ideas should be rebuilt as local-first, manifest-driven engine workflows.
+The old `../pdf-merge` project is useful as workflow evidence, but Ledgerly should not inherit its ad hoc file movement, cloud sync assumptions, automatic full-text retrieval attempts, or deletion of intermediate text. The useful ideas should be rebuilt as local-first, manifest-driven engine workflows.
 
 Useful patterns to bring forward:
 
@@ -663,7 +663,7 @@ Useful patterns to bring forward:
 - No-result, low-result, filtered, skipped, and not-relevant logs.
 - Abstract text-file import from old Scopus exports.
 - Combined abstract/text corpus export with source headers and separators.
-- PDF merge artefacts for accepted sources, always generated inside ResearchBoss artefact folders.
+- PDF merge artefacts for accepted sources, always generated inside Ledgerly artefact folders.
 - OCR readiness checks and optional local OCR fallback for scanned PDFs.
 - Manifest-first processing so every merge/export/search run records included, skipped, failed, and generated files.
 
@@ -693,7 +693,7 @@ Current tested areas:
 Current expected validation:
 
 ```bash
-python -m py_compile researchboss/cli.py researchboss/engine/*.py researchboss/core/*.py
+python -m py_compile ledgerly/cli.py ledgerly/engine/*.py ledgerly/core/*.py
 python -m pytest
 ```
 
@@ -741,13 +741,13 @@ Missing:
 
 ## 15. Immediate Next Steps
 
-Every deterministic item across Phases 8, 9, 10, and 11 that did not require either a live infrastructure credential or a product decision on AI cost/privacy tradeoffs is now complete: Phase 8 (document vault, versioning, restoration, uploaded-artefact intake, derived-text/anchor extraction), Phase 9 (every route in `docs/api/CONTRACT.md` except the disabled Future AI Routes section — including login protection, validation, citation plans, guidelines, SQLite sync status, `RESEARCHBOSS_WORKSPACE_ROOT` containment, batch artefact upload, cross-reference candidates/apply, and both review-status routes), Phase 10 (the web UI framework decision was made and the full UI built — see the Phase 10 section above), and Phase 11 planning (`docs/PACKAGING.md`) plus the Phase 12 deployment artifacts (`Dockerfile`, `docker-compose.yml`, `docs/DEPLOY.md` — written but not deployed, since that needs real NAS/Cloudflare credentials).
+Every deterministic item across Phases 8, 9, 10, and 11 that did not require either a live infrastructure credential or a product decision on AI cost/privacy tradeoffs is now complete: Phase 8 (document vault, versioning, restoration, uploaded-artefact intake, derived-text/anchor extraction), Phase 9 (every route in `docs/api/CONTRACT.md` except the disabled Future AI Routes section — including login protection, validation, citation plans, guidelines, SQLite sync status, `LEDGERLY_WORKSPACE_ROOT` containment, batch artefact upload, cross-reference candidates/apply, and both review-status routes), Phase 10 (the web UI framework decision was made and the full UI built — see the Phase 10 section above), and Phase 11 planning (`docs/PACKAGING.md`) plus the Phase 12 deployment artifacts (`Dockerfile`, `docker-compose.yml`, `docs/DEPLOY.md` — written but not deployed, since that needs real NAS/Cloudflare credentials).
 
 What's left is genuinely blocked, not just undone:
 
 1. A novelty assessment route under explicit AI opt-in.
-   - Why: unlike every other Phase 9 route group, novelty assessment has no deterministic engine path — `researchboss.engine.ai.ai_novelty_assessment` always calls OpenAI, so a route needs the same per-request AI opt-in, cost-awareness, and privacy-boundary rules as the Future AI Routes section, not just mechanical route-wrapping. The shape is already sketched (`docs/api/CONTRACT.md`'s Future AI Routes section) — what's missing is the actual opt-in/cost decision and implementation.
-   - Likely files: new `researchboss/api/routers/ai.py`, tests proving the AI opt-in and safe-context boundaries.
+   - Why: unlike every other Phase 9 route group, novelty assessment has no deterministic engine path — `ledgerly.engine.ai.ai_novelty_assessment` always calls OpenAI, so a route needs the same per-request AI opt-in, cost-awareness, and privacy-boundary rules as the Future AI Routes section, not just mechanical route-wrapping. The shape is already sketched (`docs/api/CONTRACT.md`'s Future AI Routes section) — what's missing is the actual opt-in/cost decision and implementation.
+   - Likely files: new `ledgerly/api/routers/ai.py`, tests proving the AI opt-in and safe-context boundaries.
    - Tests: route requires explicit opt-in, never sends whole documents by default, API key never returned/logged.
    - Complexity: medium — mostly gated by the explicit-AI-opt-in design already used elsewhere, not new design.
    - Phase: 9 (Future AI Routes).
@@ -762,7 +762,7 @@ What's left is genuinely blocked, not just undone:
 
 ## 15a. Useful Ideas Learned From `../pdf-merge`
 
-The old project is useful as a reference for ResearchBoss, but its cloud-sync and external-search assumptions should not be copied into the MVP. Useful patterns to port or redesign:
+The old project is useful as a reference for Ledgerly, but its cloud-sync and external-search assumptions should not be copied into the MVP. Useful patterns to port or redesign:
 
 - A richer local document-processing layer with optional PyMuPDF/PyPDF2 extraction and local OCR fallback.
 - Sidecar metadata readers for CSL JSON, BibTeX, and RIS.
@@ -783,14 +783,14 @@ Not suitable for MVP right now:
 
 ## 16. Recommended Resume Point
 
-Phase 8 (document vault, versioning, restoration, uploaded-artefact intake, derived-text/anchor extraction) is complete. Phase 9 FastAPI implements every route in `docs/api/CONTRACT.md` except the disabled Future AI Routes section (now shape-sketched, not implemented). Phase 10 is complete: a Jinja2 + vanilla-JS web UI (`researchboss/web/`) is built, tested, and mounted onto the same FastAPI app, covering login, drag-and-drop upload, batch results, popup preview, cross-reference review, and an About/License footer. Phase 11 planning and Phase 12's deployment artifacts are written but not executed. Everything genuinely actionable without either an AI cost/privacy decision or live infrastructure credentials is done. Resume with: an explicitly AI-gated novelty route (Phase 9), AI edit sessions (Phase 8, anchor infrastructure already built), AI-assisted cross-reference suggestions (Phase 9), a dedicated citation-plan review web view (Phase 10, API/CLI side already done), or actually running the Phase 12 NAS deployment. AI work remains intentionally separated behind explicit opt-in and privacy-boundary tests.
+Phase 8 (document vault, versioning, restoration, uploaded-artefact intake, derived-text/anchor extraction) is complete. Phase 9 FastAPI implements every route in `docs/api/CONTRACT.md` except the disabled Future AI Routes section (now shape-sketched, not implemented). Phase 10 is complete: a Jinja2 + vanilla-JS web UI (`ledgerly/web/`) is built, tested, and mounted onto the same FastAPI app, covering login, drag-and-drop upload, batch results, popup preview, cross-reference review, and an About/License footer. Phase 11 planning and Phase 12's deployment artifacts are written but not executed. Everything genuinely actionable without either an AI cost/privacy decision or live infrastructure credentials is done. Resume with: an explicitly AI-gated novelty route (Phase 9), AI edit sessions (Phase 8, anchor infrastructure already built), AI-assisted cross-reference suggestions (Phase 9), a dedicated citation-plan review web view (Phase 10, API/CLI side already done), or actually running the Phase 12 NAS deployment. AI work remains intentionally separated behind explicit opt-in and privacy-boundary tests.
 
 ## 17. Maintenance Rule
 
-Whenever development changes ResearchBoss behavior:
+Whenever development changes Ledgerly behavior:
 
 - Update this roadmap.
 - Update `README.md` project version.
-- Update package version in `pyproject.toml` and `researchboss/__init__.py` when releasing or committing user-visible feature work.
+- Update package version in `pyproject.toml` and `ledgerly/__init__.py` when releasing or committing user-visible feature work.
 - Update `CHANGELOG.md`.
 - Keep tests passing before commit or push.

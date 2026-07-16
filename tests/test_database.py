@@ -5,9 +5,9 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
-from researchboss.cli import app
-from researchboss.core.yamlio import read_yaml
-from researchboss.engine.database import (
+from ledgerly.cli import app
+from ledgerly.core.yamlio import read_yaml
+from ledgerly.engine.database import (
     apply_pending_changes,
     database_path,
     database_privacy_report,
@@ -17,7 +17,7 @@ from researchboss.engine.database import (
     rebuild_database,
     sync_database,
 )
-from researchboss.engine.workspace import init_workspace
+from ledgerly.engine.workspace import init_workspace
 
 
 runner = CliRunner()
@@ -32,7 +32,7 @@ def test_database_init_sync_status_and_rebuild(tmp_path: Path) -> None:
     status_result = database_status(workspace)
     rebuild_result = rebuild_database(workspace)
 
-    assert init_result.path == workspace / "researchboss.sqlite"
+    assert init_result.path == workspace / "ledgerly.sqlite"
     assert init_result.path.is_file()
     assert sync_result.report["files_synced"] >= 10
     assert sync_result.report["source_of_truth"] == "workspace_yaml_markdown"
@@ -47,7 +47,7 @@ def test_database_sync_tracks_file_revisions_and_conflicts(tmp_path: Path) -> No
     sync_database(workspace)
     context = read_yaml(workspace / "research-context.yaml")
     context["project"]["topic"] = "Updated topic"
-    from researchboss.core.yamlio import write_yaml
+    from ledgerly.core.yamlio import write_yaml
 
     write_yaml(workspace / "research-context.yaml", context)
 
@@ -86,7 +86,7 @@ def test_database_indexes_validation_citation_and_guidelines(tmp_path: Path) -> 
     init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
     guideline_registry = workspace / "guidelines" / "guidelines.yaml"
     guideline_registry.parent.mkdir(parents=True, exist_ok=True)
-    from researchboss.core.yamlio import write_yaml
+    from ledgerly.core.yamlio import write_yaml
 
     write_yaml(
         guideline_registry,
@@ -160,7 +160,7 @@ def test_database_syncs_document_versions_from_vault_ledger(tmp_path: Path) -> N
     target_path.parent.mkdir(parents=True, exist_ok=True)
     target_path.write_text("Draft v1\n", encoding="utf-8")
 
-    from researchboss.engine.vault import create_document_version
+    from ledgerly.engine.vault import create_document_version
 
     record = create_document_version(workspace, str(target_path))
     sync_database(workspace)

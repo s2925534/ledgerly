@@ -3,7 +3,7 @@ import sqlite3
 
 import pytest
 
-from researchboss.engine.zotero import (
+from ledgerly.engine.zotero import (
     attachment_health_report,
     attachment_metadata_by_storage_key,
     duplicate_metadata_candidates,

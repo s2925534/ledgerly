@@ -1,8 +1,8 @@
 from pathlib import Path
 
-from researchboss.core.yamlio import read_yaml
-from researchboss.core.yamlio import write_yaml
-from researchboss.engine.claims import (
+from ledgerly.core.yamlio import read_yaml
+from ledgerly.core.yamlio import write_yaml
+from ledgerly.engine.claims import (
     add_claim,
     citation_gap_claims,
     claim_source_validation_report,
@@ -10,7 +10,7 @@ from researchboss.engine.claims import (
     set_claim_status,
     write_citation_gap_report,
 )
-from researchboss.engine.workspace import init_workspace
+from ledgerly.engine.workspace import init_workspace
 
 
 def test_claim_ledger_and_citation_gap_report(tmp_path: Path) -> None:

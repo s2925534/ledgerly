@@ -14,7 +14,7 @@ build/
 *.sqlite-wal
 *.sqlite-shm
 
-# Generated ResearchBoss workspaces.
+# Generated Ledgerly workspaces.
 /workspaces/**
 !/workspaces/
 !/workspaces/.keep

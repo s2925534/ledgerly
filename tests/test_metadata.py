@@ -1,10 +1,10 @@
 from pathlib import Path
 
-from researchboss.core.yamlio import read_yaml
-from researchboss.engine.conversion import convert_sources
-from researchboss.engine.metadata import detect_doi, extract_citation_metadata
-from researchboss.engine.sources import scan_sources
-from researchboss.engine.workspace import init_workspace
+from ledgerly.core.yamlio import read_yaml
+from ledgerly.engine.conversion import convert_sources
+from ledgerly.engine.metadata import detect_doi, extract_citation_metadata
+from ledgerly.engine.sources import scan_sources
+from ledgerly.engine.workspace import init_workspace
 
 
 def make_workspace(tmp_path: Path) -> Path:

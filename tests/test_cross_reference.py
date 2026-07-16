@@ -2,16 +2,16 @@ from pathlib import Path
 
 import pytest
 
-from researchboss.core.yamlio import read_yaml, write_yaml
-from researchboss.engine.claims import add_claim
-from researchboss.engine.artefacts import register_artefact
-from researchboss.engine.cross_reference import (
+from ledgerly.core.yamlio import read_yaml, write_yaml
+from ledgerly.engine.claims import add_claim
+from ledgerly.engine.artefacts import register_artefact
+from ledgerly.engine.cross_reference import (
     apply_cross_reference_links,
     cross_reference_candidates,
     set_cross_reference_candidate_review_status,
 )
-from researchboss.engine.vault import intake_uploaded_artefact, list_uploaded_artefacts
-from researchboss.engine.workspace import init_workspace
+from ledgerly.engine.vault import intake_uploaded_artefact, list_uploaded_artefacts
+from ledgerly.engine.workspace import init_workspace
 
 
 def _workspace(tmp_path: Path) -> Path:

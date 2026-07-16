@@ -1,8 +1,8 @@
 from pathlib import Path
 
-from researchboss.core.yamlio import read_yaml, write_yaml
-from researchboss.engine.doc_validation import validate_document
-from researchboss.engine.workspace import init_workspace
+from ledgerly.core.yamlio import read_yaml, write_yaml
+from ledgerly.engine.doc_validation import validate_document
+from ledgerly.engine.workspace import init_workspace
 
 
 def test_validate_document_compares_target_to_accepted_and_explicit_sources(tmp_path: Path) -> None:

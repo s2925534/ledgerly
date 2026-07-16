@@ -1,9 +1,9 @@
 from pathlib import Path
 
-from researchboss.core.yamlio import read_yaml
-from researchboss.engine.sources import scan_sources
-from researchboss.engine.watch import find_unregistered_sources, write_watch_report
-from researchboss.engine.workspace import init_workspace
+from ledgerly.core.yamlio import read_yaml
+from ledgerly.engine.sources import scan_sources
+from ledgerly.engine.watch import find_unregistered_sources, write_watch_report
+from ledgerly.engine.workspace import init_workspace
 
 
 def test_watch_detects_unregistered_source_files(tmp_path: Path) -> None:

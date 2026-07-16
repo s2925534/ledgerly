@@ -2,10 +2,10 @@ from pathlib import Path
 
 import pytest
 
-from researchboss.core.constants import WORKSPACE_DIRS
-from researchboss.core.yamlio import read_yaml, write_yaml
-from researchboss.engine.backup import create_workspace_backup, inspect_backup
-from researchboss.engine.vault import (
+from ledgerly.core.constants import WORKSPACE_DIRS
+from ledgerly.core.yamlio import read_yaml, write_yaml
+from ledgerly.engine.backup import create_workspace_backup, inspect_backup
+from ledgerly.engine.vault import (
     compare_document_versions,
     create_document_version,
     diff_document_versions,
@@ -18,7 +18,7 @@ from researchboss.engine.vault import (
     restore_document_version,
     vault_layout,
 )
-from researchboss.engine.workspace import init_workspace
+from ledgerly.engine.workspace import init_workspace
 
 
 def _workspace(tmp_path: Path) -> Path:

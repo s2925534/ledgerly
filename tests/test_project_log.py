@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from researchboss.core.yamlio import read_yaml
-from researchboss.engine.project_log import (
+from ledgerly.core.yamlio import read_yaml
+from ledgerly.engine.project_log import (
     add_context_change,
     add_decision,
     add_feedback,
@@ -12,7 +12,7 @@ from researchboss.engine.project_log import (
     list_terminology,
     timeline_report,
 )
-from researchboss.engine.workspace import init_workspace
+from ledgerly.engine.workspace import init_workspace
 
 
 def test_project_log_commands_write_local_state(tmp_path: Path) -> None:

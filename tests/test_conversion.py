@@ -3,11 +3,11 @@ import sys
 import types
 import zipfile
 
-from researchboss.core.yamlio import read_yaml, write_yaml
-import researchboss.engine.conversion as conversion
-from researchboss.engine.conversion import convert_sources, extract_text, ocr_readiness_report, processing_issue_report
-from researchboss.engine.sources import scan_sources, set_source_status
-from researchboss.engine.workspace import init_workspace
+from ledgerly.core.yamlio import read_yaml, write_yaml
+import ledgerly.engine.conversion as conversion
+from ledgerly.engine.conversion import convert_sources, extract_text, ocr_readiness_report, processing_issue_report
+from ledgerly.engine.sources import scan_sources, set_source_status
+from ledgerly.engine.workspace import init_workspace
 
 
 def make_workspace(tmp_path: Path) -> Path:
