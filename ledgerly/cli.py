@@ -513,6 +513,19 @@ def _finish(summary: RunSummary, summary_path: Path, *, next_action: Optional[st
     write_run_summary(summary_path, summary)
 
 
+def _print_ai_review_footer(report: dict, review_required_message: str) -> None:
+    """Print the right footer for an `engine.ai` report: "insufficient evidence"
+    (Core Rule item 3: a required, valid, successful output, printed plainly,
+    not as an error) is a materially different outcome from "AI generated
+    something, go review it" and must never be described with the same
+    "human review is required" phrasing — nothing was generated to review.
+    """
+    if report.get("insufficient_evidence"):
+        console.print(f"[yellow]Insufficient evidence.[/yellow] {report['insufficient_evidence_reason']}")
+    else:
+        console.print(f"[yellow]{review_required_message}[/yellow]")
+
+
 
 def _zotero_filtered_candidates(storage_root: Path, zotero_root: Optional[Path], zotero_config: dict) -> list[Path]:
     candidates = list(iter_source_files(storage_root))
@@ -1363,7 +1376,7 @@ def ai_review(
     _finish(summary, summary_path)
     if not quiet:
         console.print(f"[green]Wrote[/green] {output_path}")
-        console.print("[yellow]Human review is required before using this output.[/yellow]")
+        _print_ai_review_footer(report, "Human review is required before using this output.")
 
 
 def _run_ai_workspace_report(
@@ -1401,7 +1414,7 @@ def _run_ai_workspace_report(
     _finish(summary, summary_path)
     if not quiet:
         console.print(f"[green]Wrote[/green] {output_path}")
-        console.print("[yellow]Human review is required before using this output.[/yellow]")
+        _print_ai_review_footer(report, "Human review is required before using this output.")
 
 
 @ai_app.command("corpus-summary")
@@ -1944,7 +1957,7 @@ def assess_novelty(
     _finish(summary, summary_path)
     if not quiet:
         console.print(f"[green]Wrote[/green] {output_path}")
-        console.print("[yellow]Novelty is not proven. Human review and field-specific checks are required.[/yellow]")
+        _print_ai_review_footer(report, "Novelty is not proven. Human review and field-specific checks are required.")
 
 
 @app.command()
@@ -3246,7 +3259,7 @@ def rqs_assess(
     _finish(summary, summary_path)
     if not quiet:
         console.print(f"[green]Wrote[/green] {output_path}")
-        console.print("[yellow]Human review is required before using this output.[/yellow]")
+        _print_ai_review_footer(report, "Human review is required before using this output.")
 
 
 @artefacts_app.command("register")

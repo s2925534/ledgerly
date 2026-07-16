@@ -396,7 +396,36 @@ def build_safe_context(
             "max_excerpt_chars": max_excerpt_chars,
         },
         "query": query,
+        "has_evidence": any(entry.get("excerpt") for entry in entries),
         "sources": entries,
+    }
+
+
+def _insufficient_evidence_response(kind: str, context: dict[str, Any]) -> dict[str, Any]:
+    """The required, valid, successful response when the safe context has no
+    usable excerpt to ground an answer in (AGENTS.md Core Rule item 3:
+    "insufficient evidence" is a required output, never something to route
+    around). Never calls the AI provider — there is deterministically
+    nothing to send it that could produce a grounded answer, so skipping the
+    call is both more honest and saves the API cost.
+    """
+    return {
+        "version": 1,
+        "kind": kind,
+        "provider": "openai",
+        "model": None,
+        "ai_used": False,
+        "requires_user_review": False,
+        "insufficient_evidence": True,
+        "insufficient_evidence_reason": (
+            "No accepted source has a usable converted-text excerpt in the safe context — "
+            "nothing to ground an AI response in. Accept and convert more sources, or check "
+            "conversion status, before retrying."
+        ),
+        "safe_context_policy": context["policy"],
+        "limits": context["limits"],
+        "source_count": len(context["sources"]),
+        "response_id": None,
     }
 
 
@@ -421,6 +450,8 @@ def ai_assisted_review(
     context = build_safe_context(
         workspace, max_sources=max_sources, max_excerpt_chars=max_excerpt_chars, query=_workspace_topic_query(workspace)
     )
+    if not context["has_evidence"]:
+        return _insufficient_evidence_response("ai_assisted_review", context)
     model = default_openai_model(workspace)
     response = openai_post(
         "responses",
@@ -484,6 +515,11 @@ def ai_novelty_assessment(
     }
     query = _research_questions_query(research_questions) or _workspace_topic_query(workspace)
     context = build_safe_context(workspace, max_sources=max_sources, max_excerpt_chars=max_excerpt_chars, query=query)
+    if not context["has_evidence"]:
+        report = _insufficient_evidence_response("ai_assisted_novelty_assessment", context)
+        report["novelty_not_proven"] = True
+        report["research_question_count"] = len(research_questions["approved"]) + len(research_questions["candidates"])
+        return report
     model = default_openai_model(workspace)
     response = openai_post(
         "responses",
@@ -572,6 +608,12 @@ def ai_research_question_assessment(
     question_count = sum(len(items) for items in selected_questions.values())
     query = _research_questions_query(selected_questions) or _workspace_topic_query(workspace)
     context = build_safe_context(workspace, max_sources=max_sources, max_excerpt_chars=max_excerpt_chars, query=query)
+    if not context["has_evidence"]:
+        report = _insufficient_evidence_response("ai_research_question_assessment", context)
+        report["novelty_not_proven"] = True
+        report["research_question_count"] = question_count
+        report["rq_id"] = rq_id
+        return report
     model = default_openai_model(workspace)
     response = openai_post(
         "responses",
@@ -655,6 +697,23 @@ def _workspace_ai_payload(workspace: Path, context: dict[str, Any]) -> dict[str,
     }
 
 
+def _payload_has_evidence(payload: dict[str, Any]) -> bool:
+    """Whether `_workspace_ai_payload` has anything at all to ground a report
+    in — not just source excerpts, since some report kinds (abstract
+    screening, query generation, candidate validation) legitimately draw on
+    abstract/external candidates rather than accepted-source text.
+    """
+    if payload["safe_context"]["has_evidence"]:
+        return True
+    if payload["claims"] or payload["artefacts"]:
+        return True
+    if payload["abstract_candidates"].get("candidates"):
+        return True
+    if payload["external_candidates"].get("candidates"):
+        return True
+    return False
+
+
 def _workspace_report_prompt(kind: str, payload: dict[str, Any]) -> str:
     spec = AI_WORKSPACE_REPORTS[kind]
     return (
@@ -682,6 +741,10 @@ def ai_workspace_report(
         workspace, max_sources=max_sources, max_excerpt_chars=max_excerpt_chars, query=_workspace_topic_query(workspace)
     )
     payload = _workspace_ai_payload(workspace, context)
+    if not _payload_has_evidence(payload):
+        report = _insufficient_evidence_response(kind, context)
+        report["status_changes_applied"] = False
+        return report
     model = default_openai_model(workspace)
     response = openai_post(
         "responses",

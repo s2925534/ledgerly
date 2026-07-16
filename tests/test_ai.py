@@ -295,6 +295,26 @@ def test_ai_assisted_review_uses_safe_context_and_requires_human_review(tmp_path
     assert "sk-secret" not in str(report)
 
 
+def test_ai_assisted_review_returns_insufficient_evidence_without_calling_ai(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    # No sources scanned/accepted/converted at all — nothing to ground a review in.
+
+    def opener(request: Request):
+        raise AssertionError("AI provider must not be called when there is no evidence to ground a response in")
+
+    report = ai_assisted_review(
+        workspace,
+        OpenAiCredentials(api_key="sk-secret"),
+        opener=opener,
+    )
+
+    assert report["insufficient_evidence"] is True
+    assert report["ai_used"] is False
+    assert report["response_id"] is None
+    assert "review" not in report
+
+
 def test_ai_novelty_assessment_writes_ledger_without_claiming_proof(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     source_root = tmp_path / "sources"
@@ -336,6 +356,27 @@ def test_ai_novelty_assessment_writes_ledger_without_claiming_proof(tmp_path: Pa
     assert ledger["assessments"][0]["id"] == "novelty-001"
     assert ledger["assessments"][0]["novelty_not_proven"] is True
     assert "sk-secret" not in str(report)
+
+
+def test_ai_novelty_assessment_returns_insufficient_evidence_without_calling_ai_or_ledger(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+
+    def opener(request: Request):
+        raise AssertionError("AI provider must not be called when there is no evidence to ground a response in")
+
+    report = ai_novelty_assessment(
+        workspace,
+        OpenAiCredentials(api_key="sk-secret"),
+        opener=opener,
+    )
+
+    assert report["insufficient_evidence"] is True
+    assert report["ai_used"] is False
+    assert report["novelty_not_proven"] is True
+    assert not (workspace / "novelty-ledger.yaml").exists() or not read_yaml(workspace / "novelty-ledger.yaml").get(
+        "assessments"
+    )
 
 
 def test_ai_research_question_assessment_can_target_one_question(tmp_path: Path) -> None:
@@ -391,6 +432,31 @@ def test_ai_research_question_assessment_rejects_unknown_question(tmp_path: Path
         ai_research_question_assessment(workspace, OpenAiCredentials(api_key="sk-secret"), rq_id="rq-missing")
 
 
+def test_ai_research_question_assessment_returns_insufficient_evidence_without_calling_ai(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(
+        workspace,
+        project_name="Test",
+        project_type="M.Phil",
+        topic="Topic",
+        research_questions=[{"question": "Does this have any evidence?", "status": "approved"}],
+    )
+    # No sources at all — the research question exists but nothing grounds an answer about it.
+
+    def opener(request: Request):
+        raise AssertionError("AI provider must not be called when there is no evidence to ground a response in")
+
+    report = ai_research_question_assessment(
+        workspace,
+        OpenAiCredentials(api_key="sk-secret"),
+        opener=opener,
+    )
+
+    assert report["insufficient_evidence"] is True
+    assert report["ai_used"] is False
+    assert report["research_question_count"] == 1
+
+
 def test_ai_workspace_report_uses_safe_context_and_does_not_change_statuses(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     source_root = tmp_path / "sources"
@@ -432,6 +498,27 @@ def test_ai_workspace_report_rejects_unknown_kind(tmp_path: Path) -> None:
 
     with pytest.raises(OpenAiError, match="Invalid AI workspace report kind"):
         ai_workspace_report(workspace, OpenAiCredentials(api_key="sk-secret"), kind="unknown")
+
+
+def test_ai_workspace_report_returns_insufficient_evidence_without_calling_ai(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    # No sources, claims, artefacts, or candidates of any kind anywhere in the workspace.
+
+    def opener(request: Request):
+        raise AssertionError("AI provider must not be called when there is no evidence to ground a response in")
+
+    report = ai_workspace_report(
+        workspace,
+        OpenAiCredentials(api_key="sk-secret"),
+        kind="corpus_summary",
+        opener=opener,
+    )
+
+    assert report["insufficient_evidence"] is True
+    assert report["ai_used"] is False
+    assert report["kind"] == "corpus_summary"
+    assert report["status_changes_applied"] is False
 
 
 def test_ai_abstract_screening_uses_candidate_register_without_status_changes(tmp_path: Path) -> None:
