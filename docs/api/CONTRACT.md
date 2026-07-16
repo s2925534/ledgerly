@@ -767,6 +767,50 @@ Engine source:
 
 - `ledgerly.engine.database.database_privacy_report`
 
+## Notes Routes
+
+Personal notes, meeting notes, and transcripts — the user's own working material, distinct from per-source notes (`POST /api/v1/sources/{source_id}/note`) and supervisor/stakeholder feedback (`POST /api/v1/feedback`). Stored as plain workspace YAML (`personal-notes.yaml`) like everything else; never sent anywhere until a future AI feature explicitly opts this note type in (see AGENTS.md's "Core Rule: No Hallucinations" and `TODO.md` Phase 25 — the AI-assisted review half of that phase is not implemented). Added 2026-07-16.
+
+### `GET /api/v1/notes` (implemented)
+
+Lists notes, optionally filtered by `kind` (`note`/`meeting`/`transcript`) and/or `tag`.
+
+Engine source:
+
+- `ledgerly.engine.notes.list_notes`
+
+### `POST /api/v1/notes` (implemented)
+
+Adds a note. Body: `{"text": string, "kind": "note"|"meeting"|"transcript" = "note", "tags": string[] = [], "source_label": string = ""}`.
+
+Engine source:
+
+- `ledgerly.engine.notes.add_note`
+
+### `POST /api/v1/notes/{note_id}/tags` (implemented)
+
+Adds a tag to an existing note.
+
+Engine source:
+
+- `ledgerly.engine.notes.add_note_tag`
+
+### `GET /api/v1/notes/search` (implemented)
+
+Deterministic keyword search across note text, tags, and source label — plain substring matching, no AI.
+
+Engine source:
+
+- `ledgerly.engine.notes.search_notes`
+
+### `POST /api/v1/notes/import-transcript` (implemented)
+
+Deterministically imports a transcript export (plain text, VTT, or SRT) from a server-local file path into the note store — strips WebVTT/SRT cue numbers and timestamp lines only, no AI processing at import time.
+
+Engine source:
+
+- `ledgerly.engine.notes.import_transcript`
+
 ## Report And Export Routes
 
 ### `GET /api/v1/reports/workspace` (implemented)

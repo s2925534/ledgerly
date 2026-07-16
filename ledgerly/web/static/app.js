@@ -72,6 +72,7 @@ async function loadWorkspace(workspace) {
   refreshGuidelines();
   refreshProjectLog();
   refreshDataSources();
+  refreshNotes();
 }
 
 async function loadUploadLimits() {
@@ -2027,6 +2028,114 @@ function setWorkspaceInUrl(workspace) {
   window.history.replaceState({}, "", url.toString());
 }
 
+// --- personal notes, meeting notes, transcripts ---
+
+function renderNotes(notes) {
+  const tbody = document.getElementById("notes-tbody");
+  const emptyEl = document.getElementById("notes-empty");
+  tbody.innerHTML = "";
+  emptyEl.hidden = notes.length > 0;
+  for (const note of notes) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td class="muted small">${escapeHtml(note.kind || "")}</td>
+      <td>${escapeHtml(note.text || "")}</td>
+      <td class="muted small">${escapeHtml((note.tags || []).join(", "))}</td>
+      <td class="muted small">${escapeHtml(note.source_label || "")}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+}
+
+async function refreshNotes() {
+  const tbody = document.getElementById("notes-tbody");
+  const emptyEl = document.getElementById("notes-empty");
+  try {
+    const notes = await api("GET", "/api/v1/notes");
+    renderNotes(notes);
+  } catch (err) {
+    tbody.innerHTML = "";
+    emptyEl.hidden = false;
+    emptyEl.textContent = err.message;
+  }
+}
+
+async function addNote() {
+  const messageEl = document.getElementById("note-add-message");
+  const textInput = document.getElementById("note-add-text-input");
+  const kindSelect = document.getElementById("note-add-kind-select");
+  const tagsInput = document.getElementById("note-add-tags-input");
+  const text = textInput.value.trim();
+  messageEl.hidden = false;
+  messageEl.className = "small";
+  if (!text) {
+    messageEl.textContent = "Note text is required.";
+    messageEl.classList.add("error");
+    return;
+  }
+  const tags = tagsInput.value.trim() ? tagsInput.value.split(",").map((t) => t.trim()).filter(Boolean) : [];
+  try {
+    await api("POST", "/api/v1/notes", { json: { text, kind: kindSelect.value, tags } });
+    textInput.value = "";
+    tagsInput.value = "";
+    messageEl.textContent = "Added.";
+    await refreshNotes();
+  } catch (err) {
+    messageEl.textContent = err.message;
+    messageEl.classList.add("error");
+  }
+}
+
+async function importNoteTranscript() {
+  const messageEl = document.getElementById("note-import-message");
+  const pathInput = document.getElementById("note-import-path-input");
+  const path = pathInput.value.trim();
+  messageEl.hidden = false;
+  messageEl.className = "small";
+  if (!path) {
+    messageEl.textContent = "Provide a file path.";
+    messageEl.classList.add("error");
+    return;
+  }
+  messageEl.textContent = "Importing...";
+  try {
+    await api("POST", "/api/v1/notes/import-transcript", { json: { path } });
+    pathInput.value = "";
+    messageEl.textContent = "Imported.";
+    await refreshNotes();
+  } catch (err) {
+    messageEl.textContent = err.message;
+    messageEl.classList.add("error");
+  }
+}
+
+async function searchNotesPanel() {
+  const query = document.getElementById("note-search-input").value.trim();
+  if (!query) {
+    await refreshNotes();
+    return;
+  }
+  try {
+    const notes = await api("GET", "/api/v1/notes/search", { params: { query } });
+    renderNotes(notes);
+  } catch (err) {
+    showWorkspaceError(err.message);
+  }
+}
+
+function setupNotesPanel() {
+  document.getElementById("note-add-btn").addEventListener("click", addNote);
+  document.getElementById("note-import-btn").addEventListener("click", importNoteTranscript);
+  document.getElementById("note-search-btn").addEventListener("click", searchNotesPanel);
+  document.getElementById("note-search-clear-btn").addEventListener("click", () => {
+    document.getElementById("note-search-input").value = "";
+    refreshNotes();
+  });
+  document.getElementById("note-search-input").addEventListener("keydown", (event) => {
+    if (event.key === "Enter") searchNotesPanel();
+  });
+}
+
 // --- create workspace (not gated behind an already-loaded workspace) ---
 
 async function createWorkspace() {
@@ -2089,6 +2198,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setupZoteroPanel();
   setupSourcesPanel();
   setupCreateWorkspacePanel();
+  setupNotesPanel();
   setupRqAndArtefactPanels();
   setupClaimsPanel();
   setupCitationPanel();

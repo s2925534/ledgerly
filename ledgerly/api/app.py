@@ -21,6 +21,7 @@ from ledgerly.api.routers import (
     guidelines,
     health,
     metadata,
+    notes,
     project_log,
     projects,
     reports,
@@ -85,6 +86,7 @@ def create_app() -> FastAPI:
     app.include_router(citations.router, prefix="/api/v1/citations", tags=["citations"], dependencies=protected)
     app.include_router(guidelines.router, prefix="/api/v1/guidelines", tags=["guidelines"], dependencies=protected)
     app.include_router(db.router, prefix="/api/v1/db", tags=["db"], dependencies=protected)
+    app.include_router(notes.router, prefix="/api/v1/notes", tags=["notes"], dependencies=protected)
     mount_web(app)
     return app
 

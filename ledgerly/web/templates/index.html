@@ -461,6 +461,55 @@
   </section>
 
   <section class="panel">
+    <h2>Personal notes, meeting notes &amp; transcripts</h2>
+    <p class="muted small">Your own working material — distinct from per-source notes and supervisor feedback. Stored locally like everything else; never sent anywhere unless AI is explicitly enabled and this note type is included in that request (not available yet — see TODO Phase 25).</p>
+
+    <details id="note-add-details" class="detail-box">
+      <summary class="link">Add a note</summary>
+      <div class="source-scan-form">
+        <label class="field-label" for="note-add-text-input">Text</label>
+        <textarea id="note-add-text-input" rows="3"></textarea>
+        <label class="field-label" for="note-add-kind-select">Kind</label>
+        <select id="note-add-kind-select">
+          <option value="note">Note</option>
+          <option value="meeting">Meeting note</option>
+          <option value="transcript">Transcript</option>
+        </select>
+        <label class="field-label" for="note-add-tags-input">Tags (comma-separated, optional)</label>
+        <input id="note-add-tags-input" type="text">
+        <div class="zotero-link-actions">
+          <button id="note-add-btn" type="button">Add</button>
+        </div>
+        <p id="note-add-message" class="small" hidden></p>
+      </div>
+    </details>
+
+    <details id="note-import-details" class="detail-box">
+      <summary class="link">Import a transcript file (plain text, .vtt, or .srt)</summary>
+      <div class="source-scan-form">
+        <label class="field-label" for="note-import-path-input">File path (server-local)</label>
+        <input id="note-import-path-input" type="text" placeholder="/path/to/transcript.vtt">
+        <div class="zotero-link-actions">
+          <button id="note-import-btn" type="button">Import</button>
+        </div>
+        <p id="note-import-message" class="small" hidden></p>
+      </div>
+    </details>
+
+    <div class="zotero-search-row">
+      <input id="note-search-input" type="text" placeholder="Search notes by keyword">
+      <button id="note-search-btn" type="button" class="secondary">Search</button>
+      <button id="note-search-clear-btn" type="button" class="secondary">Clear</button>
+    </div>
+
+    <table class="data-table">
+      <thead><tr><th>Kind</th><th>Text</th><th>Tags</th><th>Source</th></tr></thead>
+      <tbody id="notes-tbody"></tbody>
+    </table>
+    <p id="notes-empty" class="muted small" hidden>No notes recorded yet.</p>
+  </section>
+
+  <section class="panel">
     <h2>Export &amp; reporting</h2>
 
     <div class="zotero-link-actions">

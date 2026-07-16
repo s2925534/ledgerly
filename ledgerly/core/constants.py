@@ -32,6 +32,7 @@ class WorkspaceFiles:
     gitignore: str = ".gitignore"
 
     document_vault_ledger: str = "document-vault.yaml"
+    personal_notes_ledger: str = "personal-notes.yaml"
 
 
 WORKSPACE_FILES = WorkspaceFiles()

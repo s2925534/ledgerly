@@ -102,6 +102,7 @@ from ledgerly.engine.metadata_quality import (
 )
 from ledgerly.engine.migrations import migrate_workspace
 from ledgerly.engine.pdf_merge import pdf_merge_report
+from ledgerly.engine.notes import add_note, add_note_tag, import_transcript, list_notes, search_notes
 from ledgerly.engine.project_log import (
     add_context_change,
     add_decision,
@@ -207,6 +208,7 @@ cite_app = typer.Typer(help="Citation planning commands.")
 abstracts_app = typer.Typer(help="Local abstract import and screening commands.")
 db_app = typer.Typer(help="Workspace SQLite index and memory commands.")
 doc_app = typer.Typer(help="Document vault version, diff, and restore commands.")
+notes_app = typer.Typer(help="Personal notes, meeting notes, and transcript commands.")
 
 app.add_typer(sources_app, name="sources")
 app.add_typer(config_app, name="config")
@@ -220,6 +222,7 @@ app.add_typer(decisions_app, name="decisions")
 app.add_typer(terminology_app, name="terminology")
 app.add_typer(feedback_app, name="feedback")
 app.add_typer(context_app, name="context")
+app.add_typer(notes_app, name="notes")
 app.add_typer(ai_app, name="ai")
 app.add_typer(search_app, name="search")
 app.add_typer(guidelines_app, name="guidelines")
@@ -3474,6 +3477,146 @@ def context_list(
     for row in rows:
         table.add_row(row.get("id", ""), row.get("text", ""))
     console.print(table)
+
+
+@notes_app.command("add")
+def notes_add(
+    text: str = typer.Argument(..., help="Note text."),
+    kind: str = typer.Option("note", "--kind", help="note|meeting|transcript"),
+    tag: list[str] = typer.Option([], "--tag", help="Add one or more tags (repeatable)."),
+    source_label: str = typer.Option("", "--source-label", help="Optional label, e.g. a meeting name or date."),
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Add a personal note, meeting note, or transcript to the workspace's own note store."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["notes", "add"], ws, log_level)
+    try:
+        note = add_note(ws, text, kind=kind, tags=list(tag), source_label=source_label)
+    except ValueError as e:
+        logger.error("Failed to add note", operation="notes_add", error=str(e))
+        summary.errors += 1
+        _finish(summary, summary_path)
+        if not quiet:
+            console.print(f"[red]{e}[/red]")
+        raise typer.Exit(code=2)
+    logger.info("Added note", operation="notes_add", note_id=note["id"], kind=note["kind"])
+    _finish(summary, summary_path)
+    if not quiet:
+        console.print(f"[green]Added[/green] {note['id']}")
+
+
+@notes_app.command("list")
+def notes_list(
+    kind: Optional[str] = typer.Option(None, "--kind", help="Filter by note|meeting|transcript."),
+    tag: Optional[str] = typer.Option(None, "--tag", help="Filter by tag."),
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """List personal notes, meeting notes, and transcripts."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["notes", "list"], ws, log_level)
+    rows = list_notes(ws, kind=kind, tag=tag)
+    logger.info("Listed notes", operation="notes_list", count=len(rows))
+    _finish(summary, summary_path)
+    if quiet:
+        return
+    table = Table(title="Notes")
+    table.add_column("id")
+    table.add_column("kind")
+    table.add_column("text")
+    table.add_column("tags")
+    table.add_column("source_label")
+    for row in rows:
+        table.add_row(
+            row.get("id", ""),
+            row.get("kind", ""),
+            row.get("text", ""),
+            ", ".join(row.get("tags") or []),
+            row.get("source_label", ""),
+        )
+    console.print(table)
+
+
+@notes_app.command("search")
+def notes_search(
+    query: str = typer.Argument(..., help="Keyword(s) to search for across note text, tags, and source label."),
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Search notes by keyword — deterministic substring matching, no AI."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["notes", "search"], ws, log_level)
+    rows = search_notes(ws, query)
+    logger.info("Searched notes", operation="notes_search", query=query, hits=len(rows))
+    _finish(summary, summary_path)
+    if quiet:
+        return
+    table = Table(title=f"Notes matching '{query}'")
+    table.add_column("id")
+    table.add_column("kind")
+    table.add_column("text")
+    for row in rows:
+        table.add_row(row.get("id", ""), row.get("kind", ""), row.get("text", ""))
+    console.print(table)
+    if not rows:
+        console.print("[yellow]No matches found.[/yellow]")
+
+
+@notes_app.command("tag")
+def notes_tag(
+    note_id: str = typer.Argument(..., help="Note ID, e.g. note-001."),
+    tag: str = typer.Argument(..., help="Tag to add."),
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Add a tag to an existing note."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["notes", "tag"], ws, log_level)
+    try:
+        note = add_note_tag(ws, note_id, tag)
+    except ValueError as e:
+        logger.error("Failed to tag note", operation="notes_tag", error=str(e))
+        summary.errors += 1
+        _finish(summary, summary_path)
+        if not quiet:
+            console.print(f"[red]{e}[/red]")
+        raise typer.Exit(code=2)
+    logger.info("Tagged note", operation="notes_tag", note_id=note_id, tag=tag)
+    _finish(summary, summary_path)
+    if not quiet:
+        console.print(f"[green]Tagged[/green] {note_id} with '{tag}' (tags now: {', '.join(note['tags'])})")
+
+
+@notes_app.command("import-transcript")
+def notes_import_transcript(
+    path: Path = typer.Argument(..., help="Transcript file to import (plain text, .vtt, or .srt)."),
+    kind: str = typer.Option("transcript", "--kind", help="note|meeting|transcript"),
+    source_label: str = typer.Option("", "--source-label", help="Optional label; defaults to the file name."),
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Deterministically import a transcript export (plain text, VTT, or SRT) into the note store, no AI processing."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["notes", "import_transcript"], ws, log_level)
+    try:
+        note = import_transcript(ws, path, kind=kind, source_label=source_label)
+    except ValueError as e:
+        logger.error("Failed to import transcript", operation="notes_import_transcript", error=str(e))
+        summary.errors += 1
+        _finish(summary, summary_path)
+        if not quiet:
+            console.print(f"[red]{e}[/red]")
+        raise typer.Exit(code=2)
+    logger.info("Imported transcript", operation="notes_import_transcript", note_id=note["id"], path=str(path))
+    _finish(summary, summary_path)
+    if not quiet:
+        console.print(f"[green]Imported[/green] {note['id']} from {path}")
 
 
 @zotero_app.command("collections")

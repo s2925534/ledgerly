@@ -357,6 +357,7 @@ def init_workspace(
     write_yaml(workspace / WORKSPACE_FILES.supervisor_feedback, {"version": 1, "items": []})
     write_yaml(workspace / WORKSPACE_FILES.artefact_registry, {"version": 1, "artefacts": []})
     write_yaml(workspace / WORKSPACE_FILES.document_vault_ledger, {"version": 1, "versions": [], "uploads": []})
+    write_yaml(workspace / WORKSPACE_FILES.personal_notes_ledger, {"version": 1, "notes": []})
 
     (workspace / WORKSPACE_FILES.decisions_md).write_text("# Decisions\n", encoding="utf-8")
     (workspace / WORKSPACE_FILES.memory_md).write_text("# Memory\n", encoding="utf-8")

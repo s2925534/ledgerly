@@ -703,6 +703,66 @@ def test_export_corpus_via_api(client: TestClient, tmp_path: Path) -> None:
     assert data["skipped_count"] == 0
 
 
+def test_notes_add_list_tag_and_search_via_api(client: TestClient, tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+
+    add_response = client.post(
+        "/api/v1/notes",
+        params={"workspace": str(workspace)},
+        json={"text": "Discussed scope with supervisor", "kind": "meeting", "tags": ["scope"]},
+    )
+    assert add_response.status_code == 200
+    note_id = add_response.json()["data"]["id"]
+
+    list_response = client.get("/api/v1/notes", params={"workspace": str(workspace)})
+    assert list_response.status_code == 200
+    assert len(list_response.json()["data"]) == 1
+
+    tag_response = client.post(
+        f"/api/v1/notes/{note_id}/tags", params={"workspace": str(workspace)}, json={"tag": "important"}
+    )
+    assert tag_response.status_code == 200
+    assert "important" in tag_response.json()["data"]["tags"]
+
+    search_response = client.get("/api/v1/notes/search", params={"workspace": str(workspace), "query": "supervisor"})
+    assert search_response.status_code == 200
+    assert len(search_response.json()["data"]) == 1
+
+    filtered_response = client.get("/api/v1/notes", params={"workspace": str(workspace), "kind": "meeting"})
+    assert filtered_response.status_code == 200
+    assert len(filtered_response.json()["data"]) == 1
+
+
+def test_notes_import_transcript_via_api(client: TestClient, tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    vtt_path = tmp_path / "meeting.vtt"
+    vtt_path.write_text("WEBVTT\n\n1\n00:00:00.000 --> 00:00:01.000\nHello.\n", encoding="utf-8")
+
+    response = client.post(
+        "/api/v1/notes/import-transcript", params={"workspace": str(workspace)}, json={"path": str(vtt_path)}
+    )
+
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["kind"] == "transcript"
+    assert data["text"] == "Hello."
+
+
+def test_notes_import_transcript_missing_file_returns_404(client: TestClient, tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+
+    response = client.post(
+        "/api/v1/notes/import-transcript",
+        params={"workspace": str(workspace)},
+        json={"path": str(tmp_path / "missing.vtt")},
+    )
+
+    assert response.status_code == 404
+
+
 def test_export_merge_pdfs_via_api(client: TestClient, tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
