@@ -1,0 +1,17 @@
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# OS and editor
+.DS_Store
+.idea/
+
+# Node (apps/site has its own more specific .gitignore too)
+node_modules/
+dist/
+build/
+coverage/
