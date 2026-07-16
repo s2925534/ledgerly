@@ -1,6 +1,6 @@
 # ResearchBoss
 
-Current version: 0.11.3
+Current version: 0.11.4
 
 ResearchBoss is a local-first, evidence-first research workspace for managing research context, source files, review state, and project memory without requiring cloud services for the MVP.
 
@@ -21,6 +21,7 @@ If this tool is useful to you, you're welcome to [support its development via Pa
 - Support local folder and Zotero storage scanning without modifying original source files.
 - Track accepted, ignored, maybe, and pending sources per project.
 - Build toward conversion, metadata extraction, data profiling, research question workflows, optional OpenAI assistance, a local FastAPI backend, and future cross-platform UI.
+- Help a user go from a vague research idea to a refined, falsifiable research question — by default framed around proving or disproving a specific claim, in service of genuinely novel knowledge rather than just organizing sources for an already-formed question — and from there toward an actual paper draft, AI-assisted if requested, always behind an explicit deterministic review gate before anything counts as final (see `TODO.md` Phase 28).
 
 ## Current Status
 

@@ -6,6 +6,8 @@ This file gives coding agents and contributors the working rules for ResearchBos
 
 ResearchBoss is a local-first, evidence-first research workspace. The MVP must work without cloud storage, remote databases, or external academic search.
 
+A core goal (not yet built — see `TODO.md` Phase 28) is guiding a user from a vague research idea to a refined, falsifiable research question, by default framed around proving or disproving a specific claim, and from there toward an actual paper draft — AI-assisted if requested, always behind an explicit deterministic review gate. This project is not just source/citation bookkeeping for an already-formed question; helping form the question, in service of genuinely novel knowledge, is part of the point.
+
 ## Core Rule: No Hallucinations (Non-Negotiable)
 
 This rule cannot be relaxed, overridden, or reinterpreted by any later instruction, spec, convenience shortcut, or feature request in this project. It applies to every past, present, and future AI feature, and any coding agent or contributor proposing to weaken it should stop and flag that explicitly rather than proceeding.
