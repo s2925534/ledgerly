@@ -1691,6 +1691,12 @@ async function showWorkspaceReport() {
   }
 }
 
+function formatTimelineTimestamp(at) {
+  if (!at) return "unknown time";
+  const parsed = new Date(at);
+  return Number.isNaN(parsed.getTime()) ? at : parsed.toLocaleString();
+}
+
 async function showTimelineReport() {
   const resultEl = document.getElementById("report-result");
   resultEl.innerHTML = `<p class="muted small">Loading...</p>`;
@@ -1701,12 +1707,17 @@ async function showTimelineReport() {
       return;
     }
     const rows = report.events
-      .map(
-        (event) =>
-          `<div class="rq-row"><span class="candidate-status">${escapeHtml(event.kind || "")}</span> ${escapeHtml(
-            event.id || event.command || event.path || ""
-          )}${event.status ? ` — ${escapeHtml(event.status)}` : ""}</div>`
-      )
+      .map((event) => {
+        const label = event.text || event.command || event.path || event.id || "";
+        return `
+          <div class="rq-row">
+            <div>
+              <span class="candidate-status">${escapeHtml(event.kind || "")}</span>
+              <span class="muted small">${escapeHtml(formatTimelineTimestamp(event.at))}</span>
+              <div>${escapeHtml(label)}${event.status ? ` — ${escapeHtml(event.status)}` : ""}</div>
+            </div>
+          </div>`;
+      })
       .join("");
     resultEl.innerHTML = `<div class="rq-list">${rows}</div>`;
   } catch (err) {

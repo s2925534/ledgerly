@@ -34,6 +34,12 @@ def test_project_log_commands_write_local_state(tmp_path: Path) -> None:
     assert timeline["event_count"] >= 2
     assert (workspace / "outputs" / "reports" / "timeline.yaml").is_file()
 
+    kinds = {event["kind"] for event in timeline["events"]}
+    assert {"decision", "terminology", "feedback", "context_change"} <= kinds
+    at_values = [event["at"] for event in timeline["events"] if event["kind"] != "run_summary"]
+    assert all(at_values)
+    assert at_values == sorted(at_values)
+
 
 def test_project_log_list_functions_read_back_structured_records(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
@@ -47,20 +53,27 @@ def test_project_log_list_functions_read_back_structured_records(tmp_path: Path)
     add_context_change(workspace, "Second change\nwith a second line")
 
     decisions = list_decisions(workspace)
-    assert decisions == [
+    assert [{k: v for k, v in d.items() if k != "created_at"} for d in decisions] == [
         {"id": "decision-001", "decision": "Use accepted sources only", "reason": "Evidence boundary"},
         {"id": "decision-002", "decision": "Prefer deterministic reports", "reason": "Avoid AI dependency"},
     ]
+    assert all(d["created_at"] for d in decisions)
 
     terms = list_terminology(workspace)
-    assert terms == [{"term": "construct", "definition": "A concept being studied"}]
+    assert [{k: v for k, v in t.items() if k != "created_at"} for t in terms] == [
+        {"term": "construct", "definition": "A concept being studied"}
+    ]
+    assert terms[0]["created_at"]
 
     feedback_items = list_feedback(workspace)
     assert feedback_items[0]["id"] == "feedback-001"
     assert feedback_items[0]["text"] == "Narrow the scope"
+    assert feedback_items[0]["created_at"]
 
     changes = list_context_changes(workspace)
-    assert changes[0] == {"id": "change-001", "text": "Added deterministic logs"}
+    assert changes[0]["id"] == "change-001"
+    assert changes[0]["text"] == "Added deterministic logs"
+    assert changes[0]["created_at"]
     assert changes[1]["id"] == "change-002"
     assert "Second change" in changes[1]["text"]
     assert "with a second line" in changes[1]["text"]

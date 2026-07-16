@@ -839,7 +839,7 @@ Engine source:
 
 ### `GET /api/v1/reports/timeline` (implemented)
 
-Generates a local timeline report.
+Generates a local, chronologically sorted timeline report merging run summaries, decisions, terminology changes, feedback, and context-changelog entries — each event carries an `at` timestamp. Events from before per-record timestamps existed (older workspaces) have no confirmed time (`at: null`) and sort last rather than being guessed at.
 
 Engine source:
 
