@@ -293,23 +293,23 @@ Genericized 2026-07-16: this phase and `docs/DEPLOY.md` used to hardcode one spe
 
 ## Phase 13: Web UI Shell — Navigation and Workspace Dashboard
 
-Phase 10 shipped a single upload-focused page. Everything below this point is a brainstormed inventory of the rest of the CLI's functionality that has no web UI yet, organized into phases by feature area — not strictly ordered, and not all equally valuable; Phase 13 is genuinely foundational (real navigation has to exist before more views make sense to add), the rest can be tackled in whatever order matches actual need. Each item names the API route it would use if one already exists, or says explicitly that a new route is needed first. None of this is started.
+Phase 10 shipped a single upload-focused page. Everything below this point is a brainstormed inventory of the rest of the CLI's functionality that has no web UI yet, organized into phases by feature area — not strictly ordered, and not all equally valuable. Each item names the API route it would use if one already exists, or says explicitly that a new route is needed first. Revised 2026-07-16: this phase originally assumed a persistent nav shell had to be built before more views made sense — in practice, adding Zotero (Phase 19), the dashboard, and Sources (Phase 14) as flat stacked panels on the single page worked fine and shipped real value sooner. The nav-shell item below remains open for whenever the page gets crowded enough to need it, but it's no longer treated as a hard blocker for the rest of this phase or later ones.
 
-- [ ] **API** - Add a persistent navigation shell (sidebar or tabs) to `researchboss/web/` replacing the current single-view layout, so each feature area below can be its own page/section without every future phase re-inventing navigation.
+- [ ] **API** - Add a persistent navigation shell (sidebar or tabs) to `researchboss/web/` replacing the current single-view layout, so each feature area can be its own page/section instead of an ever-longer stack of panels on one page.
 - [ ] **API** - Add a "Create workspace" view calling `POST /api/v1/projects/init`, so a new workspace can be created from the browser instead of only via `researchboss init`'s interactive CLI wizard.
-- [ ] **API** - Add a workspace dashboard view showing `GET /api/v1/projects/status` and `GET /api/v1/projects/health` output (source counts, health check results) as the landing page after loading a workspace.
+- [x] **Done** - **API** - Add a workspace dashboard view showing `GET /api/v1/projects/status` and `GET /api/v1/projects/health` output (source counts as stat tiles, health status pill with a missing-files/failed-conversions/unsupported-files detail line when not "ok") as the first panel on the page after loading a workspace.
 - [ ] **API** - Add a workspace report view rendering `GET /api/v1/reports/workspace` and `GET /api/v1/reports/timeline` output.
-- [ ] **Deterministic** - Persist the last-used workspace path in browser `localStorage` (not server-side session state — every API route already takes an explicit `workspace` param, and that shouldn't change) so returning to `/` doesn't require re-typing the path every time.
+- [x] **Done** - **Deterministic** - Persist the last-used workspace path in browser `localStorage` (not server-side session state — every API route already takes an explicit `workspace` param, and that shouldn't change) so returning to `/` doesn't require re-typing the path every time. The `?workspace=` URL param still wins when present (bookmarks/shared links keep working), localStorage is only the fallback.
 
 ## Phase 14: Web UI — Source Management
 
 The source inbox/review workflow (`sources accept/maybe/ignore/note/tag`) is one of the most-used CLI command groups and currently has zero web UI coverage.
 
-- [ ] **API** - Add a source inbox list view (`GET /api/v1/sources`), filterable by `pending_review`/`accepted`/`maybe`/`ignored`.
-- [ ] **API** - Add accept/maybe/ignore review actions per source (`POST /api/v1/sources/{source_id}/status`).
-- [ ] **API** - Add note and tag editing per source (`POST /api/v1/sources/{source_id}/note`, `POST /api/v1/sources/{source_id}/tags`).
-- [ ] **API** - Add a "Scan" action triggering `POST /api/v1/sources/scan` against a configured local folder or Zotero storage path, with the resulting scan summary shown inline.
-- [ ] **API** - Add a source review report view (`GET /api/v1/sources/report`).
+- [x] **Done** - **API** - Add a source inbox list view (`GET /api/v1/sources`), filterable by `pending_review`/`accepted`/`maybe`/`ignored`/all, as filter-tab buttons above the table.
+- [x] **Done** - **API** - Add accept/maybe/ignore review actions per source (`POST /api/v1/sources/{source_id}/status`), as per-row buttons (the button matching the source's current status is disabled rather than hidden, so the full set of options is always visible).
+- [x] **Done** - **API** - Add note and tag editing per source (`POST /api/v1/sources/{source_id}/note`, `POST /api/v1/sources/{source_id}/tags`), via a per-row "Edit" button opening a modal.
+- [x] **Done** - **API** - Add a "Scan" action triggering `POST /api/v1/sources/scan` against a configured local folder path, with the resulting scan summary (processed/added/duplicate/skipped) shown inline. Zotero storage path scanning isn't wired into this form yet — the Zotero panel (Phase 19) handles Zotero-specific browsing separately.
+- [ ] **API** - Add a source review report view (`GET /api/v1/sources/report`) — the list/filter/action view above covers day-to-day review; this aggregate report view is a smaller remaining follow-up.
 
 ## Phase 15: Web UI — Artefact Registry and Research Questions
 

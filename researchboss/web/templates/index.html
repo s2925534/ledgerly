@@ -20,6 +20,48 @@
 
 <main id="app-main" hidden>
   <section class="panel">
+    <h2>Workspace dashboard</h2>
+    <div id="dashboard-stats" class="stat-tiles"></div>
+    <p>
+      <strong>Health:</strong>
+      <span id="dashboard-health-status" class="candidate-status">checking&hellip;</span>
+    </p>
+    <p id="dashboard-health-detail" class="muted small" hidden></p>
+  </section>
+
+  <section class="panel">
+    <h2>Sources</h2>
+
+    <details id="source-scan-details">
+      <summary class="link">Scan a folder for new sources</summary>
+      <div class="source-scan-form">
+        <label class="field-label" for="source-scan-root-input">Folder path</label>
+        <input id="source-scan-root-input" type="text" placeholder="/path/to/source/folder">
+        <div class="zotero-link-actions">
+          <button id="source-scan-btn" type="button">Scan</button>
+        </div>
+        <p id="source-scan-message" class="small" hidden></p>
+      </div>
+    </details>
+
+    <div class="filter-tabs" id="source-filter-tabs">
+      <button type="button" class="filter-tab active" data-status="">All</button>
+      <button type="button" class="filter-tab" data-status="pending_review">Pending review</button>
+      <button type="button" class="filter-tab" data-status="accepted">Accepted</button>
+      <button type="button" class="filter-tab" data-status="maybe">Maybe</button>
+      <button type="button" class="filter-tab" data-status="ignored">Ignored</button>
+    </div>
+
+    <table id="sources-table" class="data-table">
+      <thead>
+        <tr><th>File</th><th>Provider</th><th>Status</th><th>Tags</th><th>Notes</th><th></th></tr>
+      </thead>
+      <tbody id="sources-tbody"></tbody>
+    </table>
+    <p id="sources-empty" class="muted small" hidden>No sources match this filter yet.</p>
+  </section>
+
+  <section class="panel">
     <h2>Upload artefacts</h2>
     <p id="upload-limits" class="muted small"></p>
     <div id="dropzone" class="dropzone" tabindex="0">
@@ -110,6 +152,29 @@
     <div id="crossref-body" class="modal-body"></div>
     <div class="modal-footer">
       <button id="crossref-apply-btn" type="button">Apply accepted links</button>
+    </div>
+  </div>
+</div>
+
+<div id="source-edit-modal" class="modal-overlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="source-edit-title">
+    <div class="modal-header">
+      <span id="source-edit-title">Edit source</span>
+      <button type="button" class="close-btn" data-close="source-edit-modal" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <label class="field-label" for="source-edit-note-input">Note</label>
+      <textarea id="source-edit-note-input" rows="4" placeholder="Notes about this source"></textarea>
+      <label class="field-label" for="source-edit-tag-input">Add a tag</label>
+      <div class="zotero-search-row">
+        <input id="source-edit-tag-input" type="text" placeholder="e.g. methodology">
+        <button id="source-edit-add-tag-btn" type="button" class="secondary">Add tag</button>
+      </div>
+      <p id="source-edit-tags-list" class="muted small"></p>
+      <p id="source-edit-message" class="small" hidden></p>
+    </div>
+    <div class="modal-footer">
+      <button id="source-edit-save-note-btn" type="button">Save note</button>
     </div>
   </div>
 </div>

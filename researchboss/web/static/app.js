@@ -55,14 +55,17 @@ async function loadWorkspace(workspace) {
     await loadUploadLimits();
     await refreshUploads();
     document.getElementById("app-main").hidden = false;
+    saveLastWorkspace(workspace);
   } catch (err) {
     showWorkspaceError(err.message);
     return;
   }
-  // Zotero panel failures are shown inline in that panel, not as a
-  // workspace-load error — a missing/unconfigured Zotero account shouldn't
-  // block the rest of the app from loading.
+  // Zotero/dashboard/sources panel failures are shown inline in those
+  // panels, not as a workspace-load error — none of them should block the
+  // rest of the app from loading.
   refreshZoteroPanel();
+  refreshDashboard();
+  refreshSources();
 }
 
 async function loadUploadLimits() {
@@ -321,6 +324,215 @@ async function applyCrossReferenceLinks() {
   }
 }
 
+// --- workspace dashboard ---
+
+async function refreshDashboard() {
+  const statsEl = document.getElementById("dashboard-stats");
+  try {
+    const counts = await api("GET", "/api/v1/projects/status");
+    const tiles = [
+      ["total", "Total"],
+      ["pending_review", "Pending review"],
+      ["accepted", "Accepted"],
+      ["maybe", "Maybe"],
+      ["ignored", "Ignored"],
+    ];
+    statsEl.innerHTML = tiles
+      .map(
+        ([key, label]) => `
+        <div class="stat-tile">
+          <span class="stat-value">${counts[key] || 0}</span>
+          <span class="stat-label">${escapeHtml(label)}</span>
+        </div>`
+      )
+      .join("");
+  } catch (err) {
+    statsEl.innerHTML = `<p class="error small">${escapeHtml(err.message)}</p>`;
+  }
+
+  try {
+    const health = await api("GET", "/api/v1/projects/health");
+    const ok = health.status === "ok";
+    setStatusPill("dashboard-health-status", ok ? "OK" : "Needs review", ok ? "connected" : "error");
+    const detailEl = document.getElementById("dashboard-health-detail");
+    const problems = [];
+    if ((health.missing_files || []).length) problems.push(`${health.missing_files.length} missing file(s)`);
+    if ((health.missing_dirs || []).length) problems.push(`${health.missing_dirs.length} missing folder(s)`);
+    if ((health.failed_conversions || []).length) problems.push(`${health.failed_conversions.length} failed conversion(s)`);
+    if ((health.unsupported_files || []).length) problems.push(`${health.unsupported_files.length} unsupported file(s)`);
+    detailEl.hidden = problems.length === 0;
+    detailEl.textContent = problems.join(", ");
+  } catch (err) {
+    setStatusPill("dashboard-health-status", `Error: ${err.message}`, "error");
+  }
+}
+
+// --- sources ---
+
+state.sourceStatusFilter = "";
+state.sourceEditId = null;
+
+async function refreshSources() {
+  const tbody = document.getElementById("sources-tbody");
+  const emptyEl = document.getElementById("sources-empty");
+  try {
+    const params = state.sourceStatusFilter ? { status: state.sourceStatusFilter } : {};
+    const sources = await api("GET", "/api/v1/sources", { params });
+    renderSourcesTable(sources);
+  } catch (err) {
+    tbody.innerHTML = "";
+    emptyEl.hidden = false;
+    emptyEl.textContent = err.message;
+  }
+}
+
+function renderSourcesTable(sources) {
+  const tbody = document.getElementById("sources-tbody");
+  const emptyEl = document.getElementById("sources-empty");
+  tbody.innerHTML = "";
+  emptyEl.hidden = sources.length > 0;
+  for (const source of sources) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${escapeHtml(source.file_name || "")}</td>
+      <td class="muted small">${escapeHtml(source.provider || "")}</td>
+      <td><span class="candidate-status">${escapeHtml(source.status || "")}</span></td>
+      <td class="muted small">${escapeHtml((source.tags || []).join(", "))}</td>
+      <td class="muted small">${escapeHtml(source.notes || "")}</td>
+      <td class="row-actions"></td>
+    `;
+    const actions = tr.querySelector(".row-actions");
+    for (const [status, label] of [["accepted", "Accept"], ["maybe", "Maybe"], ["ignored", "Ignore"]]) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "secondary";
+      btn.textContent = label;
+      btn.disabled = source.status === status;
+      btn.addEventListener("click", () => setSourceStatus(source.source_id, status));
+      actions.appendChild(btn);
+    }
+    const editBtn = document.createElement("button");
+    editBtn.type = "button";
+    editBtn.className = "secondary";
+    editBtn.textContent = "Edit";
+    editBtn.addEventListener("click", () => openSourceEdit(source));
+    actions.appendChild(editBtn);
+    tbody.appendChild(tr);
+  }
+}
+
+async function setSourceStatus(sourceId, newStatus) {
+  try {
+    await api("POST", `/api/v1/sources/${encodeURIComponent(sourceId)}/status`, { json: { new_status: newStatus } });
+    await refreshSources();
+    await refreshDashboard();
+  } catch (err) {
+    showWorkspaceError(err.message);
+  }
+}
+
+function openSourceEdit(source) {
+  state.sourceEditId = source.source_id;
+  document.getElementById("source-edit-title").textContent = source.file_name || "Edit source";
+  document.getElementById("source-edit-note-input").value = source.notes || "";
+  document.getElementById("source-edit-tag-input").value = "";
+  document.getElementById("source-edit-tags-list").textContent = (source.tags || []).join(", ") || "No tags yet.";
+  document.getElementById("source-edit-message").hidden = true;
+  openModal("source-edit-modal");
+}
+
+async function saveSourceEditNote() {
+  const messageEl = document.getElementById("source-edit-message");
+  const note = document.getElementById("source-edit-note-input").value;
+  try {
+    await api("POST", `/api/v1/sources/${encodeURIComponent(state.sourceEditId)}/note`, { json: { note } });
+    messageEl.hidden = false;
+    messageEl.className = "small";
+    messageEl.textContent = "Note saved.";
+    await refreshSources();
+  } catch (err) {
+    messageEl.hidden = false;
+    messageEl.className = "small error";
+    messageEl.textContent = err.message;
+  }
+}
+
+async function addSourceEditTag() {
+  const messageEl = document.getElementById("source-edit-message");
+  const tagInput = document.getElementById("source-edit-tag-input");
+  const tag = tagInput.value.trim();
+  if (!tag) return;
+  try {
+    await api("POST", `/api/v1/sources/${encodeURIComponent(state.sourceEditId)}/tags`, { json: { tag } });
+    tagInput.value = "";
+    const sources = await api("GET", "/api/v1/sources");
+    const updated = sources.find((s) => s.source_id === state.sourceEditId);
+    document.getElementById("source-edit-tags-list").textContent = ((updated && updated.tags) || []).join(", ") || "No tags yet.";
+    await refreshSources();
+  } catch (err) {
+    messageEl.hidden = false;
+    messageEl.className = "small error";
+    messageEl.textContent = err.message;
+  }
+}
+
+async function scanSources() {
+  const messageEl = document.getElementById("source-scan-message");
+  const sourceRoot = document.getElementById("source-scan-root-input").value.trim();
+  messageEl.hidden = false;
+  messageEl.className = "small";
+  if (!sourceRoot) {
+    messageEl.textContent = "Provide a folder path to scan.";
+    messageEl.classList.add("error");
+    return;
+  }
+  messageEl.textContent = "Scanning...";
+  try {
+    const result = await api("POST", "/api/v1/sources/scan", { json: { source_root: sourceRoot } });
+    messageEl.textContent =
+      `Processed ${result.processed}: ${result.added} added, ${result.duplicates} duplicate, ${result.skipped} skipped.`;
+    await refreshSources();
+    await refreshDashboard();
+  } catch (err) {
+    messageEl.textContent = err.message;
+    messageEl.classList.add("error");
+  }
+}
+
+function setupSourcesPanel() {
+  document.querySelectorAll("#source-filter-tabs .filter-tab").forEach((tab) => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll("#source-filter-tabs .filter-tab").forEach((t) => t.classList.remove("active"));
+      tab.classList.add("active");
+      state.sourceStatusFilter = tab.dataset.status || "";
+      refreshSources();
+    });
+  });
+  document.getElementById("source-scan-btn").addEventListener("click", scanSources);
+  document.getElementById("source-edit-save-note-btn").addEventListener("click", saveSourceEditNote);
+  document.getElementById("source-edit-add-tag-btn").addEventListener("click", addSourceEditTag);
+}
+
+// --- localStorage: remember the last-used workspace path ---
+
+const LAST_WORKSPACE_KEY = "researchboss:lastWorkspace";
+
+function saveLastWorkspace(workspace) {
+  try {
+    window.localStorage.setItem(LAST_WORKSPACE_KEY, workspace);
+  } catch (err) {
+    // Private browsing / storage disabled: not fatal, just skip persistence.
+  }
+}
+
+function getLastWorkspace() {
+  try {
+    return window.localStorage.getItem(LAST_WORKSPACE_KEY) || "";
+  } catch (err) {
+    return "";
+  }
+}
+
 // --- Zotero: link/unlink account, local status, basic browse ---
 // "Basic perusal" only: read-only views over the same GET /api/v1/zotero/*
 // routes the CLI's `researchboss zotero` commands use. Never writes inside
@@ -513,11 +725,16 @@ document.addEventListener("DOMContentLoaded", () => {
   setupDropzone();
   setupModals();
   setupZoteroPanel();
+  setupSourcesPanel();
 
   const workspaceInput = document.getElementById("workspace-input");
-  const initialWorkspace = currentWorkspaceFromUrl();
+  // Prefer an explicit ?workspace= URL param (e.g. from a bookmark or a
+  // shared link); fall back to the last workspace remembered in this
+  // browser so returning to / doesn't require retyping the path every time.
+  const initialWorkspace = currentWorkspaceFromUrl() || getLastWorkspace();
   if (initialWorkspace) {
     workspaceInput.value = initialWorkspace;
+    setWorkspaceInUrl(initialWorkspace);
     loadWorkspace(initialWorkspace);
   }
 
