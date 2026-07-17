@@ -40,10 +40,10 @@ jobs:
           git -C /Users/pedro/Documents/_Projects/ResearchBoss checkout main
           git -C /Users/pedro/Documents/_Projects/ResearchBoss merge --ff-only origin/main
 
-      - name: Deploy app.corroborly.com to the NAS
+      - name: Deploy folio.corroborly.com to the NAS
         working-directory: /Users/pedro/Documents/_Projects/synology-site-deployer
         run: |
-          .venv/bin/synology-site deploy app.corroborly.com \
+          .venv/bin/synology-site deploy folio.corroborly.com \
             --compose-file ../ResearchBoss/docker-compose.yml \
             --env-file ../ResearchBoss/.env \
             --source-dir ../ResearchBoss \
