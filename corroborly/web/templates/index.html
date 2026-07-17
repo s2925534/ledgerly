@@ -200,6 +200,87 @@
     <button id="rq-check-btn" type="button" class="secondary">Check readiness (deterministic)</button>
     <p id="rq-check-message" class="small" hidden></p>
 
+    <details id="rq-wizard-details" class="detail-box">
+      <summary class="link">Research question wizard (guided, one question at a time)</summary>
+      <p class="muted small">Builds one or more draft research questions from a few guided questions — entirely deterministic, no AI involved. Usable any time, not just during workspace setup.</p>
+
+      <div id="rq-wizard-step-topic" class="rq-wizard-step">
+        <label class="field-label" for="rq-wizard-topic-input">What's the general topic you're researching?</label>
+        <input id="rq-wizard-topic-input" type="text">
+        <div class="zotero-link-actions">
+          <button id="rq-wizard-topic-next-btn" type="button">Next</button>
+        </div>
+      </div>
+
+      <div id="rq-wizard-step-scope" class="rq-wizard-step" hidden>
+        <label class="field-label" for="rq-wizard-scope-input">Scope/context (population, setting, time period — leave blank if not applicable)</label>
+        <input id="rq-wizard-scope-input" type="text">
+        <div class="zotero-link-actions">
+          <button id="rq-wizard-scope-back-btn" type="button" class="secondary">Back</button>
+          <button id="rq-wizard-scope-next-btn" type="button">Next</button>
+        </div>
+      </div>
+
+      <div id="rq-wizard-step-relation" class="rq-wizard-step" hidden>
+        <label class="field-label" for="rq-wizard-relation-input">The phenomenon or relationship you're interested in (e.g. "X reduces Y", or list several separated by commas/and)</label>
+        <input id="rq-wizard-relation-input" type="text">
+        <div class="zotero-link-actions">
+          <button id="rq-wizard-relation-back-btn" type="button" class="secondary">Back</button>
+          <button id="rq-wizard-relation-next-btn" type="button">Next</button>
+        </div>
+      </div>
+
+      <div id="rq-wizard-step-type" class="rq-wizard-step" hidden>
+        <label class="field-label" for="rq-wizard-type-select">Question type</label>
+        <select id="rq-wizard-type-select">
+          <option value="descriptive">Descriptive (what is/are...)</option>
+          <option value="comparative">Comparative (how does X differ...)</option>
+          <option value="causal" selected>Causal (does X affect Y...)</option>
+          <option value="evaluative">Evaluative (how effective is X...)</option>
+        </select>
+        <div class="zotero-link-actions">
+          <button id="rq-wizard-type-back-btn" type="button" class="secondary">Back</button>
+          <button id="rq-wizard-type-next-btn" type="button">Next</button>
+        </div>
+      </div>
+
+      <div id="rq-wizard-step-hypothesis" class="rq-wizard-step" hidden>
+        <label class="field-label" for="rq-wizard-hypothesis-input">What existing assumption or claim are you testing? (this becomes your hypothesis — leave blank to skip)</label>
+        <input id="rq-wizard-hypothesis-input" type="text">
+        <div class="zotero-link-actions">
+          <button id="rq-wizard-hypothesis-back-btn" type="button" class="secondary">Back</button>
+          <button id="rq-wizard-hypothesis-next-btn" type="button">Next</button>
+        </div>
+      </div>
+
+      <div id="rq-wizard-step-proof" class="rq-wizard-step" hidden>
+        <label class="field-label" for="rq-wizard-proof-input">What evidence would count as SUPPORT for that assumption?</label>
+        <input id="rq-wizard-proof-input" type="text">
+        <div class="zotero-link-actions">
+          <button id="rq-wizard-proof-back-btn" type="button" class="secondary">Back</button>
+          <button id="rq-wizard-proof-next-btn" type="button">Next</button>
+        </div>
+      </div>
+
+      <div id="rq-wizard-step-disproof" class="rq-wizard-step" hidden>
+        <label class="field-label" for="rq-wizard-disproof-input">What evidence would count as REFUTING that assumption?</label>
+        <input id="rq-wizard-disproof-input" type="text">
+        <div class="zotero-link-actions">
+          <button id="rq-wizard-disproof-back-btn" type="button" class="secondary">Back</button>
+          <button id="rq-wizard-disproof-next-btn" type="button">Preview candidates</button>
+        </div>
+      </div>
+
+      <div id="rq-wizard-step-preview" class="rq-wizard-step" hidden>
+        <div class="zotero-link-actions">
+          <button id="rq-wizard-preview-back-btn" type="button" class="secondary">Back</button>
+          <button id="rq-wizard-restart-btn" type="button" class="secondary">Start over</button>
+        </div>
+        <p id="rq-wizard-preview-message" class="small" hidden></p>
+        <div id="rq-wizard-preview-list" class="rq-list"></div>
+      </div>
+    </details>
+
     <h3>Candidates (draft)</h3>
     <div id="rq-candidates-list" class="rq-list"></div>
     <p id="rq-candidates-empty" class="muted small" hidden>No draft research questions yet — these are captured during workspace setup (<code>corroborly init</code>).</p>

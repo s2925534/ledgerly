@@ -327,6 +327,30 @@ Engine source:
 
 - `corroborly.engine.research_questions.archive_research_question`
 
+### `POST /api/v1/rqs/wizard/preview` (implemented, 2026-07-17)
+
+The web equivalent of `corroborly rqs wizard`'s per-candidate readiness preview (Phase 28's "multi-step web UI flow" item). Stateless: composes each candidate research question from the wizard's answers so far and scores its deterministic readiness, without saving anything. No server-side wizard session exists — the "one guiding question at a time" step-through is a client-side concern; this route only needs the final `relation`/`scope`/`question_type` answers.
+
+Request body: `{"scope": str = "", "relation": str, "question_type": "descriptive"|"comparative"|"causal"|"evaluative"}`. `relation` is split on commas/semicolons/"and"/"or" into multiple candidates the same way the CLI wizard does, when it implies more than one distinct angle. `400 invalid_question_type` / `400 missing_relation` for bad input.
+
+Response `data`: `{"candidates": [{"question": str, "readiness": {...same shape rqs/check returns per-question...}}]}`.
+
+Engine source:
+
+- `corroborly.engine.research_questions.split_candidate_relations`, `compose_research_question`, `assess_research_question_readiness`
+
+### `POST /api/v1/rqs/wizard/save` (implemented, 2026-07-17)
+
+Saves one previewed candidate as a draft research question — called once per candidate the user chooses to keep, mirroring the CLI wizard's per-candidate "Save this as a draft research question?" confirm loop.
+
+Request body: `{"question": str, "hypothesis": str = "", "question_type": str, "proof_criteria": str = "", "disproof_criteria": str = ""}`.
+
+Engine source:
+
+- `corroborly.engine.research_questions.add_research_question_candidate`
+
+CLI equivalent: `corroborly rqs wizard`.
+
 ## Stage Routes (implemented, 2026-07-17)
 
 ### `GET /api/v1/stages` (implemented)

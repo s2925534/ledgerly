@@ -1236,8 +1236,133 @@ async function checkArtefactDependencies() {
   }
 }
 
+// --- research question wizard (guided, one step at a time) ---
+
+const RQ_WIZARD_STEPS = ["topic", "scope", "relation", "type", "hypothesis", "proof", "disproof", "preview"];
+let rqWizardStepIndex = 0;
+
+function rqWizardShowStep(index) {
+  rqWizardStepIndex = index;
+  for (let i = 0; i < RQ_WIZARD_STEPS.length; i++) {
+    document.getElementById(`rq-wizard-step-${RQ_WIZARD_STEPS[i]}`).hidden = i !== index;
+  }
+}
+
+function rqWizardReset() {
+  document.getElementById("rq-wizard-topic-input").value = "";
+  document.getElementById("rq-wizard-scope-input").value = "";
+  document.getElementById("rq-wizard-relation-input").value = "";
+  document.getElementById("rq-wizard-type-select").value = "causal";
+  document.getElementById("rq-wizard-hypothesis-input").value = "";
+  document.getElementById("rq-wizard-proof-input").value = "";
+  document.getElementById("rq-wizard-disproof-input").value = "";
+  document.getElementById("rq-wizard-preview-list").innerHTML = "";
+  const messageEl = document.getElementById("rq-wizard-preview-message");
+  messageEl.hidden = true;
+  messageEl.className = "small";
+  rqWizardShowStep(0);
+}
+
+async function rqWizardPreview() {
+  const messageEl = document.getElementById("rq-wizard-preview-message");
+  const listEl = document.getElementById("rq-wizard-preview-list");
+  const relation = document.getElementById("rq-wizard-relation-input").value.trim();
+  const scope = document.getElementById("rq-wizard-scope-input").value.trim();
+  const questionType = document.getElementById("rq-wizard-type-select").value;
+  const hypothesis = document.getElementById("rq-wizard-hypothesis-input").value.trim();
+  const proofCriteria = document.getElementById("rq-wizard-proof-input").value.trim();
+  const disproofCriteria = document.getElementById("rq-wizard-disproof-input").value.trim();
+
+  rqWizardShowStep(RQ_WIZARD_STEPS.indexOf("preview"));
+  messageEl.hidden = false;
+  messageEl.className = "small";
+  listEl.innerHTML = "";
+  if (!relation) {
+    messageEl.textContent = "The phenomenon/relationship answer is required.";
+    messageEl.classList.add("error");
+    return;
+  }
+  messageEl.textContent = "Composing candidate question(s)...";
+  try {
+    const result = await api("POST", "/api/v1/rqs/wizard/preview", { json: { scope, relation, question_type: questionType } });
+    const candidates = result.candidates || [];
+    messageEl.textContent =
+      candidates.length > 1
+        ? `Your answer implies ${candidates.length} distinct angles — review each below.`
+        : "Review the candidate below.";
+    for (const candidate of candidates) {
+      const row = document.createElement("div");
+      row.className = "rq-row";
+      const readiness = candidate.readiness;
+      row.innerHTML = `
+        <div class="rq-question">${escapeHtml(candidate.question)}</div>
+        <p><span class="candidate-status ${statusBadgeClass(readiness.status)}">${escapeHtml(readiness.status)} (score ${readiness.score})</span></p>
+        <ul class="rq-subquestions">${(readiness.findings || []).map((f) => `<li>[${escapeHtml(f.severity)}] ${escapeHtml(f.message)}</li>`).join("")}</ul>
+        <div class="row-actions"></div>
+        <p class="small save-message" hidden></p>
+      `;
+      const actions = row.querySelector(".row-actions");
+      const saveBtn = document.createElement("button");
+      saveBtn.type = "button";
+      saveBtn.textContent = "Save as draft research question";
+      saveBtn.addEventListener("click", () =>
+        rqWizardSaveCandidate(candidate.question, hypothesis, questionType, proofCriteria, disproofCriteria, row, saveBtn)
+      );
+      actions.appendChild(saveBtn);
+      listEl.appendChild(row);
+    }
+  } catch (err) {
+    messageEl.textContent = err.message;
+    messageEl.classList.add("error");
+  }
+}
+
+async function rqWizardSaveCandidate(question, hypothesis, questionType, proofCriteria, disproofCriteria, row, saveBtn) {
+  const saveMessageEl = row.querySelector(".save-message");
+  saveMessageEl.hidden = false;
+  saveMessageEl.className = "small save-message";
+  saveMessageEl.textContent = "Saving...";
+  try {
+    await api("POST", "/api/v1/rqs/wizard/save", {
+      json: {
+        question,
+        hypothesis,
+        question_type: questionType,
+        proof_criteria: proofCriteria,
+        disproof_criteria: disproofCriteria,
+      },
+    });
+    saveMessageEl.textContent = "Saved as a draft research question.";
+    saveBtn.disabled = true;
+    await refreshResearchQuestions();
+  } catch (err) {
+    saveMessageEl.textContent = err.message;
+    saveMessageEl.classList.add("error");
+  }
+}
+
+function setupRqWizardPanel() {
+  document.getElementById("rq-wizard-topic-next-btn").addEventListener("click", () => rqWizardShowStep(1));
+  document.getElementById("rq-wizard-scope-back-btn").addEventListener("click", () => rqWizardShowStep(0));
+  document.getElementById("rq-wizard-scope-next-btn").addEventListener("click", () => rqWizardShowStep(2));
+  document.getElementById("rq-wizard-relation-back-btn").addEventListener("click", () => rqWizardShowStep(1));
+  document.getElementById("rq-wizard-relation-next-btn").addEventListener("click", () => rqWizardShowStep(3));
+  document.getElementById("rq-wizard-type-back-btn").addEventListener("click", () => rqWizardShowStep(2));
+  document.getElementById("rq-wizard-type-next-btn").addEventListener("click", () => rqWizardShowStep(4));
+  document.getElementById("rq-wizard-hypothesis-back-btn").addEventListener("click", () => rqWizardShowStep(3));
+  document.getElementById("rq-wizard-hypothesis-next-btn").addEventListener("click", () => rqWizardShowStep(5));
+  document.getElementById("rq-wizard-proof-back-btn").addEventListener("click", () => rqWizardShowStep(4));
+  document.getElementById("rq-wizard-proof-next-btn").addEventListener("click", () => rqWizardShowStep(6));
+  document.getElementById("rq-wizard-disproof-back-btn").addEventListener("click", () => rqWizardShowStep(5));
+  document.getElementById("rq-wizard-disproof-next-btn").addEventListener("click", rqWizardPreview);
+  document.getElementById("rq-wizard-preview-back-btn").addEventListener("click", () => rqWizardShowStep(6));
+  document.getElementById("rq-wizard-restart-btn").addEventListener("click", rqWizardReset);
+  rqWizardShowStep(0);
+}
+
 function setupRqAndArtefactPanels() {
   document.getElementById("rq-check-btn").addEventListener("click", checkRqReadiness);
+  setupRqWizardPanel();
   document.getElementById("artefact-create-btn").addEventListener("click", createArtefact);
   document.getElementById("paper-draft-ai-create-btn").addEventListener("click", createPaperDraftAi);
   document.getElementById("paper-draft-ai-promote-btn").addEventListener("click", promotePaperDraftAi);

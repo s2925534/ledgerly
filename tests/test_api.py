@@ -598,6 +598,56 @@ def test_rqs_approve_unknown_id_returns_404(client: TestClient, tmp_path: Path) 
     assert response.json()["errors"][0]["code"] == "unknown_rq_id"
 
 
+def test_rqs_wizard_preview_and_save_full_flow_via_api(client: TestClient, tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="PhD", topic="")
+
+    preview_response = client.post(
+        "/api/v1/rqs/wizard/preview",
+        params={"workspace": str(workspace)},
+        json={"scope": "Asian ports", "relation": "automation reduces turnaround time, staffing affects cost", "question_type": "causal"},
+    )
+    assert preview_response.status_code == 200, preview_response.text
+    candidates = preview_response.json()["data"]["candidates"]
+    assert len(candidates) == 2
+    assert "automation reduces turnaround time" in candidates[0]["question"]
+    assert "in Asian ports" in candidates[0]["question"]
+    assert "readiness" in candidates[0] and "score" in candidates[0]["readiness"]
+
+    save_response = client.post(
+        "/api/v1/rqs/wizard/save",
+        params={"workspace": str(workspace)},
+        json={
+            "question": candidates[0]["question"],
+            "hypothesis": "Automation improves outcomes.",
+            "question_type": "causal",
+            "proof_criteria": "Statistically lower turnaround times.",
+            "disproof_criteria": "No significant difference.",
+        },
+    )
+    assert save_response.status_code == 200, save_response.text
+    saved = save_response.json()["data"]
+    assert saved["question"] == candidates[0]["question"]
+    assert saved["hypothesis"] == "Automation improves outcomes."
+
+    list_response = client.get("/api/v1/rqs", params={"workspace": str(workspace)})
+    assert len(list_response.json()["data"]["candidates"]) == 1
+
+
+def test_rqs_wizard_preview_rejects_invalid_question_type(client: TestClient, tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="PhD", topic="")
+
+    response = client.post(
+        "/api/v1/rqs/wizard/preview",
+        params={"workspace": str(workspace)},
+        json={"relation": "X affects Y", "question_type": "not-a-type"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["errors"][0]["code"] == "invalid_question_type"
+
+
 def test_conversion_run_via_api(client: TestClient, tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
