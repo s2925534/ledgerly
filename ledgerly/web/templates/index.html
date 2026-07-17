@@ -114,9 +114,24 @@
         <option value="abstract-screening">Abstract screening</option>
         <option value="novelty">Novelty assessment</option>
         <option value="rqs-assess">Research question assessment</option>
+        <option value="review-document">Review a working document</option>
       </select>
       <label class="field-label" for="ai-rq-id-input">Research question ID (only used for RQ assessment; leave blank for all)</label>
       <input id="ai-rq-id-input" type="text" placeholder="e.g. rq-001">
+      <div id="ai-review-document-fields" hidden>
+        <label class="field-label" for="ai-review-target-input">Document target (only used for "Review a working document")</label>
+        <input id="ai-review-target-input" type="text" placeholder="e.g. artefacts/papers/draft.md">
+        <label class="field-label">
+          <input id="ai-review-include-notes-checkbox" type="checkbox"> Include personal notes
+        </label>
+        <label class="field-label">
+          <input id="ai-review-include-meeting-notes-checkbox" type="checkbox"> Include meeting notes
+        </label>
+        <label class="field-label">
+          <input id="ai-review-include-transcripts-checkbox" type="checkbox"> Include transcripts
+        </label>
+        <p class="muted small">Document review sends the whole target document's text, not just bounded excerpts.</p>
+      </div>
       <label class="field-label">
         <input id="ai-opt-in-checkbox" type="checkbox"> I explicitly consent to sending bounded source excerpts to OpenAI for this action
       </label>

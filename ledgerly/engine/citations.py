@@ -129,8 +129,8 @@ def create_citation_plan(
             else []
         ),
     }
-    yaml_path = _plan_path(workspace, Path(str(report["target"]["path"])), ".yaml")
-    markdown_path = _plan_path(workspace, Path(str(report["target"]["path"])), ".md")
+    yaml_path = citation_plan_path(workspace, Path(str(report["target"]["path"])), ".yaml")
+    markdown_path = citation_plan_path(workspace, Path(str(report["target"]["path"])), ".md")
     write_yaml(yaml_path, plan)
     markdown_path.write_text(_markdown_plan(plan), encoding="utf-8")
     return CitationPlanRun(plan=plan, yaml_path=yaml_path, markdown_path=markdown_path)
@@ -163,7 +163,7 @@ def set_citation_plan_insertion_review_status(
         raise ValueError(f"Invalid review_status '{review_status}'. Must be one of: {allowed}")
 
     resolved_target = resolve_document_target(workspace, target, cwd=cwd)
-    plan_yaml = plan_path or _plan_path(workspace, resolved_target.path, ".yaml")
+    plan_yaml = plan_path or citation_plan_path(workspace, resolved_target.path, ".yaml")
     if not plan_yaml.exists():
         raise ValueError(f"Citation plan does not exist: {plan_yaml}")
 
@@ -193,7 +193,7 @@ def apply_citation_plan(
             "Deterministic citation plan application currently supports Markdown, TXT, DOCX, and PDF-to-Markdown targets."
         )
 
-    plan_yaml = plan_path or _plan_path(workspace, resolved_target.path, ".yaml")
+    plan_yaml = plan_path or citation_plan_path(workspace, resolved_target.path, ".yaml")
     if not plan_yaml.exists():
         raise ValueError(f"Citation plan does not exist: {plan_yaml}")
     plan = read_yaml(plan_yaml)
@@ -438,7 +438,7 @@ def _append_references(text: str, references: dict[str, Any]) -> str:
     return base + "\n\n## References\n\n" + "\n".join(f"- {line}" for line in lines) + "\n"
 
 
-def _plan_path(workspace: Path, target_path: Path, suffix: str) -> Path:
+def citation_plan_path(workspace: Path, target_path: Path, suffix: str) -> Path:
     stem = "".join(ch.lower() if ch.isalnum() else "-" for ch in target_path.stem).strip("-") or "target"
     return workspace / "outputs" / "citation-plans" / f"citation-plan-{stem}{suffix}"
 

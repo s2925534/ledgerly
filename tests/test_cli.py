@@ -626,6 +626,65 @@ def test_cli_ai_usage_log_empty_for_fresh_workspace(tmp_path: Path) -> None:
     assert result.exit_code == 0, result.output
 
 
+def test_cli_ai_review_document_requires_ai_flags(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    target = workspace / "artefacts" / "papers" / "draft.md"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("Draft text.", encoding="utf-8")
+
+    result = runner.invoke(
+        app, ["ai", "review-document", str(target), "--workspace", str(workspace), "--quiet"]
+    )
+    assert result.exit_code == 2
+
+    result2 = runner.invoke(
+        app, ["ai", "review-document", str(target), "--ai", "--workspace", str(workspace), "--quiet"]
+    )
+    assert result2.exit_code == 2
+
+
+def test_cli_ai_review_document_full_workflow_with_note_kind_opt_in(tmp_path: Path, monkeypatch) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    (workspace / ".env").write_text("OPENAI_API_KEY=sk-secret\n", encoding="utf-8")
+
+    runner.invoke(app, ["notes", "add", "A general note about the study.", "--workspace", str(workspace), "--quiet"])
+    runner.invoke(
+        app,
+        ["notes", "add", "A sensitive meeting note.", "--kind", "meeting", "--workspace", str(workspace), "--quiet"],
+    )
+
+    target = workspace / "artefacts" / "papers" / "draft.md"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("Draft text about the study.", encoding="utf-8")
+
+    _mock_openai_for_cli(monkeypatch, "Strengths: reasonable draft. Human Review Required.")
+
+    result = runner.invoke(
+        app,
+        [
+            "ai",
+            "review-document",
+            str(target),
+            "--ai",
+            "--full-target-document-ai",
+            "--include-notes",
+            "--workspace",
+            str(workspace),
+            "--quiet",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+
+    from ledgerly.core.yamlio import read_yaml as _read_yaml
+
+    report = _read_yaml(workspace / "outputs" / "validation" / "openai-review-document.yaml")
+    assert report["ai_used"] is True
+    assert report["included_note_kinds"] == ["note"]
+    assert report["note_count"] == 1
+
+
 def test_cli_search_plan_writes_query_plan(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="container port evidence")

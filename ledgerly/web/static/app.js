@@ -689,11 +689,28 @@ async function runAiAction() {
     messageEl.classList.add("error");
     return;
   }
-  messageEl.textContent = "Running (this sends bounded excerpts to OpenAI)...";
+  let route = AI_ACTION_ROUTES[action];
   const body = { ai: true };
   if (action === "rqs-assess" && rqId) body.rq_id = rqId;
+  if (action === "review-document") {
+    const target = document.getElementById("ai-review-target-input").value.trim();
+    if (!target) {
+      messageEl.textContent = "Provide a document target.";
+      messageEl.classList.add("error");
+      return;
+    }
+    route = "/api/v1/ai/review-document";
+    body.target = target;
+    body.full_target_document_ai = true;
+    const noteKinds = [];
+    if (document.getElementById("ai-review-include-notes-checkbox").checked) noteKinds.push("note");
+    if (document.getElementById("ai-review-include-meeting-notes-checkbox").checked) noteKinds.push("meeting");
+    if (document.getElementById("ai-review-include-transcripts-checkbox").checked) noteKinds.push("transcript");
+    body.note_kinds = noteKinds;
+  }
+  messageEl.textContent = "Running (this sends bounded excerpts to OpenAI)...";
   try {
-    const result = await api("POST", AI_ACTION_ROUTES[action], { json: body });
+    const result = await api("POST", route, { json: body });
     if (result.insufficient_evidence) {
       messageEl.textContent = `Insufficient evidence. ${result.insufficient_evidence_reason}`;
       refreshAiUsageLog();
@@ -3147,6 +3164,9 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("ai-readiness-btn").addEventListener("click", checkAiReadiness);
   document.getElementById("ai-run-btn").addEventListener("click", runAiAction);
   document.getElementById("ai-usage-log-refresh-btn").addEventListener("click", refreshAiUsageLog);
+  document.getElementById("ai-action-select").addEventListener("change", (event) => {
+    document.getElementById("ai-review-document-fields").hidden = event.target.value !== "review-document";
+  });
   document.getElementById("corpus-search-btn").addEventListener("click", searchCorpus);
   document.getElementById("corpus-search-input").addEventListener("keydown", (event) => {
     if (event.key === "Enter") searchCorpus();

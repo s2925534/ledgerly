@@ -2223,6 +2223,65 @@ def test_ai_usage_log_route_empty_for_fresh_workspace(client: TestClient, tmp_pa
     assert response.json()["data"] == []
 
 
+def test_ai_review_document_requires_both_ai_flags(client: TestClient, tmp_path: Path, monkeypatch) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    target = workspace / "artefacts" / "papers" / "draft.md"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("Draft text.", encoding="utf-8")
+
+    no_ai = client.post(
+        "/api/v1/ai/review-document", params={"workspace": str(workspace)}, json={"target": str(target)}
+    )
+    assert no_ai.status_code == 400
+    assert no_ai.json()["errors"][0]["code"] == "ai_not_enabled"
+
+    no_full_target = client.post(
+        "/api/v1/ai/review-document",
+        params={"workspace": str(workspace)},
+        json={"target": str(target), "ai": True},
+    )
+    assert no_full_target.status_code == 400
+    assert no_full_target.json()["errors"][0]["code"] == "full_target_document_ai_not_enabled"
+
+
+def test_ai_review_document_grounded_result_with_note_kind_opt_in(
+    client: TestClient, tmp_path: Path, monkeypatch
+) -> None:
+    workspace = tmp_path / "workspace"
+    source_root = tmp_path / "sources"
+    source_root.mkdir()
+    (source_root / "paper.txt").write_text("bounded evidence text", encoding="utf-8")
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+
+    scan_sources(workspace, source_root)
+    source_id = read_yaml(workspace / "source-register.yaml")["sources"][0]["source_id"]
+    client.post(f"/api/v1/sources/{source_id}/status", params={"workspace": str(workspace)}, json={"new_status": "accepted"})
+    client.post("/api/v1/conversion/run", params={"workspace": str(workspace)}, json={})
+    client.post("/api/v1/notes", params={"workspace": str(workspace)}, json={"text": "A general note.", "kind": "note"})
+    client.post("/api/v1/notes", params={"workspace": str(workspace)}, json={"text": "A sensitive meeting note.", "kind": "meeting"})
+
+    target = workspace / "artefacts" / "papers" / "draft.md"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("Draft text about the study.", encoding="utf-8")
+    _mock_openai(monkeypatch, "Strengths: reasonable draft.")
+
+    response = client.post(
+        "/api/v1/ai/review-document",
+        params={"workspace": str(workspace)},
+        json={"target": str(target), "ai": True, "full_target_document_ai": True, "note_kinds": ["note"]},
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()["data"]
+    assert data["ai_used"] is True
+    assert data["original_document_modified"] is False
+    assert data["note_count"] == 1
+    assert data["included_note_kinds"] == ["note"]
+
+
 def test_ai_novelty_route_writes_ledger(client: TestClient, tmp_path: Path, monkeypatch) -> None:
     workspace = tmp_path / "workspace"
     source_root = tmp_path / "sources"

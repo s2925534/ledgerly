@@ -891,3 +891,117 @@ def ai_citation_plan_review(
             "grounding": validate_grounding(recommendations_text, source_ids=plan_source_ids),
         },
     )
+
+
+def _review_document_prompt(
+    target_text: str,
+    context: dict[str, Any],
+    claims: list[dict[str, Any]],
+    citation_plan: dict[str, Any] | None,
+    notes: list[dict[str, Any]],
+) -> str:
+    return (
+        "You are reviewing one working document for a local-first, evidence-first research workspace.\n"
+        "Use only the supplied target document text, safe source context, claim ledger, citation plan, and notes "
+        "below. Produce a structured review with sections: Strengths, Weaknesses, Unsupported Claims, Suggested "
+        "Revisions, Human Review Required. Every factual point must cite a specific source/claim/note, or "
+        "explicitly state that no supporting evidence exists in the corpus for that point -- never invent support. "
+        "Do not edit the document directly; this is a report only.\n\n"
+        f"{citation_instruction()}\n\n"
+        f"Target document text:\n{target_text}\n\n"
+        f"Safe context JSON:\n{json.dumps(context, ensure_ascii=False, indent=2)}\n\n"
+        f"Claim ledger JSON:\n{json.dumps(claims, ensure_ascii=False, indent=2)}\n\n"
+        "Citation plan JSON (null if none exists for this target):\n"
+        f"{json.dumps(citation_plan, ensure_ascii=False, indent=2) if citation_plan else 'null'}\n\n"
+        "Notes JSON (only kinds the user explicitly opted into for this run):\n"
+        f"{json.dumps(notes, ensure_ascii=False, indent=2)}"
+    )
+
+
+def ai_review_document(
+    workspace: Path,
+    credentials: OpenAiCredentials,
+    target: str,
+    *,
+    note_kinds: list[str] | None = None,
+    max_sources: int = 10,
+    max_excerpt_chars: int = 1200,
+    opener: Callable[[Request], Any] | None = None,
+    cwd: Path | None = None,
+) -> dict[str, Any]:
+    """Structured AI review of a target working document against the full
+    evidence base: accepted source excerpts, the claim ledger, this
+    target's own citation plan (if one exists), and -- only for explicitly
+    opted-in kinds -- Phase 25's personal notes/meeting-notes/transcripts
+    store. Never modifies the target; always produces a report for human
+    review, the same propose-only boundary every other `engine.ai`
+    function uses (consistent with the document-vault snapshot-before-
+    modify pattern, even though nothing here is actually modified).
+    `note_kinds` is a per-kind opt-in, not one blanket "include notes"
+    switch: a user may want source text and claims in AI context but not
+    personal meeting notes, which can carry more sensitive material --
+    mirrors `ai context-preview`'s boundary-drawing precedent.
+    """
+    from ledgerly.engine.citations import citation_plan_path
+    from ledgerly.engine.claims import list_claims
+    from ledgerly.engine.conversion import extract_text as extract_target_text
+    from ledgerly.engine.document_targets import resolve_document_target
+    from ledgerly.engine.notes import NOTE_KINDS, list_notes
+
+    invalid_kinds = sorted(set(note_kinds or []) - NOTE_KINDS)
+    if invalid_kinds:
+        raise OpenAiError(f"Invalid note kind(s): {', '.join(invalid_kinds)}. Expected one of: {', '.join(sorted(NOTE_KINDS))}")
+
+    resolved = resolve_document_target(workspace, target, cwd=cwd)
+    target_text = extract_target_text(resolved.path)
+
+    context = build_safe_context(
+        workspace, max_sources=max_sources, max_excerpt_chars=max_excerpt_chars, query=_workspace_topic_query(workspace)
+    )
+    claims = list_claims(workspace)
+    plan_path = citation_plan_path(workspace, resolved.path, ".yaml")
+    citation_plan = read_yaml(plan_path) if plan_path.is_file() else None
+    selected_notes: list[dict[str, Any]] = []
+    for kind in sorted(set(note_kinds or [])):
+        selected_notes.extend(list_notes(workspace, kind=kind))
+
+    if not context["has_evidence"] and not claims and not citation_plan and not selected_notes:
+        report = _insufficient_evidence_response("ai_review_document", context)
+        report["target"] = resolved.target
+        return record_ai_usage(workspace, report)
+
+    model = default_openai_model(workspace)
+    response = openai_post(
+        "responses",
+        credentials,
+        {
+            "model": model,
+            "input": _review_document_prompt(target_text, context, claims, citation_plan, selected_notes),
+        },
+        opener=opener,
+    )
+    text = extract_response_text(response)
+    return record_ai_usage(
+        workspace,
+        {
+            "version": 1,
+            "kind": "ai_review_document",
+            "provider": "openai",
+            "model": model,
+            "ai_used": True,
+            "requires_user_review": True,
+            "original_document_modified": False,
+            "target": resolved.target,
+            "target_path": str(resolved.path),
+            "included_note_kinds": sorted(set(note_kinds or [])),
+            "claim_count": len(claims),
+            "note_count": len(selected_notes),
+            "has_citation_plan": citation_plan is not None,
+            "safe_context_policy": context["policy"],
+            "limits": context["limits"],
+            "source_count": len(context["sources"]),
+            "response_id": response.get("id") if isinstance(response, dict) else None,
+            "review": text,
+            "grounding": validate_grounding(text, context=context, claims=claims, notes=selected_notes),
+        },
+    )

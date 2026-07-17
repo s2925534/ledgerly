@@ -15,6 +15,7 @@ from ledgerly.engine.ai import (
     ai_workspace_report,
     build_safe_context,
     extract_response_text,
+    ai_review_document,
     list_ai_usage,
     load_dotenv_values,
     openai_post,
@@ -714,3 +715,119 @@ def test_record_ai_usage_covers_citation_plan_review_and_workspace_reports(tmp_p
     entries = list_ai_usage(workspace)
     kinds = [entry["kind"] for entry in entries]
     assert kinds == ["ai_citation_plan_review", "corpus_summary"]
+
+
+def test_ai_review_document_rejects_unknown_note_kind(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    target = workspace / "artefacts" / "papers" / "draft.md"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("Draft text.", encoding="utf-8")
+
+    with pytest.raises(OpenAiError, match="Invalid note kind"):
+        ai_review_document(
+            workspace, OpenAiCredentials(api_key="sk-secret"), str(target), note_kinds=["bogus"]
+        )
+
+
+def test_ai_review_document_returns_insufficient_evidence_without_calling_ai(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    target = workspace / "artefacts" / "papers" / "draft.md"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("Draft text with no evidence anywhere.", encoding="utf-8")
+
+    def opener(request: Request):
+        raise AssertionError("AI provider must not be called when there is no evidence to ground a response in")
+
+    report = ai_review_document(workspace, OpenAiCredentials(api_key="sk-secret"), str(target), opener=opener)
+
+    assert report["insufficient_evidence"] is True
+    assert report["ai_used"] is False
+    assert report["target"] == str(target)
+    assert report["grounding"] is None
+
+
+def test_ai_review_document_gathers_sources_claims_citation_plan_and_grounds_response(tmp_path: Path) -> None:
+    from ledgerly.engine.citations import create_citation_plan
+
+    workspace = tmp_path / "workspace"
+    source_root = tmp_path / "sources"
+    source_root.mkdir()
+    source_text = source_root / "paper.txt"
+    source_text.write_text("Berth planning evidence supports container terminal automation.", encoding="utf-8")
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    scan_sources(workspace, source_root)
+    source_id = read_yaml(workspace / "source-register.yaml")["sources"][0]["source_id"]
+    set_source_status(workspace, source_id=source_id, new_status="accepted")
+    convert_sources(workspace, status="accepted")
+
+    from ledgerly.engine.claims import add_claim
+
+    claim = add_claim(workspace, text="Automation reduces turnaround time.", linked_sources=[source_id])
+
+    target = workspace / "artefacts" / "papers" / "draft.md"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("Container terminal automation uses berth planning evidence.", encoding="utf-8")
+    create_citation_plan(workspace, str(target))
+
+    captured_bodies = []
+
+    def opener(request: Request):
+        body = json.loads(request.data.decode("utf-8"))
+        captured_bodies.append(body)
+        assert "Berth planning evidence" in body["input"]
+        assert claim["id"] in body["input"]
+        return FakeResponse(
+            {"id": "resp_review_doc", "output_text": f"Strengths: well grounded [[claim:{claim['id']}]]."}
+        )
+
+    report = ai_review_document(workspace, OpenAiCredentials(api_key="sk-secret"), str(target), opener=opener)
+
+    assert report["kind"] == "ai_review_document"
+    assert report["ai_used"] is True
+    assert report["requires_user_review"] is True
+    assert report["original_document_modified"] is False
+    assert report["claim_count"] == 1
+    assert report["has_citation_plan"] is True
+    assert report["note_count"] == 0
+    assert report["included_note_kinds"] == []
+    assert report["grounding"]["fully_grounded"] is True
+    assert report["grounding"]["grounded_citations"] == [{"type": "claim", "id": claim["id"]}]
+    assert "[[source:" in captured_bodies[0]["input"]
+
+
+def test_ai_review_document_only_includes_explicitly_opted_in_note_kinds(tmp_path: Path) -> None:
+    from ledgerly.engine.notes import add_note
+
+    workspace = tmp_path / "workspace"
+    source_root = tmp_path / "sources"
+    source_root.mkdir()
+    (source_root / "paper.txt").write_text("Evidence text for grounding.", encoding="utf-8")
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    scan_sources(workspace, source_root)
+    source_id = read_yaml(workspace / "source-register.yaml")["sources"][0]["source_id"]
+    set_source_status(workspace, source_id=source_id, new_status="accepted")
+    convert_sources(workspace, status="accepted")
+
+    add_note(workspace, "A sensitive personal reflection.", kind="meeting")
+    add_note(workspace, "A general note.", kind="note")
+
+    target = workspace / "artefacts" / "papers" / "draft.md"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("Draft text.", encoding="utf-8")
+
+    captured_bodies = []
+
+    def opener(request: Request):
+        captured_bodies.append(json.loads(request.data.decode("utf-8")))
+        return FakeResponse({"id": "resp_review_doc", "output_text": "Review text."})
+
+    report = ai_review_document(
+        workspace, OpenAiCredentials(api_key="sk-secret"), str(target), note_kinds=["note"], opener=opener
+    )
+
+    assert report["note_count"] == 1
+    assert report["included_note_kinds"] == ["note"]
+    assert "A general note." in captured_bodies[0]["input"]
+    assert "A sensitive personal reflection." not in captured_bodies[0]["input"]

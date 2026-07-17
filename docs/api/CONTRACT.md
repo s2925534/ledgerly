@@ -1281,6 +1281,16 @@ Request body: `{"ai": true, "rq_id": Optional[str] = None, "max_sources": int = 
 
 Response `data`: common envelope fields, plus `novelty_not_proven: true`, `research_question_count` (count actually assessed — all approved+candidate questions when `rq_id` is omitted, else the one matched question), `rq_id` (echoes the request), `assessment` (markdown text, one section per assessed research question plus a final Human Review Required section).
 
+### `POST /api/v1/ai/review-document` (implemented, 2026-07-17)
+
+CLI equivalent: `ledgerly ai review-document <target> --ai --full-target-document-ai [--include-notes] [--include-meeting-notes] [--include-transcripts]`. Engine source: `engine.ai.ai_review_document`.
+
+A structured AI review of a target working document against the full evidence base: accepted-source safe context, the claim ledger, the target's own citation plan if one exists (`engine.citations.citation_plan_path`), and — only for explicitly opted-in kinds — Phase 25's personal notes/meeting-notes/transcripts store. Requires **both** `ai: true` and `full_target_document_ai: true` (`400 ai_not_enabled` / `400 full_target_document_ai_not_enabled`), the same double opt-in as `cite ai-plan`, since the whole document's text is sent. `note_kinds` is a per-kind opt-in list, not one blanket switch (mirrors `ai context-preview`'s boundary-drawing precedent) — a user may want source text and claims in AI context but not personal meeting notes.
+
+Request body: `{"target": str, "ai": true, "full_target_document_ai": true, "note_kinds": list[str] = [], "max_sources": int = 10, "max_excerpt_chars": int = 1200}`. `note_kinds` values: `"note"`, `"meeting"`, `"transcript"`.
+
+Response `data`: common envelope fields, plus `target`, `target_path`, `included_note_kinds` (echoes the request), `claim_count`, `note_count`, `has_citation_plan`, `review` (markdown text: Strengths, Weaknesses, Unsupported Claims, Suggested Revisions, Human Review Required), `grounding` (checked against sources, claims, and the selected notes together). Never modifies the target — a report only, `original_document_modified: false`.
+
 ### Workspace-report routes (implemented)
 
 Six thin wrappers around `engine.ai.ai_workspace_report` with a fixed `kind`, one per `ledgerly ai <name>` CLI command. Request body for all six: `{"ai": true, "max_sources": int = 10, "max_excerpt_chars": int = 1200}`. Response `data`: common envelope fields, plus `report` (markdown text) and the same claim/artefact/candidate counts the CLI's own report carries.

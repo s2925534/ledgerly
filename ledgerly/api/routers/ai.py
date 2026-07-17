@@ -14,6 +14,7 @@ from ledgerly.engine.ai import (
     ai_assisted_review,
     ai_novelty_assessment,
     ai_research_question_assessment,
+    ai_review_document,
     ai_workspace_report,
     list_ai_usage,
     openai_credentials,
@@ -137,6 +138,45 @@ router.add_api_route("/citation-gaps", _workspace_report_route("citation_gaps"),
 router.add_api_route("/artefact-cross-reference", _workspace_report_route("artefact_cross_reference"), methods=["POST"])
 router.add_api_route("/source-relevance", _workspace_report_route("source_relevance"), methods=["POST"])
 router.add_api_route("/abstract-screening", _workspace_report_route("abstract_screening"), methods=["POST"])
+
+
+class AiReviewDocumentRequest(BaseModel):
+    target: str
+    ai: bool = False
+    full_target_document_ai: bool = False
+    note_kinds: list[str] = []
+    max_sources: int = 10
+    max_excerpt_chars: int = 1200
+
+
+@router.post("/review-document")
+def ai_review_document_route(
+    payload: AiReviewDocumentRequest, workspace: Path = Depends(resolve_workspace)
+) -> dict[str, Any]:
+    if not payload.ai:
+        raise ApiError("ai_not_enabled", 'Set "ai": true to explicitly opt in to this AI action.', status_code=400)
+    if not payload.full_target_document_ai:
+        raise ApiError(
+            "full_target_document_ai_not_enabled",
+            'Set "full_target_document_ai": true to explicitly allow sending the whole target document to an AI provider.',
+            status_code=400,
+        )
+    try:
+        credentials = openai_credentials(workspace)
+    except OpenAiError as exc:
+        raise ApiError("openai_not_configured", str(exc), status_code=503) from exc
+    try:
+        report = ai_review_document(
+            workspace,
+            credentials,
+            payload.target,
+            note_kinds=payload.note_kinds,
+            max_sources=payload.max_sources,
+            max_excerpt_chars=payload.max_excerpt_chars,
+        )
+    except (OpenAiError, ValueError) as exc:
+        raise ApiError("ai_review_document_failed", str(exc)) from exc
+    return ok(report)
 
 
 @router.get("/usage-log")

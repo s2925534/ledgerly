@@ -20,6 +20,7 @@ from ledgerly.engine.ai import (
     ai_novelty_assessment,
     ai_research_question_assessment,
     ai_workspace_report,
+    ai_review_document,
     build_safe_context,
     list_ai_usage,
     openai_credentials,
@@ -1675,6 +1676,71 @@ def ai_abstract_screening(
         log_level=log_level,
         quiet=quiet,
     )
+
+
+@ai_app.command("review-document")
+def ai_review_document_cmd(
+    target: str = typer.Argument(..., help="Document target: path, artefact ID/title, alias, or artefact type."),
+    ai: bool = typer.Option(False, "--ai", help="Required explicit opt-in for OpenAI document review."),
+    full_target_document_ai: bool = typer.Option(
+        False,
+        "--full-target-document-ai",
+        help="Explicitly allow sending the whole target document to an AI provider.",
+    ),
+    include_notes: bool = typer.Option(False, "--include-notes", help="Include personal notes (kind=note) in AI context."),
+    include_meeting_notes: bool = typer.Option(
+        False, "--include-meeting-notes", help="Include meeting notes (kind=meeting) in AI context."
+    ),
+    include_transcripts: bool = typer.Option(
+        False, "--include-transcripts", help="Include transcripts (kind=transcript) in AI context."
+    ),
+    max_sources: int = typer.Option(10, "--max-sources", help="Maximum accepted sources to include."),
+    max_excerpt_chars: int = typer.Option(1200, "--max-excerpt-chars", help="Maximum converted-text excerpt characters per source."),
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """AI-assisted structured review of a working document against accepted sources, the claim ledger, its citation plan, and (only if opted into per kind) personal notes. Never edits the document."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["ai", "review-document"], ws, log_level)
+    note_kinds = []
+    if include_notes:
+        note_kinds.append("note")
+    if include_meeting_notes:
+        note_kinds.append("meeting")
+    if include_transcripts:
+        note_kinds.append("transcript")
+    try:
+        require_full_target_document_ai_opt_in(ai=ai, full_target_document=full_target_document_ai)
+        report = ai_review_document(
+            ws,
+            openai_credentials(ws),
+            target,
+            note_kinds=note_kinds,
+            max_sources=max_sources,
+            max_excerpt_chars=max_excerpt_chars,
+            cwd=Path.cwd(),
+        )
+    except (OpenAiError, ValueError) as e:
+        logger.error("AI document review failed", operation="ai_review_document", target=target, error=str(e))
+        summary.errors += 1
+        _finish(summary, summary_path)
+        if not quiet:
+            console.print(f"[red]{e}[/red]")
+        raise typer.Exit(code=2)
+
+    output_path = ws / "outputs" / "validation" / "openai-review-document.yaml"
+    write_yaml(output_path, report)
+    logger.info(
+        "Wrote AI document review",
+        operation="ai_review_document",
+        target=target,
+        note_kinds=note_kinds,
+    )
+    _finish(summary, summary_path)
+    if not quiet:
+        console.print(f"[green]Wrote[/green] {output_path}")
+        _print_ai_review_footer(report, "Human review is required before using this output.")
 
 
 @ai_app.command("usage-log")
