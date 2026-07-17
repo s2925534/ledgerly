@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from ledgerly.core.yamlio import read_yaml
-from ledgerly.engine.project_log import (
+from corroborly.core.yamlio import read_yaml
+from corroborly.engine.project_log import (
     add_context_change,
     add_decision,
     add_feedback,
@@ -12,7 +12,7 @@ from ledgerly.engine.project_log import (
     list_terminology,
     timeline_report,
 )
-from ledgerly.engine.workspace import init_workspace
+from corroborly.engine.workspace import init_workspace
 
 
 def test_project_log_commands_write_local_state(tmp_path: Path) -> None:

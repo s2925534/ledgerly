@@ -1,4 +1,4 @@
-from ledgerly.engine.grounding import (
+from corroborly.engine.grounding import (
     AI_PROVENANCE_END,
     AI_PROVENANCE_START,
     citable_ids,

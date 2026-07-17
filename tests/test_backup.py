@@ -3,7 +3,7 @@ from zipfile import ZipFile
 
 import pytest
 
-from ledgerly.engine.backup import (
+from corroborly.engine.backup import (
     BackupEncryptionError,
     create_encrypted_workspace_backup,
     create_workspace_backup,
@@ -11,7 +11,7 @@ from ledgerly.engine.backup import (
     gpg_encryption_available,
     inspect_backup,
 )
-from ledgerly.engine.workspace import init_workspace
+from corroborly.engine.workspace import init_workspace
 
 requires_gpg = pytest.mark.skipif(not gpg_encryption_available(), reason="No local gpg binary available")
 

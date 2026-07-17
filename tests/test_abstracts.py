@@ -1,8 +1,8 @@
 from pathlib import Path
 
-from ledgerly.core.yamlio import read_yaml
-from ledgerly.engine.abstracts import import_abstract_folder, parse_legacy_scopus_abstract
-from ledgerly.engine.workspace import init_workspace
+from corroborly.core.yamlio import read_yaml
+from corroborly.engine.abstracts import import_abstract_folder, parse_legacy_scopus_abstract
+from corroborly.engine.workspace import init_workspace
 
 
 def test_parse_legacy_scopus_abstract_extracts_known_fields(tmp_path: Path) -> None:

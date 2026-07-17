@@ -1,8 +1,8 @@
 from pathlib import Path
 
-from ledgerly.core.yamlio import read_yaml, write_yaml
-from ledgerly.engine.doc_validation import validate_document
-from ledgerly.engine.workspace import init_workspace
+from corroborly.core.yamlio import read_yaml, write_yaml
+from corroborly.engine.doc_validation import validate_document
+from corroborly.engine.workspace import init_workspace
 
 
 def test_validate_document_compares_target_to_accepted_and_explicit_sources(tmp_path: Path) -> None:

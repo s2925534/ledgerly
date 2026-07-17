@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from ledgerly.engine.transcription import (
+from corroborly.engine.transcription import (
     SOURCESCRIBE_ALLOWED_EXTENSIONS,
     TranscriptionError,
     get_transcription_job,
@@ -13,7 +13,7 @@ from ledgerly.engine.transcription import (
     start_transcription,
     upload_transcription_source,
 )
-from ledgerly.engine.workspace import init_workspace
+from corroborly.engine.workspace import init_workspace
 
 
 def _init_ws(tmp_path: Path) -> Path:
@@ -32,7 +32,7 @@ def _make_wav(path: Path) -> Path:
 
 
 def test_sourcescribe_root_raises_without_configured_path(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.delenv("LEDGERLY_SOURCESCRIBE_PATH", raising=False)
+    monkeypatch.delenv("CORROBORLY_SOURCESCRIBE_PATH", raising=False)
     monkeypatch.chdir(tmp_path)
     workspace = _init_ws(tmp_path)
 
@@ -43,14 +43,14 @@ def test_sourcescribe_root_raises_without_configured_path(tmp_path: Path, monkey
 def test_sourcescribe_root_raises_when_path_is_not_a_real_checkout(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     workspace = _init_ws(tmp_path)
-    monkeypatch.setenv("LEDGERLY_SOURCESCRIBE_PATH", str(tmp_path))
+    monkeypatch.setenv("CORROBORLY_SOURCESCRIBE_PATH", str(tmp_path))
 
     with pytest.raises(TranscriptionError):
         sourcescribe_root(workspace)
 
 
 def test_sourcescribe_readiness_report_reflects_unconfigured_state(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.delenv("LEDGERLY_SOURCESCRIBE_PATH", raising=False)
+    monkeypatch.delenv("CORROBORLY_SOURCESCRIBE_PATH", raising=False)
     monkeypatch.chdir(tmp_path)
     workspace = _init_ws(tmp_path)
 
@@ -66,7 +66,7 @@ def test_sourcescribe_readiness_report_reflects_configured_checkout(tmp_path: Pa
     fake_root = tmp_path / "fake-sourcescribe"
     fake_root.mkdir()
     (fake_root / "main.py").write_text("", encoding="utf-8")
-    monkeypatch.setenv("LEDGERLY_SOURCESCRIBE_PATH", str(fake_root))
+    monkeypatch.setenv("CORROBORLY_SOURCESCRIBE_PATH", str(fake_root))
 
     report = sourcescribe_readiness_report(workspace)
 
@@ -129,7 +129,7 @@ def test_start_transcription_unknown_job_raises(tmp_path: Path) -> None:
 
 
 def test_start_transcription_rejects_non_startable_status(tmp_path: Path, monkeypatch) -> None:
-    from ledgerly.engine.transcription import _read_jobs, _write_jobs
+    from corroborly.engine.transcription import _read_jobs, _write_jobs
 
     workspace = _init_ws(tmp_path)
     audio = _make_wav(tmp_path / "clip.wav")
@@ -143,7 +143,7 @@ def test_start_transcription_rejects_non_startable_status(tmp_path: Path, monkey
 
 
 def test_start_transcription_raises_without_sourcescribe_configured(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.delenv("LEDGERLY_SOURCESCRIBE_PATH", raising=False)
+    monkeypatch.delenv("CORROBORLY_SOURCESCRIBE_PATH", raising=False)
     monkeypatch.chdir(tmp_path)
     workspace = _init_ws(tmp_path)
     audio = _make_wav(tmp_path / "clip.wav")
@@ -172,7 +172,7 @@ def test_start_transcription_runs_real_sourcescribe_end_to_end(tmp_path: Path, m
     `status`/`transcript_path` fields, and that a completed job's transcript
     actually lands in the Phase 25 notes store via `import_transcript`.
     """
-    monkeypatch.setenv("LEDGERLY_SOURCESCRIBE_PATH", "/Users/pedro/Documents/_Projects/transcriber")
+    monkeypatch.setenv("CORROBORLY_SOURCESCRIBE_PATH", "/Users/pedro/Documents/_Projects/transcriber")
     workspace = _init_ws(tmp_path)
     audio = _make_wav(tmp_path / "clip.wav")
     job = upload_transcription_source(workspace, audio)
@@ -182,7 +182,7 @@ def test_start_transcription_runs_real_sourcescribe_end_to_end(tmp_path: Path, m
     assert result["status"] in {"completed", "failed"}
     if result["status"] == "completed":
         assert result["note_id"]
-        from ledgerly.engine.notes import list_notes
+        from corroborly.engine.notes import list_notes
 
         notes = list_notes(workspace)
         assert any(n["id"] == result["note_id"] for n in notes)

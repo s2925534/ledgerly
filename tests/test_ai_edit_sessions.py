@@ -4,15 +4,15 @@ from urllib.request import Request
 
 import pytest
 
-from ledgerly.engine.ai import OpenAiCredentials, OpenAiError
-from ledgerly.engine.ai_edit_sessions import (
+from corroborly.engine.ai import OpenAiCredentials, OpenAiError
+from corroborly.engine.ai_edit_sessions import (
     apply_ai_edit_session,
     create_ai_edit_session,
     get_ai_edit_session,
     list_ai_edit_sessions,
     set_ai_edit_review_status,
 )
-from ledgerly.engine.workspace import init_workspace
+from corroborly.engine.workspace import init_workspace
 
 
 class FakeResponse:
@@ -116,7 +116,7 @@ def test_create_ai_edit_session_parses_and_verifies_anchored_edit(tmp_path: Path
     )  # target itself is never modified
 
     # Recorded in the AI-usage audit ledger like every other engine.ai call.
-    from ledgerly.engine.ai import list_ai_usage
+    from corroborly.engine.ai import list_ai_usage
 
     usage = list_ai_usage(workspace)
     assert usage[-1]["kind"] == "ai_edit_session"

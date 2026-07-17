@@ -1,6 +1,6 @@
 import pytest
 
-from ledgerly.engine.references import (
+from corroborly.engine.references import (
     CITATION_STYLES,
     apa7_reference,
     chicago_reference,

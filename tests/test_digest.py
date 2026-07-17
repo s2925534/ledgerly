@@ -1,9 +1,9 @@
 import time
 from pathlib import Path
 
-from ledgerly.engine.claims import add_claim, set_claim_status
-from ledgerly.engine.digest import last_visited_at, mark_visited, since_last_visit_digest
-from ledgerly.engine.workspace import init_workspace
+from corroborly.engine.claims import add_claim, set_claim_status
+from corroborly.engine.digest import last_visited_at, mark_visited, since_last_visit_digest
+from corroborly.engine.workspace import init_workspace
 
 
 def test_last_visited_at_is_none_before_first_mark(tmp_path: Path) -> None:
@@ -71,7 +71,7 @@ def test_digest_includes_stale_open_claim_count(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="")
     add_claim(workspace, text="Old unsupported claim.")
-    from ledgerly.core.yamlio import read_yaml, write_yaml
+    from corroborly.core.yamlio import read_yaml, write_yaml
     from datetime import datetime, timedelta, timezone
 
     old_iso = (datetime.now(timezone.utc) - timedelta(days=30)).replace(microsecond=0).isoformat()
@@ -86,7 +86,7 @@ def test_digest_includes_stale_open_claim_count(tmp_path: Path) -> None:
 
 
 def test_digest_includes_timeline_activity_since_last_visit(tmp_path: Path) -> None:
-    from ledgerly.engine.project_log import add_decision
+    from corroborly.engine.project_log import add_decision
 
     workspace = tmp_path / "workspace"
     init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="")

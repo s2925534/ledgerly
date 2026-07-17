@@ -4,11 +4,11 @@ from urllib.request import Request
 
 import pytest
 
-from ledgerly.core.yamlio import read_yaml, write_yaml
-from ledgerly.engine.ai import OpenAiCredentials
-from ledgerly.engine.ai_edit_sessions import apply_ai_edit_session, set_ai_edit_review_status
-from ledgerly.engine.artefact_creation import create_ai_paper_draft, create_deterministic_artefact
-from ledgerly.engine.artefacts import (
+from corroborly.core.yamlio import read_yaml, write_yaml
+from corroborly.engine.ai import OpenAiCredentials
+from corroborly.engine.ai_edit_sessions import apply_ai_edit_session, set_ai_edit_review_status
+from corroborly.engine.artefact_creation import create_ai_paper_draft, create_deterministic_artefact
+from corroborly.engine.artefacts import (
     artefact_dependency_report,
     clear_paper_review_gate,
     list_artefacts,
@@ -16,10 +16,10 @@ from ledgerly.engine.artefacts import (
     register_artefact,
     set_artefact_review_status,
 )
-from ledgerly.engine.claims import add_claim
-from ledgerly.engine.doc_validation import validate_document
-from ledgerly.engine.vault import list_document_versions
-from ledgerly.engine.workspace import init_workspace
+from corroborly.engine.claims import add_claim
+from corroborly.engine.doc_validation import validate_document
+from corroborly.engine.vault import list_document_versions
+from corroborly.engine.workspace import init_workspace
 
 
 class FakeResponse:
@@ -374,8 +374,8 @@ def test_ai_paper_draft_full_review_gate_lifecycle(tmp_path: Path) -> None:
 
     # First, create the deterministic skeleton to learn the real placeholder anchor.
     skeleton = create_deterministic_artefact(workspace, "paper-draft", rq_id="rq-001")
-    from ledgerly.engine.derived_text import build_derived_text_snapshot
-    from ledgerly.engine.vault import create_document_version
+    from corroborly.engine.derived_text import build_derived_text_snapshot
+    from corroborly.engine.vault import create_document_version
 
     version = create_document_version(workspace, str(skeleton.path), creation_reason="test_setup")
     derived = build_derived_text_snapshot(workspace, version["version_id"])
@@ -429,7 +429,7 @@ def test_ai_paper_draft_full_review_gate_lifecycle(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="cannot be marked reviewed/accepted"):
         set_artefact_review_status(workspace, artefact_id, "reviewed")
 
-    with pytest.raises(ValueError, match="Run `ledgerly validate`"):
+    with pytest.raises(ValueError, match="Run `corroborly validate`"):
         clear_paper_review_gate(workspace, artefact_id)
 
     validate_document(workspace, str(skeleton.path))

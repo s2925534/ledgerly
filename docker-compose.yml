@@ -1,37 +1,38 @@
-# Ledgerly local API, for use with `synology-site deploy` from
+# Corroborly local API, for use with `synology-site deploy` from
 # ../synology-site-deployer (see docs/DEPLOY.md) or plain `docker compose up`.
 #
 # Requires a populated .env alongside this file (copy .env.example) with at
-# least LEDGERLY_API_USERNAME and LEDGERLY_API_PASSWORD set --
+# least CORROBORLY_API_USERNAME and CORROBORLY_API_PASSWORD set --
 # compose refuses to start otherwise.
 #
 # Single container, single process: see the Dockerfile for why this must
 # never be scaled to multiple replicas or workers.
 
 services:
-  ledgerly-api:
+  corroborly-api:
     build: .
+    container_name: corroborly-api
     restart: unless-stopped
     ports:
-      - "${LEDGERLY_HOST_PORT:-8000}:8000"
+      - "${CORROBORLY_HOST_PORT:-8000}:8000"
     environment:
-      LEDGERLY_API_USERNAME: ${LEDGERLY_API_USERNAME:?Set LEDGERLY_API_USERNAME in .env before starting}
-      LEDGERLY_API_PASSWORD: ${LEDGERLY_API_PASSWORD:?Set LEDGERLY_API_PASSWORD in .env before starting}
-      LEDGERLY_WORKSPACE_ROOT: /data/workspaces
-      LEDGERLY_API_SESSION_HOURS: ${LEDGERLY_API_SESSION_HOURS:-12}
-      LEDGERLY_UPLOAD_MAX_FILES: ${LEDGERLY_UPLOAD_MAX_FILES:-25}
-      LEDGERLY_UPLOAD_MAX_FILE_SIZE_MB: ${LEDGERLY_UPLOAD_MAX_FILE_SIZE_MB:-50}
-      LEDGERLY_DB_BACKEND: ${LEDGERLY_DB_BACKEND:-}
-      LEDGERLY_POSTGRES_HOST: ${LEDGERLY_POSTGRES_HOST:-}
-      LEDGERLY_POSTGRES_PORT: ${LEDGERLY_POSTGRES_PORT:-}
-      LEDGERLY_POSTGRES_USER: ${LEDGERLY_POSTGRES_USER:-}
-      LEDGERLY_POSTGRES_PASSWORD: ${LEDGERLY_POSTGRES_PASSWORD:-}
-      LEDGERLY_POSTGRES_DATABASE: ${LEDGERLY_POSTGRES_DATABASE:-}
-      LEDGERLY_MARIADB_HOST: ${LEDGERLY_MARIADB_HOST:-}
-      LEDGERLY_MARIADB_PORT: ${LEDGERLY_MARIADB_PORT:-}
-      LEDGERLY_MARIADB_USER: ${LEDGERLY_MARIADB_USER:-}
-      LEDGERLY_MARIADB_PASSWORD: ${LEDGERLY_MARIADB_PASSWORD:-}
-      LEDGERLY_MARIADB_DATABASE: ${LEDGERLY_MARIADB_DATABASE:-}
+      CORROBORLY_API_USERNAME: ${CORROBORLY_API_USERNAME:?Set CORROBORLY_API_USERNAME in .env before starting}
+      CORROBORLY_API_PASSWORD: ${CORROBORLY_API_PASSWORD:?Set CORROBORLY_API_PASSWORD in .env before starting}
+      CORROBORLY_WORKSPACE_ROOT: /data/workspaces
+      CORROBORLY_API_SESSION_HOURS: ${CORROBORLY_API_SESSION_HOURS:-12}
+      CORROBORLY_UPLOAD_MAX_FILES: ${CORROBORLY_UPLOAD_MAX_FILES:-25}
+      CORROBORLY_UPLOAD_MAX_FILE_SIZE_MB: ${CORROBORLY_UPLOAD_MAX_FILE_SIZE_MB:-50}
+      CORROBORLY_DB_BACKEND: ${CORROBORLY_DB_BACKEND:-}
+      CORROBORLY_POSTGRES_HOST: ${CORROBORLY_POSTGRES_HOST:-}
+      CORROBORLY_POSTGRES_PORT: ${CORROBORLY_POSTGRES_PORT:-}
+      CORROBORLY_POSTGRES_USER: ${CORROBORLY_POSTGRES_USER:-}
+      CORROBORLY_POSTGRES_PASSWORD: ${CORROBORLY_POSTGRES_PASSWORD:-}
+      CORROBORLY_POSTGRES_DATABASE: ${CORROBORLY_POSTGRES_DATABASE:-}
+      CORROBORLY_MARIADB_HOST: ${CORROBORLY_MARIADB_HOST:-}
+      CORROBORLY_MARIADB_PORT: ${CORROBORLY_MARIADB_PORT:-}
+      CORROBORLY_MARIADB_USER: ${CORROBORLY_MARIADB_USER:-}
+      CORROBORLY_MARIADB_PASSWORD: ${CORROBORLY_MARIADB_PASSWORD:-}
+      CORROBORLY_MARIADB_DATABASE: ${CORROBORLY_MARIADB_DATABASE:-}
     volumes:
       # Bind-mounted, not a named volume: a researcher may want direct
       # filesystem access to their own workspace files (backups, inspecting
@@ -45,18 +46,18 @@ services:
   # to also run a local MariaDB/PostgreSQL for testing the secondary-backend
   # feature. Neither starts with plain `docker compose up` -- SQLite alone
   # remains the default, zero-config path for `docker compose up` with no
-  # profile flag. Point LEDGERLY_DB_BACKEND/LEDGERLY_{POSTGRES,MARIADB}_HOST
+  # profile flag. Point CORROBORLY_DB_BACKEND/CORROBORLY_{POSTGRES,MARIADB}_HOST
   # at these service names (postgres-backend / mariadb-backend) in .env if
-  # you use this profile, since the ledgerly-api container reaches them by
+  # you use this profile, since the corroborly-api container reaches them by
   # Docker network name, not localhost.
   postgres-backend:
     image: postgres:16-alpine
     profiles: ["db-backends"]
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${LEDGERLY_POSTGRES_USER:-ledgerly}
-      POSTGRES_PASSWORD: ${LEDGERLY_POSTGRES_PASSWORD:?Set LEDGERLY_POSTGRES_PASSWORD in .env to use the db-backends profile}
-      POSTGRES_DB: ${LEDGERLY_POSTGRES_DATABASE:-ledgerly}
+      POSTGRES_USER: ${CORROBORLY_POSTGRES_USER:-corroborly}
+      POSTGRES_PASSWORD: ${CORROBORLY_POSTGRES_PASSWORD:?Set CORROBORLY_POSTGRES_PASSWORD in .env to use the db-backends profile}
+      POSTGRES_DB: ${CORROBORLY_POSTGRES_DATABASE:-corroborly}
     volumes:
       - ./data/postgres-backend:/var/lib/postgresql/data
 
@@ -65,9 +66,9 @@ services:
     profiles: ["db-backends"]
     restart: unless-stopped
     environment:
-      MARIADB_USER: ${LEDGERLY_MARIADB_USER:-ledgerly}
-      MARIADB_PASSWORD: ${LEDGERLY_MARIADB_PASSWORD:?Set LEDGERLY_MARIADB_PASSWORD in .env to use the db-backends profile}
-      MARIADB_DATABASE: ${LEDGERLY_MARIADB_DATABASE:-ledgerly}
+      MARIADB_USER: ${CORROBORLY_MARIADB_USER:-corroborly}
+      MARIADB_PASSWORD: ${CORROBORLY_MARIADB_PASSWORD:?Set CORROBORLY_MARIADB_PASSWORD in .env to use the db-backends profile}
+      MARIADB_DATABASE: ${CORROBORLY_MARIADB_DATABASE:-corroborly}
       MARIADB_RANDOM_ROOT_PASSWORD: "yes"
     volumes:
       - ./data/mariadb-backend:/var/lib/mysql

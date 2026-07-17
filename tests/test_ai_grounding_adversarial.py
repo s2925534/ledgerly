@@ -24,8 +24,8 @@ from urllib.request import Request
 
 import pytest
 
-from ledgerly.core.yamlio import read_yaml, write_yaml
-from ledgerly.engine.ai import (
+from corroborly.core.yamlio import read_yaml, write_yaml
+from corroborly.engine.ai import (
     AI_WORKSPACE_REPORTS,
     OpenAiCredentials,
     ai_assisted_review,
@@ -34,7 +34,7 @@ from ledgerly.engine.ai import (
     ai_research_question_assessment,
     ai_workspace_report,
 )
-from ledgerly.engine.workspace import init_workspace
+from corroborly.engine.workspace import init_workspace
 
 
 class FakeResponse:
@@ -106,8 +106,8 @@ def test_ai_workspace_report_refuses_on_zero_evidence_workspace(tmp_path: Path, 
 
 
 def _init_with_one_accepted_source(tmp_path: Path, *, topic: str, text: str, research_questions=None):
-    from ledgerly.engine.conversion import convert_sources
-    from ledgerly.engine.sources import scan_sources, set_source_status
+    from corroborly.engine.conversion import convert_sources
+    from corroborly.engine.sources import scan_sources, set_source_status
 
     workspace = tmp_path / "workspace"
     source_root = tmp_path / "sources"

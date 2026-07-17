@@ -1,9 +1,9 @@
 from pathlib import Path
 
-from ledgerly.core.yamlio import read_yaml
-from ledgerly.engine.sources import scan_sources
-from ledgerly.engine.watch import find_unregistered_sources, write_watch_report
-from ledgerly.engine.workspace import init_workspace
+from corroborly.core.yamlio import read_yaml
+from corroborly.engine.sources import scan_sources
+from corroborly.engine.watch import find_unregistered_sources, write_watch_report
+from corroborly.engine.workspace import init_workspace
 
 
 def test_watch_detects_unregistered_source_files(tmp_path: Path) -> None:

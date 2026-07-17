@@ -1,8 +1,8 @@
 from pathlib import Path
 
-from ledgerly.core.yamlio import read_yaml, write_yaml
-from ledgerly.engine.sidecars import import_sidecar_metadata, parse_sidecar_metadata
-from ledgerly.engine.workspace import init_workspace
+from corroborly.core.yamlio import read_yaml, write_yaml
+from corroborly.engine.sidecars import import_sidecar_metadata, parse_sidecar_metadata
+from corroborly.engine.workspace import init_workspace
 
 
 def test_parse_sidecar_metadata_supports_csl_json_bibtex_and_ris(tmp_path: Path) -> None:

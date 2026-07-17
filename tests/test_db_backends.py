@@ -5,11 +5,11 @@ suite (tests/test_database.py) continuing to pass without any changes here,
 not duplicated in this file.
 
 Real round-trip coverage against PostgreSQL runs when a local server is
-reachable (`LEDGERLY_TEST_POSTGRES_*` env vars, defaults match a local
-`createdb ledgerly_test` on the current user) and skips gracefully
+reachable (`CORROBORLY_TEST_POSTGRES_*` env vars, defaults match a local
+`createdb corroborly_test` on the current user) and skips gracefully
 otherwise. No MariaDB server is available in this environment — those
 tests are written the same way and will run wherever one is reachable via
-`LEDGERLY_TEST_MARIADB_*`, but skip here rather than being silently
+`CORROBORLY_TEST_MARIADB_*`, but skip here rather than being silently
 omitted, so the gap is visible in test output, not hidden.
 """
 
@@ -21,7 +21,7 @@ from pathlib import Path
 
 import pytest
 
-from ledgerly.engine.database import (
+from corroborly.engine.database import (
     activate_secondary_backend,
     database_path,
     deactivate_secondary_backend,
@@ -30,48 +30,48 @@ from ledgerly.engine.database import (
     secondary_backend_status,
     sync_database,
 )
-from ledgerly.engine.db_backends.base import (
+from corroborly.engine.db_backends.base import (
     SecondaryBackendCredentials,
     SecondaryBackendError,
     mirror_sqlite_into_secondary,
     repopulate_sqlite_from_secondary,
 )
-from ledgerly.engine.db_backends.config import (
+from corroborly.engine.db_backends.config import (
     configured_secondary_backend,
     secondary_backend_credentials,
 )
-from ledgerly.engine.workspace import init_workspace
+from corroborly.engine.workspace import init_workspace
 
 
 # --- config parsing (no real server needed) ---
 
 
 def test_configured_secondary_backend_defaults_to_none(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.delenv("LEDGERLY_DB_BACKEND", raising=False)
+    monkeypatch.delenv("CORROBORLY_DB_BACKEND", raising=False)
     monkeypatch.chdir(tmp_path)
 
     assert configured_secondary_backend(tmp_path) is None
 
 
 def test_configured_secondary_backend_reads_env_var(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.setenv("LEDGERLY_DB_BACKEND", "postgres")
+    monkeypatch.setenv("CORROBORLY_DB_BACKEND", "postgres")
     monkeypatch.chdir(tmp_path)
 
     assert configured_secondary_backend(tmp_path) == "postgres"
 
 
 def test_configured_secondary_backend_rejects_unknown_value(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.setenv("LEDGERLY_DB_BACKEND", "oracle")
+    monkeypatch.setenv("CORROBORLY_DB_BACKEND", "oracle")
     monkeypatch.chdir(tmp_path)
 
-    with pytest.raises(SecondaryBackendError, match="Invalid LEDGERLY_DB_BACKEND"):
+    with pytest.raises(SecondaryBackendError, match="Invalid CORROBORLY_DB_BACKEND"):
         configured_secondary_backend(tmp_path)
 
 
 def test_secondary_backend_credentials_requires_host_user_database(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.delenv("LEDGERLY_POSTGRES_HOST", raising=False)
-    monkeypatch.delenv("LEDGERLY_POSTGRES_USER", raising=False)
-    monkeypatch.delenv("LEDGERLY_POSTGRES_DATABASE", raising=False)
+    monkeypatch.delenv("CORROBORLY_POSTGRES_HOST", raising=False)
+    monkeypatch.delenv("CORROBORLY_POSTGRES_USER", raising=False)
+    monkeypatch.delenv("CORROBORLY_POSTGRES_DATABASE", raising=False)
     monkeypatch.chdir(tmp_path)
 
     with pytest.raises(SecondaryBackendError, match="Missing required config"):
@@ -79,10 +79,10 @@ def test_secondary_backend_credentials_requires_host_user_database(tmp_path: Pat
 
 
 def test_secondary_backend_credentials_defaults_port(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.setenv("LEDGERLY_POSTGRES_HOST", "localhost")
-    monkeypatch.setenv("LEDGERLY_POSTGRES_USER", "u")
-    monkeypatch.setenv("LEDGERLY_POSTGRES_DATABASE", "d")
-    monkeypatch.delenv("LEDGERLY_POSTGRES_PORT", raising=False)
+    monkeypatch.setenv("CORROBORLY_POSTGRES_HOST", "localhost")
+    monkeypatch.setenv("CORROBORLY_POSTGRES_USER", "u")
+    monkeypatch.setenv("CORROBORLY_POSTGRES_DATABASE", "d")
+    monkeypatch.delenv("CORROBORLY_POSTGRES_PORT", raising=False)
     monkeypatch.chdir(tmp_path)
 
     credentials = secondary_backend_credentials("postgres", tmp_path)
@@ -93,7 +93,7 @@ def test_secondary_backend_credentials_defaults_port(tmp_path: Path, monkeypatch
 def test_secondary_backend_status_without_configuration(tmp_path: Path, monkeypatch) -> None:
     workspace = tmp_path / "workspace"
     init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
-    monkeypatch.delenv("LEDGERLY_DB_BACKEND", raising=False)
+    monkeypatch.delenv("CORROBORLY_DB_BACKEND", raising=False)
     monkeypatch.chdir(tmp_path)
 
     result = secondary_backend_status(workspace)
@@ -106,7 +106,7 @@ def test_secondary_backend_status_without_configuration(tmp_path: Path, monkeypa
 def test_activate_secondary_backend_requires_configuration(tmp_path: Path, monkeypatch) -> None:
     workspace = tmp_path / "workspace"
     init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
-    monkeypatch.delenv("LEDGERLY_DB_BACKEND", raising=False)
+    monkeypatch.delenv("CORROBORLY_DB_BACKEND", raising=False)
     monkeypatch.chdir(tmp_path)
 
     with pytest.raises(SecondaryBackendError, match="No secondary backend configured"):
@@ -208,17 +208,17 @@ def test_mirror_replaces_stale_rows_not_appends() -> None:
 
 def _postgres_test_credentials() -> SecondaryBackendCredentials:
     return SecondaryBackendCredentials(
-        host=os.environ.get("LEDGERLY_TEST_POSTGRES_HOST", "localhost"),
-        port=int(os.environ.get("LEDGERLY_TEST_POSTGRES_PORT", "5432")),
-        user=os.environ.get("LEDGERLY_TEST_POSTGRES_USER", os.environ.get("USER", "postgres")),
-        password=os.environ.get("LEDGERLY_TEST_POSTGRES_PASSWORD", ""),
-        database=os.environ.get("LEDGERLY_TEST_POSTGRES_DATABASE", "ledgerly_test"),
+        host=os.environ.get("CORROBORLY_TEST_POSTGRES_HOST", "localhost"),
+        port=int(os.environ.get("CORROBORLY_TEST_POSTGRES_PORT", "5432")),
+        user=os.environ.get("CORROBORLY_TEST_POSTGRES_USER", os.environ.get("USER", "postgres")),
+        password=os.environ.get("CORROBORLY_TEST_POSTGRES_PASSWORD", ""),
+        database=os.environ.get("CORROBORLY_TEST_POSTGRES_DATABASE", "corroborly_test"),
     )
 
 
 def _postgres_reachable() -> bool:
     try:
-        from ledgerly.engine.db_backends import postgres
+        from corroborly.engine.db_backends import postgres
     except Exception:
         return False
     try:
@@ -232,17 +232,17 @@ requires_postgres = pytest.mark.skipif(not _postgres_reachable(), reason="No rea
 
 def _set_postgres_env(monkeypatch) -> None:
     creds = _postgres_test_credentials()
-    monkeypatch.setenv("LEDGERLY_DB_BACKEND", "postgres")
-    monkeypatch.setenv("LEDGERLY_POSTGRES_HOST", creds.host)
-    monkeypatch.setenv("LEDGERLY_POSTGRES_PORT", str(creds.port))
-    monkeypatch.setenv("LEDGERLY_POSTGRES_USER", creds.user)
-    monkeypatch.setenv("LEDGERLY_POSTGRES_PASSWORD", creds.password)
-    monkeypatch.setenv("LEDGERLY_POSTGRES_DATABASE", creds.database)
+    monkeypatch.setenv("CORROBORLY_DB_BACKEND", "postgres")
+    monkeypatch.setenv("CORROBORLY_POSTGRES_HOST", creds.host)
+    monkeypatch.setenv("CORROBORLY_POSTGRES_PORT", str(creds.port))
+    monkeypatch.setenv("CORROBORLY_POSTGRES_USER", creds.user)
+    monkeypatch.setenv("CORROBORLY_POSTGRES_PASSWORD", creds.password)
+    monkeypatch.setenv("CORROBORLY_POSTGRES_DATABASE", creds.database)
 
 
 def _clear_postgres_tables() -> None:
-    from ledgerly.engine.db_backends import postgres
-    from ledgerly.engine.db_backends.base import MIRRORED_TABLES
+    from corroborly.engine.db_backends import postgres
+    from corroborly.engine.db_backends.base import MIRRORED_TABLES
 
     conn = postgres.connect(_postgres_test_credentials())
     try:
@@ -285,10 +285,10 @@ def test_at_most_one_secondary_backend_active_at_a_time(tmp_path: Path, monkeypa
     _set_postgres_env(monkeypatch)
     activate_secondary_backend(workspace)
 
-    monkeypatch.setenv("LEDGERLY_DB_BACKEND", "mariadb")
-    monkeypatch.setenv("LEDGERLY_MARIADB_HOST", "localhost")
-    monkeypatch.setenv("LEDGERLY_MARIADB_USER", "x")
-    monkeypatch.setenv("LEDGERLY_MARIADB_DATABASE", "x")
+    monkeypatch.setenv("CORROBORLY_DB_BACKEND", "mariadb")
+    monkeypatch.setenv("CORROBORLY_MARIADB_HOST", "localhost")
+    monkeypatch.setenv("CORROBORLY_MARIADB_USER", "x")
+    monkeypatch.setenv("CORROBORLY_MARIADB_DATABASE", "x")
 
     with pytest.raises(SecondaryBackendError, match="already the active secondary backend"):
         activate_secondary_backend(workspace)
@@ -357,17 +357,17 @@ def test_repair_secondary_from_sqlite_after_secondary_wiped(tmp_path: Path, monk
 
 def _mariadb_test_credentials() -> SecondaryBackendCredentials:
     return SecondaryBackendCredentials(
-        host=os.environ.get("LEDGERLY_TEST_MARIADB_HOST", "localhost"),
-        port=int(os.environ.get("LEDGERLY_TEST_MARIADB_PORT", "3306")),
-        user=os.environ.get("LEDGERLY_TEST_MARIADB_USER", "root"),
-        password=os.environ.get("LEDGERLY_TEST_MARIADB_PASSWORD", ""),
-        database=os.environ.get("LEDGERLY_TEST_MARIADB_DATABASE", "ledgerly_test"),
+        host=os.environ.get("CORROBORLY_TEST_MARIADB_HOST", "localhost"),
+        port=int(os.environ.get("CORROBORLY_TEST_MARIADB_PORT", "3306")),
+        user=os.environ.get("CORROBORLY_TEST_MARIADB_USER", "root"),
+        password=os.environ.get("CORROBORLY_TEST_MARIADB_PASSWORD", ""),
+        database=os.environ.get("CORROBORLY_TEST_MARIADB_DATABASE", "corroborly_test"),
     )
 
 
 def _mariadb_reachable() -> bool:
     try:
-        from ledgerly.engine.db_backends import mariadb
+        from corroborly.engine.db_backends import mariadb
     except Exception:
         return False
     try:
@@ -384,12 +384,12 @@ def test_activate_sync_and_status_against_real_mariadb(tmp_path: Path, monkeypat
     workspace = tmp_path / "workspace"
     init_workspace(workspace, project_name="MariaDB Test", project_type="M.Phil", topic="x")
     creds = _mariadb_test_credentials()
-    monkeypatch.setenv("LEDGERLY_DB_BACKEND", "mariadb")
-    monkeypatch.setenv("LEDGERLY_MARIADB_HOST", creds.host)
-    monkeypatch.setenv("LEDGERLY_MARIADB_PORT", str(creds.port))
-    monkeypatch.setenv("LEDGERLY_MARIADB_USER", creds.user)
-    monkeypatch.setenv("LEDGERLY_MARIADB_PASSWORD", creds.password)
-    monkeypatch.setenv("LEDGERLY_MARIADB_DATABASE", creds.database)
+    monkeypatch.setenv("CORROBORLY_DB_BACKEND", "mariadb")
+    monkeypatch.setenv("CORROBORLY_MARIADB_HOST", creds.host)
+    monkeypatch.setenv("CORROBORLY_MARIADB_PORT", str(creds.port))
+    monkeypatch.setenv("CORROBORLY_MARIADB_USER", creds.user)
+    monkeypatch.setenv("CORROBORLY_MARIADB_PASSWORD", creds.password)
+    monkeypatch.setenv("CORROBORLY_MARIADB_DATABASE", creds.database)
 
     activation = activate_secondary_backend(workspace)
     assert activation.report["status"] == "activated"
@@ -402,7 +402,7 @@ def test_activate_sync_and_status_against_real_mariadb(tmp_path: Path, monkeypat
 
 from typer.testing import CliRunner  # noqa: E402
 
-from ledgerly.cli import app  # noqa: E402
+from corroborly.cli import app  # noqa: E402
 
 
 runner = CliRunner()
@@ -415,12 +415,12 @@ def test_cli_db_activate_sync_status_deactivate_round_trip(tmp_path: Path) -> No
     init_workspace(workspace, project_name="CLI PG Test", project_type="M.Phil", topic="x")
     creds = _postgres_test_credentials()
     env = {
-        "LEDGERLY_DB_BACKEND": "postgres",
-        "LEDGERLY_POSTGRES_HOST": creds.host,
-        "LEDGERLY_POSTGRES_PORT": str(creds.port),
-        "LEDGERLY_POSTGRES_USER": creds.user,
-        "LEDGERLY_POSTGRES_PASSWORD": creds.password,
-        "LEDGERLY_POSTGRES_DATABASE": creds.database,
+        "CORROBORLY_DB_BACKEND": "postgres",
+        "CORROBORLY_POSTGRES_HOST": creds.host,
+        "CORROBORLY_POSTGRES_PORT": str(creds.port),
+        "CORROBORLY_POSTGRES_USER": creds.user,
+        "CORROBORLY_POSTGRES_PASSWORD": creds.password,
+        "CORROBORLY_POSTGRES_DATABASE": creds.database,
     }
     cli_runner = CliRunner(env=env)
 
@@ -445,12 +445,12 @@ def test_cli_db_sync_prompts_for_activation_when_configured_but_inactive(tmp_pat
     init_workspace(workspace, project_name="CLI PG Prompt Test", project_type="M.Phil", topic="x")
     creds = _postgres_test_credentials()
     env = {
-        "LEDGERLY_DB_BACKEND": "postgres",
-        "LEDGERLY_POSTGRES_HOST": creds.host,
-        "LEDGERLY_POSTGRES_PORT": str(creds.port),
-        "LEDGERLY_POSTGRES_USER": creds.user,
-        "LEDGERLY_POSTGRES_PASSWORD": creds.password,
-        "LEDGERLY_POSTGRES_DATABASE": creds.database,
+        "CORROBORLY_DB_BACKEND": "postgres",
+        "CORROBORLY_POSTGRES_HOST": creds.host,
+        "CORROBORLY_POSTGRES_PORT": str(creds.port),
+        "CORROBORLY_POSTGRES_USER": creds.user,
+        "CORROBORLY_POSTGRES_PASSWORD": creds.password,
+        "CORROBORLY_POSTGRES_DATABASE": creds.database,
     }
     cli_runner = CliRunner(env=env)
 
@@ -469,12 +469,12 @@ def test_cli_db_sync_declining_activation_prompt_leaves_backend_inactive(tmp_pat
     init_workspace(workspace, project_name="CLI PG Decline Test", project_type="M.Phil", topic="x")
     creds = _postgres_test_credentials()
     env = {
-        "LEDGERLY_DB_BACKEND": "postgres",
-        "LEDGERLY_POSTGRES_HOST": creds.host,
-        "LEDGERLY_POSTGRES_PORT": str(creds.port),
-        "LEDGERLY_POSTGRES_USER": creds.user,
-        "LEDGERLY_POSTGRES_PASSWORD": creds.password,
-        "LEDGERLY_POSTGRES_DATABASE": creds.database,
+        "CORROBORLY_DB_BACKEND": "postgres",
+        "CORROBORLY_POSTGRES_HOST": creds.host,
+        "CORROBORLY_POSTGRES_PORT": str(creds.port),
+        "CORROBORLY_POSTGRES_USER": creds.user,
+        "CORROBORLY_POSTGRES_PASSWORD": creds.password,
+        "CORROBORLY_POSTGRES_DATABASE": creds.database,
     }
     cli_runner = CliRunner(env=env)
 
@@ -489,10 +489,10 @@ def test_cli_db_commands_with_quiet_never_prompt(tmp_path: Path, monkeypatch) ->
     when a secondary backend happens to be configured (invalid or not)."""
     workspace = tmp_path / "workspace"
     init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
-    monkeypatch.setenv("LEDGERLY_DB_BACKEND", "postgres")
-    monkeypatch.setenv("LEDGERLY_POSTGRES_HOST", "192.0.2.1")  # TEST-NET-1, never routable
-    monkeypatch.setenv("LEDGERLY_POSTGRES_USER", "u")
-    monkeypatch.setenv("LEDGERLY_POSTGRES_DATABASE", "d")
+    monkeypatch.setenv("CORROBORLY_DB_BACKEND", "postgres")
+    monkeypatch.setenv("CORROBORLY_POSTGRES_HOST", "192.0.2.1")  # TEST-NET-1, never routable
+    monkeypatch.setenv("CORROBORLY_POSTGRES_USER", "u")
+    monkeypatch.setenv("CORROBORLY_POSTGRES_DATABASE", "d")
 
     for args in [
         ["db", "init", "--workspace", str(workspace), "--quiet"],

@@ -1,8 +1,8 @@
 from pathlib import Path
 
-from ledgerly.core.yamlio import read_yaml, write_yaml
-from ledgerly.engine.pdf_merge import pdf_merge_report
-from ledgerly.engine.workspace import init_workspace
+from corroborly.core.yamlio import read_yaml, write_yaml
+from corroborly.engine.pdf_merge import pdf_merge_report
+from corroborly.engine.workspace import init_workspace
 
 
 def test_pdf_merge_report_writes_dry_run_manifest_and_csv(tmp_path: Path) -> None:

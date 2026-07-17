@@ -3,8 +3,8 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "ledgerly"
-version = "0.11.59"
+name = "corroborly"
+version = "0.12.0"
 description = "Local-first, evidence-first research workspace engine and CLI."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -32,7 +32,7 @@ dev = [
 ]
 # Optional secondary database backends (Phase 24). SQLite stays the
 # always-on, zero-config default with zero new required dependencies;
-# these are only imported if LEDGERLY_DB_BACKEND selects one.
+# these are only imported if CORROBORLY_DB_BACKEND selects one.
 postgres = [
   "psycopg2-binary>=2.9.0",
 ]
@@ -41,10 +41,10 @@ mariadb = [
 ]
 
 [project.scripts]
-ledgerly = "ledgerly.cli:app"
+corroborly = "corroborly.cli:app"
 
 [tool.setuptools.packages.find]
-include = ["ledgerly*"]
+include = ["corroborly*"]
 
 [tool.setuptools.package-data]
-"ledgerly.web" = ["templates/*.html", "static/*.js", "static/*.css"]
+"corroborly.web" = ["templates/*.html", "static/*.js", "static/*.css"]

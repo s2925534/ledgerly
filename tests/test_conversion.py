@@ -3,11 +3,11 @@ import sys
 import types
 import zipfile
 
-from ledgerly.core.yamlio import read_yaml, write_yaml
-import ledgerly.engine.conversion as conversion
-from ledgerly.engine.conversion import convert_sources, extract_text, ocr_readiness_report, processing_issue_report
-from ledgerly.engine.sources import scan_sources, set_source_status
-from ledgerly.engine.workspace import init_workspace
+from corroborly.core.yamlio import read_yaml, write_yaml
+import corroborly.engine.conversion as conversion
+from corroborly.engine.conversion import convert_sources, extract_text, ocr_readiness_report, processing_issue_report
+from corroborly.engine.sources import scan_sources, set_source_status
+from corroborly.engine.workspace import init_workspace
 
 
 def make_workspace(tmp_path: Path) -> Path:

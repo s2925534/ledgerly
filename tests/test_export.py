@@ -1,15 +1,15 @@
 from pathlib import Path
 from zipfile import ZipFile
 
-from ledgerly.core.yamlio import write_yaml
-from ledgerly.engine.claims import add_claim
-from ledgerly.engine.export import (
+from corroborly.core.yamlio import write_yaml
+from corroborly.engine.claims import add_claim
+from corroborly.engine.export import (
     build_supervisor_bundle,
     build_supervisor_bundle_html,
     export_accepted_source_corpus,
     export_evidence_bundle,
 )
-from ledgerly.engine.workspace import init_workspace
+from corroborly.engine.workspace import init_workspace
 
 
 def test_export_evidence_bundle_excludes_original_files(tmp_path: Path) -> None:
@@ -106,7 +106,7 @@ def test_build_supervisor_bundle_includes_ai_usage_disclosure_summary(tmp_path: 
     workspace = tmp_path / "workspace"
     init_workspace(workspace, project_name="Test Project", project_type="M.Phil", topic="Topic")
 
-    from ledgerly.engine.ai import (
+    from corroborly.engine.ai import (
         OpenAiCredentials,
         ai_assisted_review,
     )

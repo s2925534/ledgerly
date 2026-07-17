@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from ledgerly.core.yamlio import read_yaml
-from ledgerly.engine.research_questions import (
+from corroborly.core.yamlio import read_yaml
+from corroborly.engine.research_questions import (
     add_research_question_candidate,
     assess_research_question_readiness,
     check_research_question_readiness,
@@ -14,7 +14,7 @@ from ledgerly.engine.research_questions import (
     reject_research_question,
     split_candidate_relations,
 )
-from ledgerly.engine.workspace import init_workspace
+from corroborly.engine.workspace import init_workspace
 
 
 def make_workspace(tmp_path: Path) -> Path:

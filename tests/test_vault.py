@@ -2,10 +2,10 @@ from pathlib import Path
 
 import pytest
 
-from ledgerly.core.constants import WORKSPACE_DIRS
-from ledgerly.core.yamlio import read_yaml, write_yaml
-from ledgerly.engine.backup import create_workspace_backup, inspect_backup
-from ledgerly.engine.vault import (
+from corroborly.core.constants import WORKSPACE_DIRS
+from corroborly.core.yamlio import read_yaml, write_yaml
+from corroborly.engine.backup import create_workspace_backup, inspect_backup
+from corroborly.engine.vault import (
     compare_document_versions,
     create_document_version,
     diff_document_versions,
@@ -18,7 +18,7 @@ from ledgerly.engine.vault import (
     restore_document_version,
     vault_layout,
 )
-from ledgerly.engine.workspace import init_workspace
+from corroborly.engine.workspace import init_workspace
 
 
 def _workspace(tmp_path: Path) -> Path:

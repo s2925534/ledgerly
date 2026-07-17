@@ -3,8 +3,8 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from ledgerly.api.app import create_app
-from ledgerly.api.auth import clear_all_sessions
+from corroborly.api.app import create_app
+from corroborly.api.auth import clear_all_sessions
 
 
 TEST_USERNAME = "test-user"
@@ -20,8 +20,8 @@ def _reset_sessions():
 
 @pytest.fixture()
 def client(monkeypatch) -> TestClient:
-    monkeypatch.setenv("LEDGERLY_API_USERNAME", TEST_USERNAME)
-    monkeypatch.setenv("LEDGERLY_API_PASSWORD", TEST_PASSWORD)
+    monkeypatch.setenv("CORROBORLY_API_USERNAME", TEST_USERNAME)
+    monkeypatch.setenv("CORROBORLY_API_PASSWORD", TEST_PASSWORD)
     return TestClient(create_app(), follow_redirects=False)
 
 
@@ -49,7 +49,7 @@ def test_index_with_valid_session_serves_app_shell(client: TestClient) -> None:
     response = client.get("/")
 
     assert response.status_code == 200
-    assert "<title>Ledgerly</title>" in response.text
+    assert "<title>Corroborly</title>" in response.text
     assert "app-main" in response.text
 
 
@@ -82,8 +82,8 @@ def test_logout_invalidates_session_for_index_route(client: TestClient) -> None:
 
 
 def test_index_without_auth_configured_redirects_to_login(monkeypatch) -> None:
-    monkeypatch.delenv("LEDGERLY_API_USERNAME", raising=False)
-    monkeypatch.delenv("LEDGERLY_API_PASSWORD", raising=False)
+    monkeypatch.delenv("CORROBORLY_API_USERNAME", raising=False)
+    monkeypatch.delenv("CORROBORLY_API_PASSWORD", raising=False)
     unconfigured_client = TestClient(create_app(), follow_redirects=False)
 
     response = unconfigured_client.get("/")
@@ -92,7 +92,7 @@ def test_index_without_auth_configured_redirects_to_login(monkeypatch) -> None:
 
 
 def test_artefacts_upload_limits_route_via_api(client: TestClient, tmp_path: Path) -> None:
-    from ledgerly.engine.workspace import init_workspace
+    from corroborly.engine.workspace import init_workspace
 
     workspace = tmp_path / "workspace"
     init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")

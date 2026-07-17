@@ -1,8 +1,8 @@
 from pathlib import Path
 
-from ledgerly.core.yamlio import read_yaml, write_yaml
-from ledgerly.engine.migrations import CURRENT_WORKSPACE_SCHEMA_VERSION, migrate_workspace
-from ledgerly.engine.workspace import init_workspace
+from corroborly.core.yamlio import read_yaml, write_yaml
+from corroborly.engine.migrations import CURRENT_WORKSPACE_SCHEMA_VERSION, migrate_workspace
+from corroborly.engine.workspace import init_workspace
 
 
 def test_migrate_workspace_fills_missing_fields(tmp_path: Path) -> None:
@@ -30,7 +30,7 @@ def test_migrate_workspace_fills_missing_fields(tmp_path: Path) -> None:
     migrated_context = read_yaml(context_path)
     assert "zotero" in migrated_context
     assert migrated_context["zotero"]["root"] == str(storage.parent)
-    assert migrated_context["zotero"]["strict_one_way_from_zotero_to_ledgerly"] is True
+    assert migrated_context["zotero"]["strict_one_way_from_zotero_to_corroborly"] is True
     assert migrated_context["zotero"]["block_writes_to_zotero_directory"] is True
     assert migrated_context["sources"]["new_source_status"] == "pending_review"
     assert read_yaml(workspace / "research-stages.yaml")["stages"][1]["name"] == "confirmation"

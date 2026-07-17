@@ -6,11 +6,11 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from ledgerly.api.app import create_app
-from ledgerly.api.auth import clear_all_sessions
-from ledgerly.core.yamlio import read_yaml, write_yaml
-from ledgerly.engine.sources import scan_sources
-from ledgerly.engine.workspace import init_workspace
+from corroborly.api.app import create_app
+from corroborly.api.auth import clear_all_sessions
+from corroborly.core.yamlio import read_yaml, write_yaml
+from corroborly.engine.sources import scan_sources
+from corroborly.engine.workspace import init_workspace
 from tests.test_zotero import make_storage, make_zotero_sqlite
 
 
@@ -28,8 +28,8 @@ def _reset_sessions():
 @pytest.fixture()
 def client(monkeypatch) -> TestClient:
     """An already-authenticated client, for tests that exercise route behavior, not auth itself."""
-    monkeypatch.setenv("LEDGERLY_API_USERNAME", TEST_USERNAME)
-    monkeypatch.setenv("LEDGERLY_API_PASSWORD", TEST_PASSWORD)
+    monkeypatch.setenv("CORROBORLY_API_USERNAME", TEST_USERNAME)
+    monkeypatch.setenv("CORROBORLY_API_PASSWORD", TEST_PASSWORD)
     test_client = TestClient(create_app())
     login_response = test_client.post("/api/v1/auth/login", json={"username": TEST_USERNAME, "password": TEST_PASSWORD})
     assert login_response.status_code == 200, login_response.text
@@ -39,8 +39,8 @@ def client(monkeypatch) -> TestClient:
 @pytest.fixture()
 def unauthenticated_client(monkeypatch) -> TestClient:
     """Username/password configured, but no session established — for testing the auth gate itself."""
-    monkeypatch.setenv("LEDGERLY_API_USERNAME", TEST_USERNAME)
-    monkeypatch.setenv("LEDGERLY_API_PASSWORD", TEST_PASSWORD)
+    monkeypatch.setenv("CORROBORLY_API_USERNAME", TEST_USERNAME)
+    monkeypatch.setenv("CORROBORLY_API_PASSWORD", TEST_PASSWORD)
     return TestClient(create_app())
 
 
@@ -315,7 +315,7 @@ def test_paper_draft_ai_full_review_gate_lifecycle_via_api(client: TestClient, t
             ],
         },
     )
-    from ledgerly.engine.claims import add_claim
+    from corroborly.engine.claims import add_claim
 
     add_claim(
         workspace,
@@ -338,8 +338,8 @@ def test_paper_draft_ai_full_review_gate_lifecycle_via_api(client: TestClient, t
     assert create_response.status_code == 200, create_response.text
     skeleton_path = Path(create_response.json()["data"]["path"])
 
-    from ledgerly.engine.derived_text import build_derived_text_snapshot
-    from ledgerly.engine.vault import create_document_version
+    from corroborly.engine.derived_text import build_derived_text_snapshot
+    from corroborly.engine.vault import create_document_version
 
     version = create_document_version(workspace, str(skeleton_path), creation_reason="test_setup")
     derived = build_derived_text_snapshot(workspace, version["version_id"])
@@ -397,7 +397,7 @@ def test_paper_draft_ai_full_review_gate_lifecycle_via_api(client: TestClient, t
     )
     assert gate_before_validate.status_code == 400
 
-    from ledgerly.engine.doc_validation import validate_document
+    from corroborly.engine.doc_validation import validate_document
 
     validate_document(workspace, str(skeleton_path))
 
@@ -1364,7 +1364,7 @@ def test_project_log_decisions_terminology_feedback_and_changelog_via_api(
 
 def test_health_route_requires_no_authentication(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.chdir(tmp_path)
-    monkeypatch.delenv("LEDGERLY_API_PASSWORD", raising=False)
+    monkeypatch.delenv("CORROBORLY_API_PASSWORD", raising=False)
     bare_client = TestClient(create_app())
 
     response = bare_client.get("/health")
@@ -1375,7 +1375,7 @@ def test_health_route_requires_no_authentication(monkeypatch, tmp_path: Path) ->
 
 def test_protected_route_fails_closed_when_auth_not_configured(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.chdir(tmp_path)
-    monkeypatch.delenv("LEDGERLY_API_PASSWORD", raising=False)
+    monkeypatch.delenv("CORROBORLY_API_PASSWORD", raising=False)
     bare_client = TestClient(create_app())
 
     response = bare_client.get("/api/v1/projects/status", params={"workspace": str(tmp_path)})
@@ -1386,8 +1386,8 @@ def test_protected_route_fails_closed_when_auth_not_configured(monkeypatch, tmp_
 
 def test_login_fails_closed_when_auth_not_configured(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.chdir(tmp_path)
-    monkeypatch.delenv("LEDGERLY_API_USERNAME", raising=False)
-    monkeypatch.delenv("LEDGERLY_API_PASSWORD", raising=False)
+    monkeypatch.delenv("CORROBORLY_API_USERNAME", raising=False)
+    monkeypatch.delenv("CORROBORLY_API_PASSWORD", raising=False)
     bare_client = TestClient(create_app())
 
     response = bare_client.post("/api/v1/auth/login", json={"username": "anyone", "password": "anything"})
@@ -1398,8 +1398,8 @@ def test_login_fails_closed_when_auth_not_configured(monkeypatch, tmp_path: Path
 
 def test_login_fails_closed_when_only_password_configured(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.chdir(tmp_path)
-    monkeypatch.delenv("LEDGERLY_API_USERNAME", raising=False)
-    monkeypatch.setenv("LEDGERLY_API_PASSWORD", TEST_PASSWORD)
+    monkeypatch.delenv("CORROBORLY_API_USERNAME", raising=False)
+    monkeypatch.setenv("CORROBORLY_API_PASSWORD", TEST_PASSWORD)
     bare_client = TestClient(create_app())
 
     response = bare_client.post("/api/v1/auth/login", json={"username": TEST_USERNAME, "password": TEST_PASSWORD})
@@ -1880,7 +1880,7 @@ def test_resolve_workspace_accepts_relative_path_inside_configured_root(
     root.mkdir()
     workspace = root / "project-a"
     init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
-    monkeypatch.setenv("LEDGERLY_WORKSPACE_ROOT", str(root))
+    monkeypatch.setenv("CORROBORLY_WORKSPACE_ROOT", str(root))
 
     response = client.get("/api/v1/projects/status", params={"workspace": "project-a"})
 
@@ -1894,7 +1894,7 @@ def test_resolve_workspace_accepts_absolute_path_inside_configured_root(
     root.mkdir()
     workspace = root / "project-a"
     init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
-    monkeypatch.setenv("LEDGERLY_WORKSPACE_ROOT", str(root))
+    monkeypatch.setenv("CORROBORLY_WORKSPACE_ROOT", str(root))
 
     response = client.get("/api/v1/projects/status", params={"workspace": str(workspace)})
 
@@ -1908,7 +1908,7 @@ def test_resolve_workspace_rejects_path_outside_configured_root(
     root.mkdir()
     outside_workspace = tmp_path / "outside" / "workspace"
     init_workspace(outside_workspace, project_name="Test", project_type="M.Phil", topic="Topic")
-    monkeypatch.setenv("LEDGERLY_WORKSPACE_ROOT", str(root))
+    monkeypatch.setenv("CORROBORLY_WORKSPACE_ROOT", str(root))
 
     response = client.get("/api/v1/projects/status", params={"workspace": str(outside_workspace)})
 
@@ -1923,7 +1923,7 @@ def test_resolve_workspace_rejects_traversal_outside_configured_root(
     root.mkdir()
     outside_workspace = tmp_path / "outside" / "workspace"
     init_workspace(outside_workspace, project_name="Test", project_type="M.Phil", topic="Topic")
-    monkeypatch.setenv("LEDGERLY_WORKSPACE_ROOT", str(root))
+    monkeypatch.setenv("CORROBORLY_WORKSPACE_ROOT", str(root))
 
     response = client.get(
         "/api/v1/projects/status", params={"workspace": "../outside/workspace"}
@@ -1936,7 +1936,7 @@ def test_resolve_workspace_rejects_traversal_outside_configured_root(
 def test_resolve_workspace_without_configured_root_keeps_local_first_flexibility(
     client: TestClient, tmp_path: Path, monkeypatch
 ) -> None:
-    monkeypatch.delenv("LEDGERLY_WORKSPACE_ROOT", raising=False)
+    monkeypatch.delenv("CORROBORLY_WORKSPACE_ROOT", raising=False)
     workspace = tmp_path / "anywhere" / "workspace"
     init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
 
@@ -1998,7 +1998,7 @@ def test_artefacts_upload_rejects_disallowed_extension_via_api(client: TestClien
 def test_artefacts_upload_rejects_whole_batch_over_max_files_via_api(
     client: TestClient, tmp_path: Path, monkeypatch
 ) -> None:
-    monkeypatch.setenv("LEDGERLY_UPLOAD_MAX_FILES", "1")
+    monkeypatch.setenv("CORROBORLY_UPLOAD_MAX_FILES", "1")
     workspace = tmp_path / "workspace"
     init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
 
@@ -2018,7 +2018,7 @@ def test_artefacts_upload_rejects_whole_batch_over_max_files_via_api(
 
 
 def test_artefacts_upload_enforces_max_file_size_via_api(client: TestClient, tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.setenv("LEDGERLY_UPLOAD_MAX_FILE_SIZE_MB", "0.00001")  # ~10 bytes
+    monkeypatch.setenv("CORROBORLY_UPLOAD_MAX_FILE_SIZE_MB", "0.00001")  # ~10 bytes
     workspace = tmp_path / "workspace"
     init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
 
@@ -2346,7 +2346,7 @@ class FakeOpenAiResponse:
 
 
 def _mock_openai(monkeypatch, output_text: str = "AI output") -> None:
-    import ledgerly.engine.ai as ai_module
+    import corroborly.engine.ai as ai_module
 
     def fake_urlopen(request):
         return FakeOpenAiResponse({"id": "resp_test", "output_text": output_text})
@@ -2405,7 +2405,7 @@ def test_ai_review_returns_insufficient_evidence_without_network_call(
     def fail_if_called(request):
         raise AssertionError("must not call OpenAI when there is no evidence to ground a response in")
 
-    import ledgerly.engine.ai as ai_module
+    import corroborly.engine.ai as ai_module
 
     monkeypatch.setattr(ai_module, "urlopen", fail_if_called)
 
@@ -2599,7 +2599,7 @@ def test_ai_candidate_review_route_reports_full_text_mode(client: TestClient, tm
     def fail_if_called(request):
         raise AssertionError("must not call OpenAI when there is no evidence to ground a response in")
 
-    import ledgerly.engine.ai as ai_module
+    import corroborly.engine.ai as ai_module
 
     monkeypatch.setattr(ai_module, "urlopen", fail_if_called)
 
@@ -2617,11 +2617,11 @@ def test_ai_candidate_review_route_reports_full_text_mode(client: TestClient, tm
 
 def _postgres_test_reachable() -> bool:
     try:
-        from ledgerly.engine.db_backends import postgres
-        from ledgerly.engine.db_backends.base import SecondaryBackendCredentials
+        from corroborly.engine.db_backends import postgres
+        from corroborly.engine.db_backends.base import SecondaryBackendCredentials
     except Exception:
         return False
-    creds = SecondaryBackendCredentials(host="localhost", port=5432, user=os.environ.get("USER", "postgres"), password="", database="ledgerly_test")
+    creds = SecondaryBackendCredentials(host="localhost", port=5432, user=os.environ.get("USER", "postgres"), password="", database="corroborly_test")
     try:
         return postgres.is_reachable(creds)
     except Exception:
@@ -2637,12 +2637,12 @@ requires_postgres_api = pytest.mark.skipif(
 def test_db_backend_status_and_activate_route_via_api(client: TestClient, tmp_path: Path, monkeypatch) -> None:
     workspace = tmp_path / "workspace"
     init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
-    monkeypatch.setenv("LEDGERLY_DB_BACKEND", "postgres")
-    monkeypatch.setenv("LEDGERLY_POSTGRES_HOST", "localhost")
-    monkeypatch.setenv("LEDGERLY_POSTGRES_PORT", "5432")
-    monkeypatch.setenv("LEDGERLY_POSTGRES_USER", os.environ.get("USER", "postgres"))
-    monkeypatch.setenv("LEDGERLY_POSTGRES_PASSWORD", "")
-    monkeypatch.setenv("LEDGERLY_POSTGRES_DATABASE", "ledgerly_test")
+    monkeypatch.setenv("CORROBORLY_DB_BACKEND", "postgres")
+    monkeypatch.setenv("CORROBORLY_POSTGRES_HOST", "localhost")
+    monkeypatch.setenv("CORROBORLY_POSTGRES_PORT", "5432")
+    monkeypatch.setenv("CORROBORLY_POSTGRES_USER", os.environ.get("USER", "postgres"))
+    monkeypatch.setenv("CORROBORLY_POSTGRES_PASSWORD", "")
+    monkeypatch.setenv("CORROBORLY_POSTGRES_DATABASE", "corroborly_test")
 
     status_response = client.get("/api/v1/db/backend-status", params={"workspace": str(workspace)})
     assert status_response.status_code == 200
@@ -2664,7 +2664,7 @@ def test_db_backend_status_and_activate_route_via_api(client: TestClient, tmp_pa
 def test_db_activate_backend_route_requires_configuration(client: TestClient, tmp_path: Path, monkeypatch) -> None:
     workspace = tmp_path / "workspace"
     init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
-    monkeypatch.delenv("LEDGERLY_DB_BACKEND", raising=False)
+    monkeypatch.delenv("CORROBORLY_DB_BACKEND", raising=False)
 
     response = client.post("/api/v1/db/activate-backend", params={"workspace": str(workspace)})
 
@@ -2678,7 +2678,7 @@ def test_db_activate_backend_route_requires_configuration(client: TestClient, tm
 def test_transcription_readiness_route_reports_unconfigured_by_default(
     client: TestClient, tmp_path: Path, monkeypatch
 ) -> None:
-    monkeypatch.delenv("LEDGERLY_SOURCESCRIBE_PATH", raising=False)
+    monkeypatch.delenv("CORROBORLY_SOURCESCRIBE_PATH", raising=False)
     workspace = tmp_path / "workspace"
     init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
 
@@ -2754,7 +2754,7 @@ def test_transcription_job_get_unknown_id_returns_404(client: TestClient, tmp_pa
 def test_transcription_start_returns_503_when_sourcescribe_not_configured(
     client: TestClient, tmp_path: Path, monkeypatch
 ) -> None:
-    monkeypatch.delenv("LEDGERLY_SOURCESCRIBE_PATH", raising=False)
+    monkeypatch.delenv("CORROBORLY_SOURCESCRIBE_PATH", raising=False)
     workspace = tmp_path / "workspace"
     init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
     client.post(
@@ -2812,7 +2812,7 @@ def _real_wav_bytes() -> bytes:
 def test_transcription_start_runs_real_sourcescribe_end_to_end_via_api(
     client: TestClient, tmp_path: Path, monkeypatch
 ) -> None:
-    monkeypatch.setenv("LEDGERLY_SOURCESCRIBE_PATH", "/Users/pedro/Documents/_Projects/transcriber")
+    monkeypatch.setenv("CORROBORLY_SOURCESCRIBE_PATH", "/Users/pedro/Documents/_Projects/transcriber")
     workspace = tmp_path / "workspace"
     init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
     upload_response = client.post(

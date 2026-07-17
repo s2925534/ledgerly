@@ -8,13 +8,13 @@ from zipfile import ZipFile
 import pytest
 from typer.testing import CliRunner
 
-import ledgerly.cli as cli
-from ledgerly import __version__
-from ledgerly.cli import app
-from ledgerly.core.yamlio import read_yaml, write_yaml
-from ledgerly.engine.artefacts import register_artefact
-from ledgerly.engine.sources import scan_sources, set_source_status
-from ledgerly.engine.workspace import init_workspace
+import corroborly.cli as cli
+from corroborly import __version__
+from corroborly.cli import app
+from corroborly.core.yamlio import read_yaml, write_yaml
+from corroborly.engine.artefacts import register_artefact
+from corroborly.engine.sources import scan_sources, set_source_status
+from corroborly.engine.workspace import init_workspace
 
 
 runner = CliRunner()
@@ -24,14 +24,14 @@ def test_cli_version_command() -> None:
     result = runner.invoke(app, ["version"])
 
     assert result.exit_code == 0, result.output
-    assert f"Ledgerly {__version__}" in result.output
+    assert f"Corroborly {__version__}" in result.output
 
 
 def test_cli_doctor_command() -> None:
     result = runner.invoke(app, ["doctor"])
 
     assert result.exit_code == 0, result.output
-    assert "Ledgerly" in result.output
+    assert "Corroborly" in result.output
     assert "is ready" in result.output
 
 
@@ -677,7 +677,7 @@ def test_cli_ai_review_document_full_workflow_with_note_kind_opt_in(tmp_path: Pa
     )
     assert result.exit_code == 0, result.output
 
-    from ledgerly.core.yamlio import read_yaml as _read_yaml
+    from corroborly.core.yamlio import read_yaml as _read_yaml
 
     report = _read_yaml(workspace / "outputs" / "validation" / "openai-review-document.yaml")
     assert report["ai_used"] is True
@@ -1180,14 +1180,14 @@ def test_cli_ai_context_preview_writes_local_context_without_network(tmp_path: P
 
 def test_python_module_entrypoint_help() -> None:
     result = subprocess.run(
-        [sys.executable, "-m", "ledgerly", "--help"],
+        [sys.executable, "-m", "corroborly", "--help"],
         check=False,
         capture_output=True,
         text=True,
     )
 
     assert result.returncode == 0, result.stderr
-    assert "Ledgerly" in result.stdout
+    assert "Corroborly" in result.stdout
     assert "init" in result.stdout
 
 
@@ -1257,19 +1257,19 @@ def test_cli_init_prints_concrete_scan_next_action(tmp_path: Path) -> None:
 
     assert result.exit_code == 0, result.output
     output = result.output.replace("\n", "")
-    assert "ledgerly scan --workspace" in result.output
+    assert "corroborly scan --workspace" in result.output
     assert "scan --workspace <path>" not in result.output
     assert "Useful next commands" in result.output
-    assert f"ledgerly config validate --workspace {workspace}" in output
-    assert f"ledgerly scan --workspace {workspace} --source /path/to/your/sources" in output
-    assert f"ledgerly sources review --workspace {workspace}" in output
-    assert f"ledgerly sources status --workspace {workspace}" in output
-    assert f"ledgerly sources list --workspace {workspace} --status accepted" in output
+    assert f"corroborly config validate --workspace {workspace}" in output
+    assert f"corroborly scan --workspace {workspace} --source /path/to/your/sources" in output
+    assert f"corroborly sources review --workspace {workspace}" in output
+    assert f"corroborly sources status --workspace {workspace}" in output
+    assert f"corroborly sources list --workspace {workspace} --status accepted" in output
 
     summary_files = list((workspace / "outputs" / "logs" / "run-summaries").glob("*__init.yaml"))
     assert len(summary_files) == 1
     summary = read_yaml(summary_files[0])
-    assert summary["next_recommended_action"] == f"Run `ledgerly scan --workspace {workspace}`"
+    assert summary["next_recommended_action"] == f"Run `corroborly scan --workspace {workspace}`"
 
 
 def test_cli_init_next_commands_use_configured_source_path(tmp_path: Path) -> None:
@@ -1300,7 +1300,7 @@ def test_cli_init_next_commands_use_configured_source_path(tmp_path: Path) -> No
 
     assert result.exit_code == 0, result.output
     output = result.output.replace("\n", "")
-    assert f"ledgerly scan --workspace {workspace} --source {source_root}" in output
+    assert f"corroborly scan --workspace {workspace} --source {source_root}" in output
     assert "/path/to/your/sources" not in result.output
 
 
@@ -1425,7 +1425,7 @@ def test_cli_init_collects_setup_preferences(tmp_path: Path) -> None:
 
 
 def test_cli_templates_save_list_and_init_with_template(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.setenv("LEDGERLY_TEMPLATES_ROOT", str(tmp_path / "templates-root"))
+    monkeypatch.setenv("CORROBORLY_TEMPLATES_ROOT", str(tmp_path / "templates-root"))
     source_workspace = tmp_path / "source-workspace"
     init_workspace(
         source_workspace,
@@ -1440,7 +1440,7 @@ def test_cli_templates_save_list_and_init_with_template(tmp_path: Path, monkeypa
     )
     guideline_path = tmp_path / "style-guide.txt"
     guideline_path.write_text("Follow IEEE citation conventions.", encoding="utf-8")
-    from ledgerly.engine.guidelines import register_guideline, set_default_guidelines
+    from corroborly.engine.guidelines import register_guideline, set_default_guidelines
 
     registration = register_guideline(source_workspace, str(guideline_path), title="Style Guide")
     set_default_guidelines(source_workspace, [registration.record["id"]])
@@ -1481,7 +1481,7 @@ def test_cli_templates_save_list_and_init_with_template(tmp_path: Path, monkeypa
     assert context["data"]["expects_csv_or_sqlite"] == "yes"
     assert context["sources"]["new_source_status"] == "maybe"
 
-    from ledgerly.engine.guidelines import list_guidelines
+    from corroborly.engine.guidelines import list_guidelines
 
     new_guidelines = list_guidelines(new_workspace)
     assert len(new_guidelines) == 1
@@ -1490,7 +1490,7 @@ def test_cli_templates_save_list_and_init_with_template(tmp_path: Path, monkeypa
 
 
 def test_cli_templates_save_rejects_invalid_name(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.setenv("LEDGERLY_TEMPLATES_ROOT", str(tmp_path / "templates-root"))
+    monkeypatch.setenv("CORROBORLY_TEMPLATES_ROOT", str(tmp_path / "templates-root"))
     workspace = tmp_path / "workspace"
     init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="")
 
@@ -1500,7 +1500,7 @@ def test_cli_templates_save_rejects_invalid_name(tmp_path: Path, monkeypatch) ->
 
 
 def test_cli_init_with_unknown_template_fails_before_prompting(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.setenv("LEDGERLY_TEMPLATES_ROOT", str(tmp_path / "templates-root"))
+    monkeypatch.setenv("CORROBORLY_TEMPLATES_ROOT", str(tmp_path / "templates-root"))
     workspace = tmp_path / "workspace"
 
     result = runner.invoke(app, ["init", str(workspace), "--template", "does-not-exist", "--quiet"])
@@ -1800,7 +1800,7 @@ def test_cli_paper_draft_rejects_unknown_rq_id(tmp_path: Path) -> None:
 
 
 def test_cli_transcribe_readiness_reports_unconfigured_by_default(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.delenv("LEDGERLY_SOURCESCRIBE_PATH", raising=False)
+    monkeypatch.delenv("CORROBORLY_SOURCESCRIBE_PATH", raising=False)
     workspace = tmp_path / "workspace"
     init_workspace(workspace, project_name="Test Project", project_type="M.Phil", topic="")
 
@@ -1843,7 +1843,7 @@ def test_cli_transcribe_upload_rejects_unsupported_extension(tmp_path: Path) -> 
 
 
 def test_cli_transcribe_start_fails_without_sourcescribe_configured(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.delenv("LEDGERLY_SOURCESCRIBE_PATH", raising=False)
+    monkeypatch.delenv("CORROBORLY_SOURCESCRIBE_PATH", raising=False)
     workspace = tmp_path / "workspace"
     init_workspace(workspace, project_name="Test Project", project_type="M.Phil", topic="")
     audio_path = tmp_path / "clip.wav"
@@ -1857,7 +1857,7 @@ def test_cli_transcribe_start_fails_without_sourcescribe_configured(tmp_path: Pa
     result = runner.invoke(app, ["transcribe", "start", "transcribe-001", "--workspace", str(workspace)])
 
     assert result.exit_code == 2
-    assert "LEDGERLY_SOURCESCRIBE_PATH" in result.output
+    assert "CORROBORLY_SOURCESCRIBE_PATH" in result.output
 
 
 def test_cli_transcribe_status_unknown_job_fails(tmp_path: Path) -> None:
@@ -2287,7 +2287,7 @@ def test_cli_commands_prompt_for_workspace_and_remember_default(tmp_path: Path, 
     assert scan_result.exit_code == 0, scan_result.output
     assert "Select workspace" in scan_result.output
     assert "Use this workspace as the default for future commands?" in scan_result.output
-    assert read_yaml(tmp_path / "workspaces" / ".ledgerly-cli.local.yaml") == {
+    assert read_yaml(tmp_path / "workspaces" / ".corroborly-cli.local.yaml") == {
         "version": 1,
         "default_workspace": str(second_workspace),
     }
@@ -2563,7 +2563,7 @@ def test_cli_doc_cross_reference_review_invalid_status_exits_nonzero(tmp_path: P
 def _mock_openai_for_cli(monkeypatch, output_text: str) -> None:
     import json as json_module
 
-    import ledgerly.engine.ai as ai_module
+    import corroborly.engine.ai as ai_module
 
     class _FakeResponse:
         def __init__(self, data: dict) -> None:
@@ -2629,7 +2629,7 @@ def test_cli_doc_ai_edit_session_full_workflow(tmp_path: Path, monkeypatch) -> N
     )
     assert create_result.exit_code == 0, create_result.output
 
-    from ledgerly.engine.ai_edit_sessions import list_ai_edit_sessions
+    from corroborly.engine.ai_edit_sessions import list_ai_edit_sessions
 
     sessions = list_ai_edit_sessions(workspace)
     assert len(sessions) == 1
@@ -2656,8 +2656,8 @@ def test_cli_doc_ai_edit_session_full_workflow(tmp_path: Path, monkeypatch) -> N
 
 
 def _paper_ai_workspace(tmp_path: Path):
-    from ledgerly.core.yamlio import write_yaml
-    from ledgerly.engine.claims import add_claim
+    from corroborly.core.yamlio import write_yaml
+    from corroborly.engine.claims import add_claim
 
     workspace = tmp_path / "workspace"
     init_workspace(
@@ -2708,8 +2708,8 @@ def test_cli_paper_draft_ai_full_review_gate_lifecycle(tmp_path: Path, monkeypat
     skeleton = workspace / "artefacts" / "papers" / "paper-draft-rq-001.md"
     assert skeleton.is_file()
 
-    from ledgerly.engine.derived_text import build_derived_text_snapshot
-    from ledgerly.engine.vault import create_document_version
+    from corroborly.engine.derived_text import build_derived_text_snapshot
+    from corroborly.engine.vault import create_document_version
 
     version = create_document_version(workspace, str(skeleton), creation_reason="test_setup")
     derived = build_derived_text_snapshot(workspace, version["version_id"])
@@ -2741,7 +2741,7 @@ def test_cli_paper_draft_ai_full_review_gate_lifecycle(tmp_path: Path, monkeypat
     )
     assert ai_result.exit_code == 0, ai_result.output
 
-    from ledgerly.engine.ai_edit_sessions import list_ai_edit_sessions
+    from corroborly.engine.ai_edit_sessions import list_ai_edit_sessions
 
     sessions = list_ai_edit_sessions(workspace)
     assert len(sessions) == 1
@@ -2774,7 +2774,7 @@ def test_cli_paper_draft_ai_full_review_gate_lifecycle(tmp_path: Path, monkeypat
     gate_result2 = runner.invoke(app, ["paper", "clear-review-gate", "rq-001", "--workspace", str(workspace), "--quiet"])
     assert gate_result2.exit_code == 0, gate_result2.output
 
-    from ledgerly.engine.artefacts import list_artefacts
+    from corroborly.engine.artefacts import list_artefacts
 
     artefact = list_artefacts(workspace)[0]
     assert artefact["paper_review_gate"] == "cleared"

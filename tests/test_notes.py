@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from ledgerly.engine.notes import add_note, add_note_tag, import_transcript, list_notes, search_notes
-from ledgerly.engine.workspace import init_workspace
+from corroborly.engine.notes import add_note, add_note_tag, import_transcript, list_notes, search_notes
+from corroborly.engine.workspace import init_workspace
 
 
 def test_add_and_list_notes(tmp_path: Path) -> None:

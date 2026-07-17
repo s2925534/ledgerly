@@ -1,10 +1,10 @@
-# Ledgerly Local API Contract
+# Corroborly Local API Contract
 
-This document defines the FastAPI boundary for Ledgerly.
+This document defines the FastAPI boundary for Corroborly.
 
-Contract status: implementation started in project version `0.7.0`; every route documented below is implemented in `ledgerly.api` (run with `ledgerly serve`), including the AI Routes section (added 2026-07-16, per Pedro's explicit go-ahead — `POST /api/v1/ai/{test,review,novelty,rqs/assess,corpus-summary,claim-check,citation-gaps,artefact-cross-reference,source-relevance,abstract-screening}` and `POST /api/v1/search/{ai-query-plan,ai-candidate-review}`) and the Transcription Routes section (added 2026-07-16, per Pedro's explicit go-ahead on the subprocess integration mechanism — `/api/v1/transcription/{readiness,upload,upload/limits,jobs,jobs/{id},jobs/{id}/start}`). Novelty assessment has no deterministic engine path (`ledgerly.engine.ai.ai_novelty_assessment` is AI-only) — it lives at `POST /api/v1/ai/novelty` under the same AI opt-in and privacy-boundary rules as the rest of that section, not as a separate `/api/v1/novelty` route implying a deterministic path that doesn't exist.
+Contract status: implementation started in project version `0.7.0`; every route documented below is implemented in `corroborly.api` (run with `corroborly serve`), including the AI Routes section (added 2026-07-16, per Pedro's explicit go-ahead — `POST /api/v1/ai/{test,review,novelty,rqs/assess,corpus-summary,claim-check,citation-gaps,artefact-cross-reference,source-relevance,abstract-screening}` and `POST /api/v1/search/{ai-query-plan,ai-candidate-review}`) and the Transcription Routes section (added 2026-07-16, per Pedro's explicit go-ahead on the subprocess integration mechanism — `/api/v1/transcription/{readiness,upload,upload/limits,jobs,jobs/{id},jobs/{id}/start}`). Novelty assessment has no deterministic engine path (`corroborly.engine.ai.ai_novelty_assessment` is AI-only) — it lives at `POST /api/v1/ai/novelty` under the same AI opt-in and privacy-boundary rules as the rest of that section, not as a separate `/api/v1/novelty` route implying a deterministic path that doesn't exist.
 
-The API must be local-first, workspace-scoped, and a thin transport layer over `ledgerly.engine` functions. It must not duplicate business logic already implemented in the engine.
+The API must be local-first, workspace-scoped, and a thin transport layer over `corroborly.engine` functions. It must not duplicate business logic already implemented in the engine.
 
 ## Non-Negotiable Boundaries
 
@@ -24,19 +24,19 @@ The API must be local-first, workspace-scoped, and a thin transport layer over `
 
 ## Authentication
 
-`ledgerly serve` is a single-user local tool, not a multi-tenant service (see `TODO.md`'s multi-tenant item for the separate, larger feature that would change this for commercial deployments). Set both `LEDGERLY_API_USERNAME` and `LEDGERLY_API_PASSWORD` (env vars, or `.env` in the server's working directory) before starting the server; every `/api/v1` route except `/api/v1/auth/login` requires a valid session. `GET /health` never requires a session, so deploy/update health checks keep working regardless of login state.
+`corroborly serve` is a single-user local tool, not a multi-tenant service (see `TODO.md`'s multi-tenant item for the separate, larger feature that would change this for commercial deployments). Set both `CORROBORLY_API_USERNAME` and `CORROBORLY_API_PASSWORD` (env vars, or `.env` in the server's working directory) before starting the server; every `/api/v1` route except `/api/v1/auth/login` requires a valid session. `GET /health` never requires a session, so deploy/update health checks keep working regardless of login state.
 
 ### `POST /api/v1/auth/login` (implemented)
 
-Accepts `{"username": "...", "password": "..."}`. Returns `503 auth_not_configured` if either isn't set, `401 invalid_credentials` on a wrong username or password (the two aren't distinguished in the response, to avoid confirming which one was wrong), or `200` with a session token (also set as an httponly `ledgerly_session` cookie) on success. Sessions expire after `LEDGERLY_API_SESSION_HOURS` hours (default 12) and live in server memory only, so a server restart invalidates all sessions. This is still one shared credential pair, not a per-user account system — the username field matches the login UX of a real account without implying multi-tenancy exists yet.
+Accepts `{"username": "...", "password": "..."}`. Returns `503 auth_not_configured` if either isn't set, `401 invalid_credentials` on a wrong username or password (the two aren't distinguished in the response, to avoid confirming which one was wrong), or `200` with a session token (also set as an httponly `corroborly_session` cookie) on success. Sessions expire after `CORROBORLY_API_SESSION_HOURS` hours (default 12) and live in server memory only, so a server restart invalidates all sessions. This is still one shared credential pair, not a per-user account system — the username field matches the login UX of a real account without implying multi-tenancy exists yet.
 
 Engine source:
 
-- `ledgerly.api.auth` (server-local, not a `ledgerly.engine` module — there is no workspace-scoped concept of a login)
+- `corroborly.api.auth` (server-local, not a `corroborly.engine` module — there is no workspace-scoped concept of a login)
 
 ### `POST /api/v1/auth/logout` (implemented)
 
-Invalidates the session named by the `Authorization: Bearer <token>` header or the `ledgerly_session` cookie, and clears the cookie. No public self-registration route exists.
+Invalidates the session named by the `Authorization: Bearer <token>` header or the `corroborly_session` cookie, and clears the cookie. No public self-registration route exists.
 
 Callers may authenticate with either the cookie set by `/login` or an `Authorization: Bearer <token>` header carrying the same token.
 
@@ -53,7 +53,7 @@ Workspace selection:
 - All workspace-scoped routes accept a `workspace` query parameter or a configured workspace ID later.
 - Initial MVP may use absolute local workspace paths.
 - Future UI layers should pass opaque workspace IDs once a project registry exists.
-- When `LEDGERLY_WORKSPACE_ROOT` is set (e.g. a deployed instance pointed at a mounted NAS volume), `workspace` may be a relative path joined to that root, and every resolved workspace must fall inside it — absolute paths outside the root are rejected with `400 workspace_outside_root` rather than accepted. Without it, any path reachable by the server process is accepted, matching local-first single-user CLI behavior.
+- When `CORROBORLY_WORKSPACE_ROOT` is set (e.g. a deployed instance pointed at a mounted NAS volume), `workspace` may be a relative path joined to that root, and every resolved workspace must fall inside it — absolute paths outside the root are rejected with `400 workspace_outside_root` rather than accepted. Without it, any path reachable by the server process is accepted, matching local-first single-user CLI behavior.
 
 Response shape:
 
@@ -96,7 +96,7 @@ Returns workspace status and source counts.
 
 Engine source:
 
-- `ledgerly.engine.sources.source_counts`
+- `corroborly.engine.sources.source_counts`
 
 ### `POST /api/v1/projects/init` (implemented)
 
@@ -104,7 +104,7 @@ Creates a local workspace. Returns `409 workspace_already_exists` if the target 
 
 Engine source:
 
-- `ledgerly.engine.workspace.init_workspace`
+- `corroborly.engine.workspace.init_workspace`
 
 Body fields mirror the CLI init fields, including project type, topic, source mode, citation style, output type, AI preference metadata, and privacy preferences.
 
@@ -114,7 +114,7 @@ Returns deterministic workspace health checks.
 
 Engine source:
 
-- `ledgerly.engine.health.workspace_health_report`
+- `corroborly.engine.health.workspace_health_report`
 
 ### `GET /api/v1/projects/dashboard` (implemented)
 
@@ -122,15 +122,15 @@ Returns at-a-glance corpus stats for the web UI landing page: source counts by s
 
 Engine source:
 
-- `ledgerly.engine.health.corpus_dashboard_summary`
+- `corroborly.engine.health.corpus_dashboard_summary`
 
 ### `GET /api/v1/projects/compare?workspaces=path1&workspaces=path2` (implemented)
 
-Dashboard summaries (same shape as `/dashboard`, plus `workspace` and `project_name`) for two or more workspaces side by side, for anyone running more than one research project at once. Requires at least two paths (`400 too_few_workspaces` otherwise). Each path goes through the same `LEDGERLY_WORKSPACE_ROOT` sandbox validation as every other workspace route — no relaxed handling just because there are several of them.
+Dashboard summaries (same shape as `/dashboard`, plus `workspace` and `project_name`) for two or more workspaces side by side, for anyone running more than one research project at once. Requires at least two paths (`400 too_few_workspaces` otherwise). Each path goes through the same `CORROBORLY_WORKSPACE_ROOT` sandbox validation as every other workspace route — no relaxed handling just because there are several of them.
 
 Engine source:
 
-- `ledgerly.engine.health.corpus_dashboard_summary` (called once per workspace)
+- `corroborly.engine.health.corpus_dashboard_summary` (called once per workspace)
 
 ## Source Routes
 
@@ -140,7 +140,7 @@ Lists sources, optionally filtered by status.
 
 Engine source:
 
-- `ledgerly.engine.sources.list_sources`
+- `corroborly.engine.sources.list_sources`
 
 ### `POST /api/v1/sources/scan` (implemented)
 
@@ -148,7 +148,7 @@ Scans local folders or Zotero storage.
 
 Engine source:
 
-- `ledgerly.engine.sources.scan_sources`
+- `corroborly.engine.sources.scan_sources`
 
 Allowed providers:
 
@@ -161,7 +161,7 @@ Sets source review status.
 
 Engine source:
 
-- `ledgerly.engine.sources.set_source_status`
+- `corroborly.engine.sources.set_source_status`
 
 Allowed statuses:
 
@@ -175,7 +175,7 @@ Sets a local note for a source.
 
 Engine source:
 
-- `ledgerly.engine.sources.set_source_note`
+- `corroborly.engine.sources.set_source_note`
 
 ### `POST /api/v1/sources/{source_id}/tags` (implemented)
 
@@ -183,7 +183,7 @@ Adds a manual tag to a source.
 
 Engine source:
 
-- `ledgerly.engine.sources.add_source_tag`
+- `corroborly.engine.sources.add_source_tag`
 
 ### `GET /api/v1/sources/report` (implemented)
 
@@ -191,7 +191,7 @@ Returns source review report data.
 
 Engine source:
 
-- `ledgerly.engine.sources.source_review_report`
+- `corroborly.engine.sources.source_review_report`
 
 ### `GET /api/v1/sources/watch` (implemented)
 
@@ -199,7 +199,7 @@ Detects unregistered files in the configured source folder without registering t
 
 Engine source:
 
-- `ledgerly.engine.watch.write_watch_report`
+- `corroborly.engine.watch.write_watch_report`
 
 ## Conversion And Metadata Routes
 
@@ -209,7 +209,7 @@ Converts registered sources to local text.
 
 Engine source:
 
-- `ledgerly.engine.conversion.convert_sources`
+- `corroborly.engine.conversion.convert_sources`
 
 ### `GET /api/v1/conversion/ocr-readiness` (implemented)
 
@@ -217,7 +217,7 @@ Checks local OCR tool (`tesseract`/`pdftoppm`) availability without processing a
 
 Engine source:
 
-- `ledgerly.engine.conversion.ocr_readiness_report`
+- `corroborly.engine.conversion.ocr_readiness_report`
 
 ### `GET /api/v1/conversion/processing-issues` (implemented)
 
@@ -225,7 +225,7 @@ Returns skipped/failed conversion issues without modifying original files.
 
 Engine source:
 
-- `ledgerly.engine.conversion.processing_issue_report`
+- `corroborly.engine.conversion.processing_issue_report`
 
 ### `POST /api/v1/metadata/extract` (implemented)
 
@@ -233,7 +233,7 @@ Extracts deterministic citation metadata.
 
 Engine source:
 
-- `ledgerly.engine.metadata.extract_citation_metadata`
+- `corroborly.engine.metadata.extract_citation_metadata`
 
 ### `GET /api/v1/metadata/validate` (implemented)
 
@@ -241,7 +241,7 @@ Returns citation consistency and DOI validation results.
 
 Engine source:
 
-- `ledgerly.engine.metadata_quality.citation_consistency_report`
+- `corroborly.engine.metadata_quality.citation_consistency_report`
 
 ### `GET /api/v1/metadata/duplicates` (implemented)
 
@@ -249,7 +249,7 @@ Returns duplicate metadata candidates.
 
 Engine source:
 
-- `ledgerly.engine.metadata_quality.duplicate_metadata_report`
+- `corroborly.engine.metadata_quality.duplicate_metadata_report`
 
 ### `POST /api/v1/metadata/index` (implemented)
 
@@ -257,7 +257,7 @@ Builds a local keyword index over converted text.
 
 Engine source:
 
-- `ledgerly.engine.metadata_quality.build_keyword_index`
+- `corroborly.engine.metadata_quality.build_keyword_index`
 
 ## Data Routes
 
@@ -267,7 +267,7 @@ Profiles local CSV, SQLite, DB, and JSON sources.
 
 Engine source:
 
-- `ledgerly.engine.data.profile_data_sources`
+- `corroborly.engine.data.profile_data_sources`
 
 ### `GET /api/v1/data` (implemented)
 
@@ -275,7 +275,7 @@ Lists local data sources.
 
 Engine source:
 
-- `ledgerly.engine.data.list_data_sources`
+- `corroborly.engine.data.list_data_sources`
 
 ### `GET /api/v1/data/status` (implemented)
 
@@ -283,7 +283,7 @@ Returns data profile counts.
 
 Engine source:
 
-- `ledgerly.engine.data.data_source_counts`
+- `corroborly.engine.data.data_source_counts`
 
 ## Research Question Routes
 
@@ -293,7 +293,7 @@ Lists approved, candidate, and rejected research questions.
 
 Engine source:
 
-- `ledgerly.engine.research_questions.list_research_questions`
+- `corroborly.engine.research_questions.list_research_questions`
 
 ### `POST /api/v1/rqs/check` (implemented)
 
@@ -301,7 +301,7 @@ Runs deterministic research question readiness checks.
 
 Engine source:
 
-- `ledgerly.engine.research_questions.check_research_question_readiness`
+- `corroborly.engine.research_questions.check_research_question_readiness`
 
 ### `POST /api/v1/rqs/{rq_id}/approve` (implemented)
 
@@ -309,7 +309,7 @@ Approves a candidate research question.
 
 Engine source:
 
-- `ledgerly.engine.research_questions.approve_research_question`
+- `corroborly.engine.research_questions.approve_research_question`
 
 ### `POST /api/v1/rqs/{rq_id}/reject` (implemented)
 
@@ -317,7 +317,7 @@ Rejects a research question.
 
 Engine source:
 
-- `ledgerly.engine.research_questions.reject_research_question`
+- `corroborly.engine.research_questions.reject_research_question`
 
 ### `POST /api/v1/rqs/{rq_id}/archive` (implemented)
 
@@ -325,7 +325,7 @@ Archives a research question.
 
 Engine source:
 
-- `ledgerly.engine.research_questions.archive_research_question`
+- `corroborly.engine.research_questions.archive_research_question`
 
 ## Stage Routes (implemented, 2026-07-17)
 
@@ -333,27 +333,27 @@ Engine source:
 
 Lists research stages (from the project-type template written at `init`) with their `status` and optional `target_date`.
 
-Engine source: `ledgerly.engine.research_stages.list_stages`.
+Engine source: `corroborly.engine.research_stages.list_stages`.
 
 ### `POST /api/v1/stages/{stage_id}/status` (implemented)
 
 Sets a stage's status. `400 invalid_stage_status` for an unrecognized value (`not_started`/`in_progress`/`blocked`/`done`); `404 invalid_stage_status` for an unknown `stage_id`.
 
-Engine source: `ledgerly.engine.research_stages.set_stage_status`.
+Engine source: `corroborly.engine.research_stages.set_stage_status`.
 
 ### `POST /api/v1/stages/{stage_id}/target-date` (implemented)
 
 Sets (or, with `target_date: null`, clears) a stage's optional target completion date (`YYYY-MM-DD`). `400 invalid_stage_target_date` for an invalid date string or unknown `stage_id` (404 for the latter).
 
-Engine source: `ledgerly.engine.research_stages.set_stage_target_date`.
+Engine source: `corroborly.engine.research_stages.set_stage_target_date`.
 
 ### `GET /api/v1/stages/ics` (implemented)
 
 Returns a `text/calendar` (RFC 5545 `.ics`) document with one all-day `VEVENT` per stage that has a `target_date` set — a standard file format a user's own calendar app can import or subscribe to, no new external service. Stages without a target date are omitted, never guessed at. Hand-written generation (stdlib only, no new dependency).
 
-Engine source: `ledgerly.engine.research_stages.stages_ics`.
+Engine source: `corroborly.engine.research_stages.stages_ics`.
 
-CLI equivalents: `ledgerly stages list/status/target-date/ics`.
+CLI equivalents: `corroborly stages list/status/target-date/ics`.
 
 ## Claim Routes
 
@@ -363,7 +363,7 @@ Lists claims.
 
 Engine source:
 
-- `ledgerly.engine.claims.list_claims`
+- `corroborly.engine.claims.list_claims`
 
 ### `POST /api/v1/claims` (implemented)
 
@@ -371,7 +371,7 @@ Adds a manual claim.
 
 Engine source:
 
-- `ledgerly.engine.claims.add_claim`
+- `corroborly.engine.claims.add_claim`
 
 ### `POST /api/v1/claims/{claim_id}/status` (implemented)
 
@@ -379,7 +379,7 @@ Sets claim review status.
 
 Engine source:
 
-- `ledgerly.engine.claims.set_claim_status`
+- `corroborly.engine.claims.set_claim_status`
 
 ### `GET /api/v1/claims/gaps` (implemented)
 
@@ -387,7 +387,7 @@ Returns citation gap report data.
 
 Engine source:
 
-- `ledgerly.engine.claims.write_citation_gap_report`
+- `corroborly.engine.claims.write_citation_gap_report`
 
 ### `GET /api/v1/claims/validate` (implemented)
 
@@ -395,7 +395,7 @@ Validates that claims link only to existing accepted sources.
 
 Engine source:
 
-- `ledgerly.engine.claims.claim_source_validation_report`
+- `corroborly.engine.claims.claim_source_validation_report`
 
 ### `GET /api/v1/claims/stale?days=14` (implemented)
 
@@ -403,7 +403,7 @@ Returns open claims (`active`/`needs_evidence`/`needs_review`) not updated in at
 
 Engine source:
 
-- `ledgerly.engine.claims.write_stale_claims_report`
+- `corroborly.engine.claims.write_stale_claims_report`
 
 ### `GET /api/v1/claims/duplicates?threshold=0.85` (implemented, 2026-07-17)
 
@@ -413,9 +413,9 @@ Response `data`: `{version, threshold, generated_at, duplicate_pair_count, pairs
 
 Engine source:
 
-- `ledgerly.engine.claims.write_duplicate_claims_report`
+- `corroborly.engine.claims.write_duplicate_claims_report`
 
-CLI equivalent: `ledgerly claims duplicates --threshold`.
+CLI equivalent: `corroborly claims duplicates --threshold`.
 
 ## Artefact Routes
 
@@ -425,7 +425,7 @@ Lists artefacts.
 
 Engine source:
 
-- `ledgerly.engine.artefacts.list_artefacts`
+- `corroborly.engine.artefacts.list_artefacts`
 
 ### `POST /api/v1/artefacts` (implemented)
 
@@ -433,7 +433,7 @@ Registers a local artefact.
 
 Engine source:
 
-- `ledgerly.engine.artefacts.register_artefact`
+- `corroborly.engine.artefacts.register_artefact`
 
 ### `POST /api/v1/artefacts/create` (implemented)
 
@@ -441,7 +441,7 @@ Creates deterministic non-AI artefacts. `artefact_type` is one of `source-summar
 
 Engine source:
 
-- `ledgerly.engine.artefact_creation.create_deterministic_artefact`
+- `corroborly.engine.artefact_creation.create_deterministic_artefact`
 
 ### `POST /api/v1/artefacts/paper-draft/ai` (implemented, 2026-07-17)
 
@@ -455,9 +455,9 @@ Response `data`: the same AI edit session shape `POST /api/v1/doc/ai-edit-sessio
 
 Engine source:
 
-- `ledgerly.engine.artefact_creation.create_ai_paper_draft`
+- `corroborly.engine.artefact_creation.create_ai_paper_draft`
 
-CLI equivalent: `ledgerly paper draft <rq-id> --ai --full-target-document-ai`.
+CLI equivalent: `corroborly paper draft <rq-id> --ai --full-target-document-ai`.
 
 ### `POST /api/v1/artefacts/paper-draft/promote` (implemented, 2026-07-17)
 
@@ -467,21 +467,21 @@ Request body: `{"rq_id": str, "session_id": str}`.
 
 Engine source:
 
-- `ledgerly.engine.artefacts.promote_ai_paper_draft`
+- `corroborly.engine.artefacts.promote_ai_paper_draft`
 
-CLI equivalent: `ledgerly paper promote-ai-draft <rq-id> <session-id>`.
+CLI equivalent: `corroborly paper promote-ai-draft <rq-id> <session-id>`.
 
 ### `POST /api/v1/artefacts/paper-draft/clear-review-gate` (implemented, 2026-07-17)
 
-The *only* legal way to clear a paper draft's `paper_review_gate`. Requires a real `ledgerly validate <target>` report to already exist for that exact artefact path, and that report to be newer (by file mtime) than the artefact's current content — a stale validation from before the AI draft was promoted, or from before a further edit, does not satisfy it. `400 paper_review_gate_clear_failed` if there's no open gate, no report, or a stale report.
+The *only* legal way to clear a paper draft's `paper_review_gate`. Requires a real `corroborly validate <target>` report to already exist for that exact artefact path, and that report to be newer (by file mtime) than the artefact's current content — a stale validation from before the AI draft was promoted, or from before a further edit, does not satisfy it. `400 paper_review_gate_clear_failed` if there's no open gate, no report, or a stale report.
 
 Request body: `{"rq_id": str}`.
 
 Engine source:
 
-- `ledgerly.engine.artefacts.clear_paper_review_gate`
+- `corroborly.engine.artefacts.clear_paper_review_gate`
 
-CLI equivalent: `ledgerly paper clear-review-gate <rq-id>`.
+CLI equivalent: `corroborly paper clear-review-gate <rq-id>`.
 
 ### `POST /api/v1/artefacts/{artefact_id}/review` (implemented)
 
@@ -489,7 +489,7 @@ Sets artefact review status.
 
 Engine source:
 
-- `ledgerly.engine.artefacts.set_artefact_review_status`
+- `corroborly.engine.artefacts.set_artefact_review_status`
 
 ### `GET /api/v1/artefacts/dependencies` (implemented)
 
@@ -497,15 +497,15 @@ Checks artefact links against accepted sources and approved research questions.
 
 Engine source:
 
-- `ledgerly.engine.artefacts.artefact_dependency_report`
+- `corroborly.engine.artefacts.artefact_dependency_report`
 
 ### `POST /api/v1/artefacts/upload` (implemented)
 
-Batch-uploads externally created artefact files (multipart form data, field name `files`) into the document vault. Rejects the whole batch with `400 upload_batch_too_large` if it exceeds `LEDGERLY_UPLOAD_MAX_FILES` (default 25) before writing anything; each file is capped at `LEDGERLY_UPLOAD_MAX_FILE_SIZE_MB` (default 50) and must have an extension from `ledgerly.engine.sources.ALLOWED_EXTENSIONS`. Returns a per-batch report (`processed`/`accepted`/`duplicate`/`rejected`/`failed` counts and per-file rows), also persisted to `outputs/validation/upload-batch-report.yaml`. Duplicate detection is by content hash against artefacts already uploaded in the workspace. Uploaded bytes are streamed to a size-bounded temporary file and the temp directory is always removed after the request, whether it succeeds or fails.
+Batch-uploads externally created artefact files (multipart form data, field name `files`) into the document vault. Rejects the whole batch with `400 upload_batch_too_large` if it exceeds `CORROBORLY_UPLOAD_MAX_FILES` (default 25) before writing anything; each file is capped at `CORROBORLY_UPLOAD_MAX_FILE_SIZE_MB` (default 50) and must have an extension from `corroborly.engine.sources.ALLOWED_EXTENSIONS`. Returns a per-batch report (`processed`/`accepted`/`duplicate`/`rejected`/`failed` counts and per-file rows), also persisted to `outputs/validation/upload-batch-report.yaml`. Duplicate detection is by content hash against artefacts already uploaded in the workspace. Uploaded bytes are streamed to a size-bounded temporary file and the temp directory is always removed after the request, whether it succeeds or fails.
 
 Engine source:
 
-- `ledgerly.engine.vault.intake_uploaded_artefact_batch`
+- `corroborly.engine.vault.intake_uploaded_artefact_batch`
 
 ### `GET /api/v1/artefacts/cross-reference` (implemented)
 
@@ -513,9 +513,9 @@ Proposes deterministic links between an uploaded artefact (by `upload_id`) and e
 
 Engine source:
 
-- `ledgerly.engine.cross_reference.cross_reference_candidates`
+- `corroborly.engine.cross_reference.cross_reference_candidates`
 
-CLI equivalent: `ledgerly doc cross-reference <upload_id>`.
+CLI equivalent: `corroborly doc cross-reference <upload_id>`.
 
 ### `POST /api/v1/artefacts/cross-reference/ai` (implemented, 2026-07-17)
 
@@ -527,9 +527,9 @@ Response `data`: the same shape as the deterministic route, plus `ai_used: true`
 
 Engine source:
 
-- `ledgerly.engine.cross_reference.ai_cross_reference_suggestions`
+- `corroborly.engine.cross_reference.ai_cross_reference_suggestions`
 
-CLI equivalent: `ledgerly doc cross-reference-ai <upload_id> --ai`.
+CLI equivalent: `corroborly doc cross-reference-ai <upload_id> --ai`.
 
 ### `POST /api/v1/artefacts/cross-reference/candidate-review` (implemented)
 
@@ -539,29 +539,29 @@ Named `candidate-review`, not `review` — `POST /api/v1/artefacts/cross-referen
 
 Engine source:
 
-- `ledgerly.engine.cross_reference.set_cross_reference_candidate_review_status`
+- `corroborly.engine.cross_reference.set_cross_reference_candidate_review_status`
 
-CLI equivalent: `ledgerly doc cross-reference-review <upload_id> <target_kind> <target_id> <review_status>`.
+CLI equivalent: `corroborly doc cross-reference-review <upload_id> <target_kind> <target_id> <review_status>`.
 
 ### `POST /api/v1/artefacts/cross-reference/apply` (implemented)
 
 Writes reviewed cross-reference candidates as metadata on the *upload* record — a `cross_references` list, mirroring how artefact records already track `linked_sources`/`linked_research_questions` — following the same review-before-apply pattern citation plans use: only candidates whose `review_status` in the persisted candidates report has been set to `accepted`/`approved` (via `candidate-review` above, or by hand-editing the report file directly) are applied. Deliberately does not insert text into any artefact, source, or claim document's content (the other reading of "write the link" this contract previously left open): a keyword-overlap match is weaker evidence than a validated missing-citation match, so auto-inserting text on that basis would be a worse default than recording it as reviewable metadata. Content insertion analogous to `cite apply` (needing per-format `.md`/`.docx`/`.pdf` handling) was considered and deliberately not chosen. Idempotent — re-applying does not duplicate already-recorded links.
 
-CLI equivalent: `ledgerly doc cross-reference-apply <upload_id>`.
+CLI equivalent: `corroborly doc cross-reference-apply <upload_id>`.
 
 Engine source:
 
-- `ledgerly.engine.cross_reference.apply_cross_reference_links`
+- `corroborly.engine.cross_reference.apply_cross_reference_links`
 
 ### `GET /api/v1/artefacts/uploads` (implemented)
 
-Lists artefacts previously uploaded into the document vault. Found missing during Phase 10 UI planning: `POST /api/v1/artefacts/upload` returns a batch report at upload time, but nothing let a web client re-list uploads after that (e.g. on a page reload) — the CLI already had this via `ledgerly doc uploads`.
+Lists artefacts previously uploaded into the document vault. Found missing during Phase 10 UI planning: `POST /api/v1/artefacts/upload` returns a batch report at upload time, but nothing let a web client re-list uploads after that (e.g. on a page reload) — the CLI already had this via `corroborly doc uploads`.
 
 Engine source:
 
-- `ledgerly.engine.vault.list_uploaded_artefacts`
+- `corroborly.engine.vault.list_uploaded_artefacts`
 
-CLI equivalent: `ledgerly doc uploads`.
+CLI equivalent: `corroborly doc uploads`.
 
 ### `GET /api/v1/artefacts/uploads/{upload_id}/file` (implemented)
 
@@ -569,9 +569,9 @@ Serves the raw bytes of an uploaded artefact's renamed vault copy, for a browser
 
 Engine source:
 
-- `ledgerly.engine.vault.resolve_uploaded_artefact_file`
+- `corroborly.engine.vault.resolve_uploaded_artefact_file`
 
-No CLI equivalent — the CLI already has direct filesystem access to `vault_renamed_path` from `ledgerly doc uploads`; this route exists only because a browser client cannot read the local filesystem directly.
+No CLI equivalent — the CLI already has direct filesystem access to `vault_renamed_path` from `corroborly doc uploads`; this route exists only because a browser client cannot read the local filesystem directly.
 
 ## Zotero Routes
 
@@ -581,7 +581,7 @@ Lists collections from local `zotero.sqlite`.
 
 Engine source:
 
-- `ledgerly.engine.zotero.list_zotero_collections`
+- `corroborly.engine.zotero.list_zotero_collections`
 
 ### `GET /api/v1/zotero/local/search` (implemented)
 
@@ -589,23 +589,23 @@ Searches local Zotero storage and local metadata.
 
 Engine source:
 
-- `ledgerly.engine.zotero.search_zotero_storage`
+- `corroborly.engine.zotero.search_zotero_storage`
 
 ### `POST /api/v1/zotero/local/collections/select` (implemented)
 
-Configures selected local Zotero collections for future scans — the local-storage equivalent of `POST /api/v1/zotero/api/collections/select` below. Rejects unknown collection keys with `404 unknown_collection_keys` (validated against `list_zotero_collections`) rather than silently accepting them. Mirrors `ledgerly zotero select-collections` exactly.
+Configures selected local Zotero collections for future scans — the local-storage equivalent of `POST /api/v1/zotero/api/collections/select` below. Rejects unknown collection keys with `404 unknown_collection_keys` (validated against `list_zotero_collections`) rather than silently accepting them. Mirrors `corroborly zotero select-collections` exactly.
 
 Engine source:
 
-- `ledgerly.engine.zotero.write_zotero_config`, `list_zotero_collections`
+- `corroborly.engine.zotero.write_zotero_config`, `list_zotero_collections`
 
 ### `POST /api/v1/zotero/local/use-entire-library` (implemented)
 
-Configures local Zotero scans to use the entire storage library. Mirrors `ledgerly zotero use-entire-library`.
+Configures local Zotero scans to use the entire storage library. Mirrors `corroborly zotero use-entire-library`.
 
 Engine source:
 
-- `ledgerly.engine.zotero.write_zotero_config`
+- `corroborly.engine.zotero.write_zotero_config`
 
 ### `GET /api/v1/zotero/local/metadata-report` (implemented)
 
@@ -613,7 +613,7 @@ Reports missing local Zotero metadata fields (title/year/DOI/creators) from read
 
 Engine source:
 
-- `ledgerly.engine.zotero.metadata_quality_report`
+- `corroborly.engine.zotero.metadata_quality_report`
 
 ### `GET /api/v1/zotero/local/attachment-health` (implemented)
 
@@ -621,7 +621,7 @@ Compares local Zotero storage files against attachment records in `zotero.sqlite
 
 Engine source:
 
-- `ledgerly.engine.zotero.attachment_health_report`
+- `corroborly.engine.zotero.attachment_health_report`
 
 ### `GET /api/v1/zotero/local/fulltext-report` (implemented)
 
@@ -629,7 +629,7 @@ Reports which local Zotero storage files have `.zotero-ft-cache` available.
 
 Engine source:
 
-- `ledgerly.engine.zotero.fulltext_availability_report`
+- `corroborly.engine.zotero.fulltext_availability_report`
 
 ### `GET /api/v1/zotero/local/duplicates` (implemented)
 
@@ -637,7 +637,7 @@ Finds possible local Zotero metadata duplicates by DOI or title/year.
 
 Engine source:
 
-- `ledgerly.engine.zotero.duplicate_metadata_candidates`
+- `corroborly.engine.zotero.duplicate_metadata_candidates`
 
 ### `GET /api/v1/zotero/local/snapshot` (implemented)
 
@@ -645,7 +645,7 @@ Writes a reproducible local Zotero metadata snapshot into the workspace (`source
 
 Engine source:
 
-- `ledgerly.engine.zotero.zotero_metadata_snapshot`
+- `corroborly.engine.zotero.zotero_metadata_snapshot`
 
 ### `GET /api/v1/zotero/local/export-bibtex` (implemented)
 
@@ -653,11 +653,11 @@ Exports conservative BibTeX from local Zotero SQLite metadata to `outputs/report
 
 Engine source:
 
-- `ledgerly.engine.zotero.export_bibtex_from_metadata`
+- `corroborly.engine.zotero.export_bibtex_from_metadata`
 
 ### `POST /api/v1/zotero/api/credentials` (implemented)
 
-Links a Zotero Web API account by saving `api_key`/`user_id` (request body) into the workspace's local `.env`, replacing hand-editing that file. Added 2026-07-16 so the web UI can link an account the same way the CLI's new `ledgerly zotero api-link` does.
+Links a Zotero Web API account by saving `api_key`/`user_id` (request body) into the workspace's local `.env`, replacing hand-editing that file. Added 2026-07-16 so the web UI can link an account the same way the CLI's new `corroborly zotero api-link` does.
 
 Request body: `{"api_key": string, "user_id": string}`.
 
@@ -665,7 +665,7 @@ Response `data`: `{"configured": true}` only — the submitted key and user ID a
 
 Engine source:
 
-- `ledgerly.engine.zotero_api.save_zotero_api_credentials`
+- `corroborly.engine.zotero_api.save_zotero_api_credentials`
 
 ### `DELETE /api/v1/zotero/api/credentials` (implemented)
 
@@ -675,7 +675,7 @@ Response `data`: `{"configured": false}`.
 
 Engine source:
 
-- `ledgerly.engine.zotero_api.clear_zotero_api_credentials`
+- `corroborly.engine.zotero_api.clear_zotero_api_credentials`
 
 ### `GET /api/v1/zotero/api/test` (implemented)
 
@@ -683,7 +683,7 @@ Tests Zotero Web API credentials without exposing the key.
 
 Engine source:
 
-- `ledgerly.engine.zotero_api.zotero_api_readiness`
+- `corroborly.engine.zotero_api.zotero_api_readiness`
 
 ### `GET /api/v1/zotero/api/collections` (implemented)
 
@@ -691,7 +691,7 @@ Lists Zotero Web API collections using read-only credentials.
 
 Engine source:
 
-- `ledgerly.engine.zotero_api.zotero_api_collections`
+- `corroborly.engine.zotero_api.zotero_api_collections`
 
 ### `POST /api/v1/zotero/api/collections/select` (implemented)
 
@@ -699,7 +699,7 @@ Stores selected Zotero Web API collection keys in workspace config.
 
 Rules:
 
-- This route writes only to the Ledgerly workspace.
+- This route writes only to the Corroborly workspace.
 - It must not modify Zotero.
 - It must not call Zotero write endpoints.
 
@@ -711,7 +711,7 @@ Snapshots a target document into the local document vault.
 
 Engine source:
 
-- `ledgerly.engine.vault.create_document_version`
+- `corroborly.engine.vault.create_document_version`
 
 ### `GET /api/v1/doc/versions` (implemented)
 
@@ -719,7 +719,7 @@ Lists document vault versions, optionally filtered by target.
 
 Engine source:
 
-- `ledgerly.engine.vault.list_document_versions`
+- `corroborly.engine.vault.list_document_versions`
 
 ### `GET /api/v1/doc/diff` (implemented)
 
@@ -727,7 +727,7 @@ Compares two document vault versions.
 
 Engine source:
 
-- `ledgerly.engine.vault.diff_document_versions`
+- `corroborly.engine.vault.diff_document_versions`
 
 ### `POST /api/v1/doc/restore` (implemented)
 
@@ -735,7 +735,7 @@ Restores a document vault version as a new copy without overwriting the current 
 
 Engine source:
 
-- `ledgerly.engine.vault.restore_document_version`
+- `corroborly.engine.vault.restore_document_version`
 
 ### `GET /api/v1/doc/compare` (implemented)
 
@@ -743,7 +743,7 @@ Compares how document strengths, weaknesses, unsupported claims, and references 
 
 Engine source:
 
-- `ledgerly.engine.vault.compare_document_versions`
+- `corroborly.engine.vault.compare_document_versions`
 
 ### `POST /api/v1/doc/derive-text/{version_id}` (implemented)
 
@@ -751,7 +751,7 @@ Builds (or rebuilds) a derived text snapshot for a document version: sections (f
 
 Engine source:
 
-- `ledgerly.engine.derived_text.build_derived_text_snapshot`
+- `corroborly.engine.derived_text.build_derived_text_snapshot`
 
 ### `POST /api/v1/doc/ai-edit-sessions` (implemented, 2026-07-17)
 
@@ -763,9 +763,9 @@ Response `data`: `{session_id, target, target_path, source_version_id, derived_t
 
 Engine source:
 
-- `ledgerly.engine.ai_edit_sessions.create_ai_edit_session`
+- `corroborly.engine.ai_edit_sessions.create_ai_edit_session`
 
-CLI equivalent: `ledgerly doc ai-edit-session-create <target> --ai --full-target-document-ai`.
+CLI equivalent: `corroborly doc ai-edit-session-create <target> --ai --full-target-document-ai`.
 
 ### `GET /api/v1/doc/ai-edit-sessions` (implemented, 2026-07-17)
 
@@ -773,9 +773,9 @@ Lists AI edit sessions for the workspace.
 
 Engine source:
 
-- `ledgerly.engine.ai_edit_sessions.list_ai_edit_sessions`
+- `corroborly.engine.ai_edit_sessions.list_ai_edit_sessions`
 
-CLI equivalent: `ledgerly doc ai-edit-sessions`.
+CLI equivalent: `corroborly doc ai-edit-sessions`.
 
 ### `POST /api/v1/doc/ai-edit-sessions/{session_id}/edits/{edit_id}/review` (implemented, 2026-07-17)
 
@@ -785,9 +785,9 @@ Request body: `{"review_status": str}`.
 
 Engine source:
 
-- `ledgerly.engine.ai_edit_sessions.set_ai_edit_review_status`
+- `corroborly.engine.ai_edit_sessions.set_ai_edit_review_status`
 
-CLI equivalent: `ledgerly doc ai-edit-session-review <session_id> <edit_id> <review_status>`.
+CLI equivalent: `corroborly doc ai-edit-session-review <session_id> <edit_id> <review_status>`.
 
 ### `POST /api/v1/doc/ai-edit-sessions/{session_id}/apply` (implemented, 2026-07-17)
 
@@ -797,9 +797,9 @@ Response `data`: `{session_id, output_path, original_document_modified: false, a
 
 Engine source:
 
-- `ledgerly.engine.ai_edit_sessions.apply_ai_edit_session`
+- `corroborly.engine.ai_edit_sessions.apply_ai_edit_session`
 
-CLI equivalent: `ledgerly doc ai-edit-session-apply <session_id>`.
+CLI equivalent: `corroborly doc ai-edit-session-apply <session_id>`.
 
 ## Validation Routes
 
@@ -809,7 +809,7 @@ Deterministically validates a document target against accepted sources, Zotero-d
 
 Engine source:
 
-- `ledgerly.engine.doc_validation.validate_document`
+- `corroborly.engine.doc_validation.validate_document`
 
 ## Citation Plan Routes
 
@@ -817,17 +817,17 @@ Engine source:
 
 Creates a reviewable, non-destructive citation insertion plan from a validation run's missing-citation findings. Only suggests citations from `accepted` sources unless `allow_candidate_citations` is set.
 
-Request body accepts an optional `citation_style` (`"apa7"` default, or `"mla"`/`"chicago"`/`"ieee"`, added 2026-07-17) controlling both the plan's `suggested_inline_citation` markers and its `references` reference-list formatting. `400 invalid_citation_style` for any other value. `apa7` output is byte-identical to before this field existed; the other three styles are deliberately simplified, common approximations (`ledgerly.engine.references`), not full style-guide-compliant implementations — the plan's `limitations` list says so explicitly for any non-`apa7` style, matching this project's practice of never presenting output as more authoritative than it is. `ieee` assigns running reference numbers (`[1]`, `[2]`, ...) by order of first appearance in the document, stable per plan generation.
+Request body accepts an optional `citation_style` (`"apa7"` default, or `"mla"`/`"chicago"`/`"ieee"`, added 2026-07-17) controlling both the plan's `suggested_inline_citation` markers and its `references` reference-list formatting. `400 invalid_citation_style` for any other value. `apa7` output is byte-identical to before this field existed; the other three styles are deliberately simplified, common approximations (`corroborly.engine.references`), not full style-guide-compliant implementations — the plan's `limitations` list says so explicitly for any non-`apa7` style, matching this project's practice of never presenting output as more authoritative than it is. `ieee` assigns running reference numbers (`[1]`, `[2]`, ...) by order of first appearance in the document, stable per plan generation.
 
 Engine source:
 
-- `ledgerly.engine.citations.create_citation_plan`
+- `corroborly.engine.citations.create_citation_plan`
 
-CLI equivalent: `ledgerly cite plan <target>`.
+CLI equivalent: `corroborly cite plan <target>`.
 
 ### `POST /api/v1/citations/ai-plan` (implemented, 2026-07-17)
 
-The AI tier of citation planning — the web equivalent of `ledgerly cite ai-plan`. Requires **both** `ai: true` and `full_target_document_ai: true` (`400 ai_not_enabled` / `400 full_target_document_ai_not_enabled`), the same double opt-in as `POST /api/v1/doc/ai-edit-sessions`, since the whole target document's text is sent. Builds the deterministic plan first (same as `/plan`), then layers an AI review on top via `engine.ai.ai_citation_plan_review` — writes the same enriched plan YAML (`ai_used: true`, `ai_assistance`, `plan_status: "ai_review_required"`) and appends an "## AI Recommendations" section to the plan Markdown, exactly matching the CLI's behavior. Never edits the target document.
+The AI tier of citation planning — the web equivalent of `corroborly cite ai-plan`. Requires **both** `ai: true` and `full_target_document_ai: true` (`400 ai_not_enabled` / `400 full_target_document_ai_not_enabled`), the same double opt-in as `POST /api/v1/doc/ai-edit-sessions`, since the whole target document's text is sent. Builds the deterministic plan first (same as `/plan`), then layers an AI review on top via `engine.ai.ai_citation_plan_review` — writes the same enriched plan YAML (`ai_used: true`, `ai_assistance`, `plan_status: "ai_review_required"`) and appends an "## AI Recommendations" section to the plan Markdown, exactly matching the CLI's behavior. Never edits the target document.
 
 Request body: `{"target": str, "ai": true, "full_target_document_ai": true, "source_paths": list[str] = [], "allow_candidate_citations": bool = false, "citation_style": str = "apa7"}`.
 
@@ -835,10 +835,10 @@ Response `data`: `{plan, yaml_path, markdown_path}` — same shape as `/plan`, w
 
 Engine source:
 
-- `ledgerly.engine.citations.create_citation_plan`
-- `ledgerly.engine.ai.ai_citation_plan_review`
+- `corroborly.engine.citations.create_citation_plan`
+- `corroborly.engine.ai.ai_citation_plan_review`
 
-CLI equivalent: `ledgerly cite ai-plan <target> --ai --full-target-document-ai`.
+CLI equivalent: `corroborly cite ai-plan <target> --ai --full-target-document-ai`.
 
 ### `POST /api/v1/citations/plan/insertion-review` (implemented)
 
@@ -846,9 +846,9 @@ Sets one citation-plan insertion's `review_status` (`needs_human_review`/`accept
 
 Engine source:
 
-- `ledgerly.engine.citations.set_citation_plan_insertion_review_status`
+- `corroborly.engine.citations.set_citation_plan_insertion_review_status`
 
-CLI equivalent: `ledgerly cite review <target> <sentence_index> <source_id> <review_status>`.
+CLI equivalent: `corroborly cite review <target> <sentence_index> <source_id> <review_status>`.
 
 ### `POST /api/v1/citations/apply` (implemented)
 
@@ -856,7 +856,7 @@ Applies a reviewed citation plan's accepted insertions to a revised output copy 
 
 Engine source:
 
-- `ledgerly.engine.citations.apply_citation_plan`
+- `corroborly.engine.citations.apply_citation_plan`
 
 ## Guideline Routes
 
@@ -866,7 +866,7 @@ Lists registered guidelines.
 
 Engine source:
 
-- `ledgerly.engine.guidelines.list_guidelines`
+- `corroborly.engine.guidelines.list_guidelines`
 
 ### `POST /api/v1/guidelines` (implemented)
 
@@ -874,7 +874,7 @@ Registers a local file or remote URL guideline, snapshotting it and extracting t
 
 Engine source:
 
-- `ledgerly.engine.guidelines.register_guideline`
+- `corroborly.engine.guidelines.register_guideline`
 
 ### `POST /api/v1/guidelines/defaults` (implemented)
 
@@ -882,7 +882,7 @@ Sets the workspace's default guideline IDs and their precedence order, applied a
 
 Engine source:
 
-- `ledgerly.engine.guidelines.set_default_guidelines`
+- `corroborly.engine.guidelines.set_default_guidelines`
 
 ### `GET /api/v1/guidelines/conflicts` (implemented)
 
@@ -890,7 +890,7 @@ Returns a deterministic report of contradictory guideline requirements for human
 
 Engine source:
 
-- `ledgerly.engine.guidelines.guideline_conflict_report`
+- `corroborly.engine.guidelines.guideline_conflict_report`
 
 ## SQLite Sync Status Routes
 
@@ -900,7 +900,7 @@ Initializes the optional workspace SQLite index database.
 
 Engine source:
 
-- `ledgerly.engine.database.init_database`
+- `corroborly.engine.database.init_database`
 
 ### `POST /api/v1/db/sync` (implemented)
 
@@ -908,7 +908,7 @@ Syncs workspace YAML/Markdown metadata into the local SQLite index. YAML and Mar
 
 Engine source:
 
-- `ledgerly.engine.database.sync_database`
+- `corroborly.engine.database.sync_database`
 
 ### `GET /api/v1/db/status` (implemented)
 
@@ -916,7 +916,7 @@ Returns SQLite index health, sync counts, and repair guidance.
 
 Engine source:
 
-- `ledgerly.engine.database.database_status`
+- `corroborly.engine.database.database_status`
 
 ### `POST /api/v1/db/rebuild` (implemented)
 
@@ -924,7 +924,7 @@ Rebuilds the SQLite index from workspace YAML/Markdown source-of-truth files.
 
 Engine source:
 
-- `ledgerly.engine.database.rebuild_database`
+- `corroborly.engine.database.rebuild_database`
 
 ### `GET /api/v1/db/pending` (implemented)
 
@@ -932,7 +932,7 @@ Returns SQLite-to-file pending changes for review, without applying them.
 
 Engine source:
 
-- `ledgerly.engine.database.pending_changes_report`
+- `corroborly.engine.database.pending_changes_report`
 
 ### `POST /api/v1/db/apply-pending` (implemented)
 
@@ -940,7 +940,7 @@ Reviews (`apply: false`) or applies (`apply: true`) reviewed SQLite-to-YAML/Mark
 
 Engine source:
 
-- `ledgerly.engine.database.apply_pending_changes`
+- `corroborly.engine.database.apply_pending_changes`
 
 ### `GET /api/v1/db/privacy` (implemented)
 
@@ -948,7 +948,7 @@ Checks that the SQLite database does not intentionally store secrets or original
 
 Engine source:
 
-- `ledgerly.engine.database.database_privacy_report`
+- `corroborly.engine.database.database_privacy_report`
 
 ### `GET /api/v1/db/search?query=...&limit=20` (implemented)
 
@@ -956,11 +956,11 @@ Full-text keyword search across the whole corpus (converted source text, artefac
 
 Engine source:
 
-- `ledgerly.engine.database.search_corpus`
+- `corroborly.engine.database.search_corpus`
 
 ### Secondary database backend routes (implemented, Phase 24)
 
-Optional MariaDB/PostgreSQL backend mirroring the SQLite cache, per Pedro's explicit 2026-07-16 go-ahead. SQLite stays the always-on, zero-config default; these routes only matter when `LEDGERLY_DB_BACKEND` is configured, and even then nothing activates automatically — see AGENTS.md's Privacy Rules. `ledgerly.engine.db_backends/` holds the abstraction (`base.py` for the shared mirror/repopulate row-copy logic, `postgres.py`/`mariadb.py` for connection + schema DDL, `config.py` for env var resolution). Ten tables are mirrored (`sync_files`, `pending_changes`, `memory_entries`, `search_queries`, `validation_runs`, `evidence_matches`, `citation_plans`, `guideline_registrations`, `document_versions`, `document_aliases`) — deliberately excludes SQLite's FTS5 virtual table (`fts_index`/`fts_index_search`), which has no direct cross-engine equivalent and is trivially rebuilt via `db sync` regardless of which backend is primary.
+Optional MariaDB/PostgreSQL backend mirroring the SQLite cache, per Pedro's explicit 2026-07-16 go-ahead. SQLite stays the always-on, zero-config default; these routes only matter when `CORROBORLY_DB_BACKEND` is configured, and even then nothing activates automatically — see AGENTS.md's Privacy Rules. `corroborly.engine.db_backends/` holds the abstraction (`base.py` for the shared mirror/repopulate row-copy logic, `postgres.py`/`mariadb.py` for connection + schema DDL, `config.py` for env var resolution). Ten tables are mirrored (`sync_files`, `pending_changes`, `memory_entries`, `search_queries`, `validation_runs`, `evidence_matches`, `citation_plans`, `guideline_registrations`, `document_versions`, `document_aliases`) — deliberately excludes SQLite's FTS5 virtual table (`fts_index`/`fts_index_search`), which has no direct cross-engine equivalent and is trivially rebuilt via `db sync` regardless of which backend is primary.
 
 - `GET /api/v1/db/backend-status` — whether a secondary backend is configured (env vars present), active (opted in), and currently reachable. Read-only; never activates anything.
 - `POST /api/v1/db/activate-backend` — explicit opt-in: creates the schema on the configured backend and mirrors the current SQLite cache into it. `400 secondary_backend_activation_failed` if nothing is configured, or if a *different* backend is already active (at most one at a time — deactivate first).
@@ -972,11 +972,11 @@ Optional MariaDB/PostgreSQL backend mirroring the SQLite cache, per Pedro's expl
 
 Engine source:
 
-- `ledgerly.engine.database.secondary_backend_status`
-- `ledgerly.engine.database.activate_secondary_backend`
-- `ledgerly.engine.database.deactivate_secondary_backend`
-- `ledgerly.engine.database.repair_sqlite_from_secondary`
-- `ledgerly.engine.database.repair_secondary_from_sqlite`
+- `corroborly.engine.database.secondary_backend_status`
+- `corroborly.engine.database.activate_secondary_backend`
+- `corroborly.engine.database.deactivate_secondary_backend`
+- `corroborly.engine.database.repair_sqlite_from_secondary`
+- `corroborly.engine.database.repair_secondary_from_sqlite`
 
 ## Notes Routes
 
@@ -988,7 +988,7 @@ Lists notes, optionally filtered by `kind` (`note`/`meeting`/`transcript`) and/o
 
 Engine source:
 
-- `ledgerly.engine.notes.list_notes`
+- `corroborly.engine.notes.list_notes`
 
 ### `POST /api/v1/notes` (implemented)
 
@@ -996,7 +996,7 @@ Adds a note. Body: `{"text": string, "kind": "note"|"meeting"|"transcript" = "no
 
 Engine source:
 
-- `ledgerly.engine.notes.add_note`
+- `corroborly.engine.notes.add_note`
 
 ### `POST /api/v1/notes/{note_id}/tags` (implemented)
 
@@ -1004,7 +1004,7 @@ Adds a tag to an existing note.
 
 Engine source:
 
-- `ledgerly.engine.notes.add_note_tag`
+- `corroborly.engine.notes.add_note_tag`
 
 ### `GET /api/v1/notes/search` (implemented)
 
@@ -1012,7 +1012,7 @@ Deterministic keyword search across note text, tags, and source label — plain 
 
 Engine source:
 
-- `ledgerly.engine.notes.search_notes`
+- `corroborly.engine.notes.search_notes`
 
 ### `POST /api/v1/notes/import-transcript` (implemented)
 
@@ -1020,11 +1020,11 @@ Deterministically imports a transcript export (plain text, VTT, or SRT) from a s
 
 Engine source:
 
-- `ledgerly.engine.notes.import_transcript`
+- `corroborly.engine.notes.import_transcript`
 
 ## Transcription Routes (implemented, Phase 30)
 
-Audio/video transcription via a sibling SourceScribe checkout, invoked as a subprocess (never imported — `LEDGERLY_SOURCESCRIBE_PATH` points at the checkout). Local Whisper is the default backend; SourceScribe's own optional OpenAI backend is only ever used when a job explicitly sets `"ai": true`, matching AGENTS.md's "Core Rule: No Hallucinations" opt-in requirement. Synchronous only — `POST .../jobs/{job_id}/start` blocks until SourceScribe finishes; no background-job model exists yet. On completion, the transcript is imported into the Phase 25 notes store via `ledgerly.engine.notes.import_transcript` (no AI processing on the transcript text itself). Added 2026-07-16.
+Audio/video transcription via a sibling SourceScribe checkout, invoked as a subprocess (never imported — `CORROBORLY_SOURCESCRIBE_PATH` points at the checkout). Local Whisper is the default backend; SourceScribe's own optional OpenAI backend is only ever used when a job explicitly sets `"ai": true`, matching AGENTS.md's "Core Rule: No Hallucinations" opt-in requirement. Synchronous only — `POST .../jobs/{job_id}/start` blocks until SourceScribe finishes; no background-job model exists yet. On completion, the transcript is imported into the Phase 25 notes store via `corroborly.engine.notes.import_transcript` (no AI processing on the transcript text itself). Added 2026-07-16.
 
 ### `GET /api/v1/transcription/readiness` (implemented)
 
@@ -1032,11 +1032,11 @@ Reports whether a SourceScribe checkout is configured and reachable, without sta
 
 Engine source:
 
-- `ledgerly.engine.transcription.sourcescribe_readiness_report`
+- `corroborly.engine.transcription.sourcescribe_readiness_report`
 
 ### `GET /api/v1/transcription/upload/limits` (implemented)
 
-Reports the configured single-file upload size limit (`LEDGERLY_TRANSCRIBE_MAX_FILE_SIZE_MB`, default 500MB) and the allowed audio/video extensions.
+Reports the configured single-file upload size limit (`CORROBORLY_TRANSCRIBE_MAX_FILE_SIZE_MB`, default 500MB) and the allowed audio/video extensions.
 
 ### `GET /api/v1/transcription/jobs` (implemented)
 
@@ -1044,7 +1044,7 @@ Lists all transcription jobs for the workspace.
 
 Engine source:
 
-- `ledgerly.engine.transcription.list_transcription_jobs`
+- `corroborly.engine.transcription.list_transcription_jobs`
 
 ### `GET /api/v1/transcription/jobs/{job_id}` (implemented)
 
@@ -1052,7 +1052,7 @@ Returns a single transcription job's current status and details. 404 if unknown.
 
 Engine source:
 
-- `ledgerly.engine.transcription.get_transcription_job`
+- `corroborly.engine.transcription.get_transcription_job`
 
 ### `POST /api/v1/transcription/upload` (implemented)
 
@@ -1060,7 +1060,7 @@ Uploads a single audio/video file (multipart, field name `file`) and registers a
 
 Engine source:
 
-- `ledgerly.engine.transcription.upload_transcription_source`
+- `corroborly.engine.transcription.upload_transcription_source`
 
 ### `POST /api/v1/transcription/jobs/{job_id}/start` (implemented)
 
@@ -1068,7 +1068,7 @@ Synchronously runs SourceScribe on an uploaded job. Body: `{"language": string |
 
 Engine source:
 
-- `ledgerly.engine.transcription.start_transcription`
+- `corroborly.engine.transcription.start_transcription`
 
 ## External Search Routes
 
@@ -1080,8 +1080,8 @@ Generates a deterministic external-search query plan from workspace context (top
 
 Engine source:
 
-- `ledgerly.engine.external_search.generate_search_query_plan`
-- `ledgerly.engine.external_search.filter_unused_queries` (when `unused_only: true`)
+- `corroborly.engine.external_search.generate_search_query_plan`
+- `corroborly.engine.external_search.filter_unused_queries` (when `unused_only: true`)
 
 ### `GET /api/v1/search/reports?limit=50` (implemented)
 
@@ -1089,11 +1089,11 @@ Regenerates the five deterministic external-search reports (high-signal candidat
 
 Engine source:
 
-- `ledgerly.engine.external_search.write_high_signal_candidate_report`
-- `ledgerly.engine.external_search.external_candidate_deduplication_report`
-- `ledgerly.engine.external_search.external_candidate_zotero_match_report`
-- `ledgerly.engine.external_search.external_search_evidence_validation_report`
-- `ledgerly.engine.external_search.external_search_run_comparison_report`
+- `corroborly.engine.external_search.write_high_signal_candidate_report`
+- `corroborly.engine.external_search.external_candidate_deduplication_report`
+- `corroborly.engine.external_search.external_candidate_zotero_match_report`
+- `corroborly.engine.external_search.external_search_evidence_validation_report`
+- `corroborly.engine.external_search.external_search_run_comparison_report`
 
 ### `POST /api/v1/search/import-candidates` (implemented)
 
@@ -1101,7 +1101,7 @@ Imports reviewed external candidates into the source register as metadata-only p
 
 Engine source:
 
-- `ledgerly.engine.external_search.import_external_candidates`
+- `corroborly.engine.external_search.import_external_candidates`
 
 ## Abstracts Routes
 
@@ -1111,7 +1111,7 @@ Imports local legacy Scopus-export abstract text files (`.txt`) from a server-lo
 
 Engine source:
 
-- `ledgerly.engine.abstracts.import_abstract_folder`
+- `corroborly.engine.abstracts.import_abstract_folder`
 
 ## Report And Export Routes
 
@@ -1121,7 +1121,7 @@ Generates local Markdown workspace report.
 
 Engine source:
 
-- `ledgerly.engine.reports.generate_workspace_report`
+- `corroborly.engine.reports.generate_workspace_report`
 
 ### `GET /api/v1/reports/timeline` (implemented)
 
@@ -1129,7 +1129,7 @@ Generates a local, chronologically sorted timeline report merging run summaries,
 
 Engine source:
 
-- `ledgerly.engine.project_log.timeline_report`
+- `corroborly.engine.project_log.timeline_report`
 
 ### `GET /api/v1/reports/schemas` (implemented)
 
@@ -1137,7 +1137,7 @@ Writes report schema and human-review guideline documentation (YAML + Markdown).
 
 Engine source:
 
-- `ledgerly.engine.report_schemas.export_report_schemas`
+- `corroborly.engine.report_schemas.export_report_schemas`
 
 ### `GET /api/v1/reports/citation-relationships` (implemented)
 
@@ -1145,7 +1145,7 @@ Local citation-relationship view: which sources support which claims, and which 
 
 Engine source:
 
-- `ledgerly.engine.relationships.citation_relationship_map`
+- `corroborly.engine.relationships.citation_relationship_map`
 
 ### `GET /api/v1/reports/research-progress` (implemented)
 
@@ -1153,7 +1153,7 @@ A lightweight, honest local record of research question / artefact activity over
 
 Engine source:
 
-- `ledgerly.engine.progress_log.research_progress_report`
+- `corroborly.engine.progress_log.research_progress_report`
 
 ### `GET /api/v1/reports/digest?mark_seen=true` (implemented, 2026-07-17)
 
@@ -1161,10 +1161,10 @@ A proactive "what changed since you were last here" summary: new/updated claims 
 
 Engine source:
 
-- `ledgerly.engine.digest.since_last_visit_digest`
-- `ledgerly.engine.digest.mark_visited`
+- `corroborly.engine.digest.since_last_visit_digest`
+- `corroborly.engine.digest.mark_visited`
 
-CLI equivalent: `ledgerly digest [--no-mark-visited]`.
+CLI equivalent: `corroborly digest [--no-mark-visited]`.
 
 ### `POST /api/v1/export/evidence` (implemented)
 
@@ -1172,7 +1172,7 @@ Creates an offline evidence bundle without original source files by default.
 
 Engine source:
 
-- `ledgerly.engine.export.export_evidence_bundle`
+- `corroborly.engine.export.export_evidence_bundle`
 
 ### `POST /api/v1/export/corpus` (implemented)
 
@@ -1180,15 +1180,15 @@ Exports accepted converted source text as a combined local corpus with a manifes
 
 Engine source:
 
-- `ledgerly.engine.export.export_accepted_source_corpus`
+- `corroborly.engine.export.export_accepted_source_corpus`
 
 ### `POST /api/v1/export/supervisor-bundle` (implemented)
 
-Builds a single "hand this to my supervisor" bundle: a claim-ledger table (with citation-gap and claim-source-validation flags per claim), every citation plan created so far, the workspace review report, and (added 2026-07-17) an "AI Usage Disclosure" section built from the AI-usage audit ledger (`ledgerly.engine.ai.list_ai_usage`) — a factual summary of which AI features were invoked, whether each actually called a provider or correctly refused with insufficient evidence, and grounding pass/fail counts — as one readable Markdown digest (`supervisor-bundle.md`) plus a zip (`supervisor-bundle.zip`) also containing the raw claims YAML, the raw AI-usage ledger YAML, per-plan Markdown, and (added 2026-07-17) a fully self-contained `supervisor-bundle.html` (inline CSS only, no external assets or JS) with the same content, openable by double-click with no Ledgerly install or Markdown renderer needed. Markdown + zip rather than PDF: no PDF-generation dependency exists in this project, and the digest converts to PDF trivially with any tool the user already has.
+Builds a single "hand this to my supervisor" bundle: a claim-ledger table (with citation-gap and claim-source-validation flags per claim), every citation plan created so far, the workspace review report, and (added 2026-07-17) an "AI Usage Disclosure" section built from the AI-usage audit ledger (`corroborly.engine.ai.list_ai_usage`) — a factual summary of which AI features were invoked, whether each actually called a provider or correctly refused with insufficient evidence, and grounding pass/fail counts — as one readable Markdown digest (`supervisor-bundle.md`) plus a zip (`supervisor-bundle.zip`) also containing the raw claims YAML, the raw AI-usage ledger YAML, per-plan Markdown, and (added 2026-07-17) a fully self-contained `supervisor-bundle.html` (inline CSS only, no external assets or JS) with the same content, openable by double-click with no Corroborly install or Markdown renderer needed. Markdown + zip rather than PDF: no PDF-generation dependency exists in this project, and the digest converts to PDF trivially with any tool the user already has.
 
 Engine source:
 
-- `ledgerly.engine.export.build_supervisor_bundle`
+- `corroborly.engine.export.build_supervisor_bundle`
 
 ### `POST /api/v1/export/merge-pdfs` (implemented)
 
@@ -1196,7 +1196,7 @@ Creates accepted-source PDF merge manifests and, when `write: true` is passed (m
 
 Engine source:
 
-- `ledgerly.engine.pdf_merge.pdf_merge_report`
+- `corroborly.engine.pdf_merge.pdf_merge_report`
 
 ### `POST /api/v1/backup` (implemented)
 
@@ -1204,7 +1204,7 @@ Creates a local backup.
 
 Engine source:
 
-- `ledgerly.engine.backup.create_workspace_backup`
+- `corroborly.engine.backup.create_workspace_backup`
 
 ### `GET /api/v1/backup/inspect` (implemented)
 
@@ -1212,7 +1212,7 @@ Inspects a backup zip without restoring it.
 
 Engine source:
 
-- `ledgerly.engine.backup.inspect_backup`
+- `corroborly.engine.backup.inspect_backup`
 
 ## Project Log Routes
 
@@ -1224,7 +1224,7 @@ Lists recorded decisions as structured `{id, decision, reason}` records, parsed 
 
 Engine source:
 
-- `ledgerly.engine.project_log.list_decisions`
+- `corroborly.engine.project_log.list_decisions`
 
 ### `POST /api/v1/decisions` (implemented)
 
@@ -1232,7 +1232,7 @@ Adds a structured local decision.
 
 Engine source:
 
-- `ledgerly.engine.project_log.add_decision`
+- `corroborly.engine.project_log.add_decision`
 
 ### `GET /api/v1/terminology` (implemented)
 
@@ -1240,7 +1240,7 @@ Lists glossary terms as `{term, definition}` records.
 
 Engine source:
 
-- `ledgerly.engine.project_log.list_terminology`
+- `corroborly.engine.project_log.list_terminology`
 
 ### `POST /api/v1/terminology` (implemented)
 
@@ -1248,7 +1248,7 @@ Adds or updates a glossary term.
 
 Engine source:
 
-- `ledgerly.engine.project_log.add_terminology`
+- `corroborly.engine.project_log.add_terminology`
 
 ### `GET /api/v1/feedback` (implemented)
 
@@ -1256,7 +1256,7 @@ Lists supervisor/stakeholder feedback as `{id, source, text, status}` records.
 
 Engine source:
 
-- `ledgerly.engine.project_log.list_feedback`
+- `corroborly.engine.project_log.list_feedback`
 
 ### `POST /api/v1/feedback` (implemented)
 
@@ -1264,7 +1264,7 @@ Adds supervisor or stakeholder feedback.
 
 Engine source:
 
-- `ledgerly.engine.project_log.add_feedback`
+- `corroborly.engine.project_log.add_feedback`
 
 ### `GET /api/v1/context/changelog` (implemented)
 
@@ -1272,7 +1272,7 @@ Lists context changelog items as `{id, text}` records, parsed from `context-chan
 
 Engine source:
 
-- `ledgerly.engine.project_log.list_context_changes`
+- `corroborly.engine.project_log.list_context_changes`
 
 ### `POST /api/v1/context/changelog` (implemented)
 
@@ -1280,11 +1280,11 @@ Adds a context changelog item.
 
 Engine source:
 
-- `ledgerly.engine.project_log.add_context_change`
+- `corroborly.engine.project_log.add_context_change`
 
 ## Web UI Routes (implemented)
 
-`ledgerly/web/` mounts a server-rendered HTML shell onto the same FastAPI app as everything above — same process, same `ledgerly serve`, no separate deployment step. These routes serve HTML (or static files), not the `{"ok","data","warnings","errors"}` envelope, and are outside `/api/v1`, but the Non-Negotiable Boundaries above still apply in full: the web layer has no import path to `ledgerly.engine` at all (`ledgerly/web/app.py` only imports session-cookie helpers from `ledgerly.api.auth`, plus Jinja2/Starlette), and every data operation happens client-side via `fetch()` calls to the `/api/v1/*` routes documented above — the web UI is architecturally just another API client, enforced by import structure rather than convention.
+`corroborly/web/` mounts a server-rendered HTML shell onto the same FastAPI app as everything above — same process, same `corroborly serve`, no separate deployment step. These routes serve HTML (or static files), not the `{"ok","data","warnings","errors"}` envelope, and are outside `/api/v1`, but the Non-Negotiable Boundaries above still apply in full: the web layer has no import path to `corroborly.engine` at all (`corroborly/web/app.py` only imports session-cookie helpers from `corroborly.api.auth`, plus Jinja2/Starlette), and every data operation happens client-side via `fetch()` calls to the `/api/v1/*` routes documented above — the web UI is architecturally just another API client, enforced by import structure rather than convention.
 
 - `GET /login` — public, no session required. Serves the login form; the form itself posts to `POST /api/v1/auth/login`.
 - `GET /` — the app shell. Session-gated *server-side*: reads the session cookie directly and issues a `303` redirect to `/login?next=<url>` before rendering anything if there's no valid session, rather than sending an empty shell that discovers it's unauthenticated only after a client-side API call. Workspace selection is a `?workspace=` query param, mirroring how every `/api/v1/*` route already takes an explicit `workspace` — there is no server-side session-scoped "current workspace."
@@ -1292,7 +1292,7 @@ Engine source:
 
 ## AI Routes
 
-**Implemented** (2026-07-16, per Pedro's explicit go-ahead to build the web/API opt-in layer). Modeled directly on the equivalent CLI commands and their `ledgerly.engine.ai` functions — a thin pass-through, no new business logic. Every route requires the per-request `"ai": true` opt-in described below; there is no workspace-level or session-level AI toggle that bypasses it, mirroring the CLI's per-invocation `--ai` flag exactly.
+**Implemented** (2026-07-16, per Pedro's explicit go-ahead to build the web/API opt-in layer). Modeled directly on the equivalent CLI commands and their `corroborly.engine.ai` functions — a thin pass-through, no new business logic. Every route requires the per-request `"ai": true` opt-in described below; there is no workspace-level or session-level AI toggle that bypasses it, mirroring the CLI's per-invocation `--ai` flag exactly.
 
 Every route in this section shares the same server-side credential rule: the OpenAI API key is resolved server-side only, the same way the CLI resolves it (`OPENAI_API_KEY` env var, or `.env` in the workspace via `engine.ai.openai_credentials`). **No route accepts an API key in the request body or from the client** — that would hand a browser client the ability to exfiltrate or misuse server-side credentials, a straight OWASP-relevant boundary violation, not just a style preference. If the key is missing, the route returns `503 openai_not_configured` rather than a generic 500 or a raw exception message.
 
@@ -1302,7 +1302,7 @@ Common response envelope fields most routes share (already returned by every `en
 
 Per AGENTS.md's "Core Rule: No Hallucinations," every `engine.ai` function also returns `insufficient_evidence: bool` and, when true, `insufficient_evidence_reason: string`: when the safe context has no source with a usable excerpt (or, for the workspace-report routes, when the whole payload — sources, claims, artefacts, and abstract/external candidates — is empty), the function returns this immediately with `ai_used: false`, `response_id: null`, and `grounding: null` **without calling OpenAI at all**. Every route below inherits this for free.
 
-**Grounding-check mechanism** (implemented 2026-07-16, `ledgerly.engine.grounding`, TODO.md Phase 27): every prompt built by `engine.ai` (review, novelty, RQ assessment, all 8 workspace-report kinds, citation-plan review) appends a fixed instruction requiring the model to mark every factual assertion with an inline citation of the exact form `[[source:<id>]]`, `[[claim:<id>]]`, `[[artefact:<id>]]`, or `[[note:<id>]]`, using only IDs that were actually present in the context sent to it. After the response comes back, `validate_grounding` deterministically (no second AI call) checks every marker found against the real IDs that were genuinely available for that request and returns:
+**Grounding-check mechanism** (implemented 2026-07-16, `corroborly.engine.grounding`, TODO.md Phase 27): every prompt built by `engine.ai` (review, novelty, RQ assessment, all 8 workspace-report kinds, citation-plan review) appends a fixed instruction requiring the model to mark every factual assertion with an inline citation of the exact form `[[source:<id>]]`, `[[claim:<id>]]`, `[[artefact:<id>]]`, or `[[note:<id>]]`, using only IDs that were actually present in the context sent to it. After the response comes back, `validate_grounding` deterministically (no second AI call) checks every marker found against the real IDs that were genuinely available for that request and returns:
 
 ```json
 {
@@ -1320,7 +1320,7 @@ Per AGENTS.md's "Core Rule: No Hallucinations," every `engine.ai` function also 
 
 ### `POST /api/v1/ai/test` (implemented)
 
-CLI equivalent: `ledgerly ai test`. Engine source: `engine.ai.openai_readiness`.
+CLI equivalent: `corroborly ai test`. Engine source: `engine.ai.openai_readiness`.
 
 Request body: `{"ai": bool = false}` — `ai: true` additionally performs a live `GET /models` credential check against OpenAI (mirrors the CLI's `--ai` flag meaning "allow a live check", not "allow AI use" in this one case, since checking readiness doesn't send any workspace content). `ai: false` (or omitted) checks key/config presence only, with no outbound request.
 
@@ -1328,7 +1328,7 @@ Response `data`: `{key_loaded, key_exposed: false, workspace_ai_enabled, openai_
 
 ### `POST /api/v1/ai/review` (implemented)
 
-CLI equivalent: `ledgerly ai review --ai`. Engine source: `engine.ai.ai_assisted_review`.
+CLI equivalent: `corroborly ai review --ai`. Engine source: `engine.ai.ai_assisted_review`.
 
 Request body: `{"ai": true, "max_sources": int = 10, "max_excerpt_chars": int = 1200}`. `400 ai_not_enabled` if `ai` is not `true`.
 
@@ -1336,7 +1336,7 @@ Response `data`: common envelope fields above, plus `review` (markdown text with
 
 ### `POST /api/v1/ai/novelty` (implemented)
 
-CLI equivalent: `ledgerly assess-novelty --ai`. Engine source: `engine.ai.ai_novelty_assessment`. This is the route that resolves the "novelty assessment has no deterministic engine path" note at the top of this document — `ai_novelty_assessment` is AI-only, so novelty assessment lives under `/api/v1/ai/`, not as a separate `/api/v1/novelty` route implying a deterministic engine path that doesn't exist.
+CLI equivalent: `corroborly assess-novelty --ai`. Engine source: `engine.ai.ai_novelty_assessment`. This is the route that resolves the "novelty assessment has no deterministic engine path" note at the top of this document — `ai_novelty_assessment` is AI-only, so novelty assessment lives under `/api/v1/ai/`, not as a separate `/api/v1/novelty` route implying a deterministic engine path that doesn't exist.
 
 Request body: `{"ai": true, "max_sources": int = 10, "max_excerpt_chars": int = 1200}`. `400 ai_not_enabled` if `ai` is not `true`.
 
@@ -1344,7 +1344,7 @@ Response `data`: common envelope fields, plus `novelty_not_proven: true` (the as
 
 ### `POST /api/v1/ai/rqs/assess` (implemented)
 
-CLI equivalent: `ledgerly rqs assess --ai [--rq <id>]`. Engine source: `engine.ai.ai_research_question_assessment`.
+CLI equivalent: `corroborly rqs assess --ai [--rq <id>]`. Engine source: `engine.ai.ai_research_question_assessment`.
 
 Request body: `{"ai": true, "rq_id": Optional[str] = None, "max_sources": int = 10, "max_excerpt_chars": int = 1200}`. `400 ai_not_enabled` if `ai` is not `true`. `404 ai_rq_assessment_failed` if `rq_id` is supplied but matches no approved or candidate research question (mirrors `OpenAiError(f"Unknown research question: {rq_id}")`).
 
@@ -1352,7 +1352,7 @@ Response `data`: common envelope fields, plus `novelty_not_proven: true`, `resea
 
 ### `POST /api/v1/ai/review-document` (implemented, 2026-07-17)
 
-CLI equivalent: `ledgerly ai review-document <target> --ai --full-target-document-ai [--include-notes] [--include-meeting-notes] [--include-transcripts]`. Engine source: `engine.ai.ai_review_document`.
+CLI equivalent: `corroborly ai review-document <target> --ai --full-target-document-ai [--include-notes] [--include-meeting-notes] [--include-transcripts]`. Engine source: `engine.ai.ai_review_document`.
 
 A structured AI review of a target working document against the full evidence base: accepted-source safe context, the claim ledger, the target's own citation plan if one exists (`engine.citations.citation_plan_path`), and — only for explicitly opted-in kinds — Phase 25's personal notes/meeting-notes/transcripts store. Requires **both** `ai: true` and `full_target_document_ai: true` (`400 ai_not_enabled` / `400 full_target_document_ai_not_enabled`), the same double opt-in as `cite ai-plan`, since the whole document's text is sent. `note_kinds` is a per-kind opt-in list, not one blanket switch (mirrors `ai context-preview`'s boundary-drawing precedent) — a user may want source text and claims in AI context but not personal meeting notes.
 
@@ -1362,24 +1362,24 @@ Response `data`: common envelope fields, plus `target`, `target_path`, `included
 
 ### Workspace-report routes (implemented)
 
-Six thin wrappers around `engine.ai.ai_workspace_report` with a fixed `kind`, one per `ledgerly ai <name>` CLI command. Request body for all six: `{"ai": true, "max_sources": int = 10, "max_excerpt_chars": int = 1200}`. Response `data`: common envelope fields, plus `report` (markdown text) and the same claim/artefact/candidate counts the CLI's own report carries.
+Six thin wrappers around `engine.ai.ai_workspace_report` with a fixed `kind`, one per `corroborly ai <name>` CLI command. Request body for all six: `{"ai": true, "max_sources": int = 10, "max_excerpt_chars": int = 1200}`. Response `data`: common envelope fields, plus `report` (markdown text) and the same claim/artefact/candidate counts the CLI's own report carries.
 
-- `POST /api/v1/ai/corpus-summary` — CLI: `ledgerly ai corpus-summary --ai`.
-- `POST /api/v1/ai/claim-check` — CLI: `ledgerly ai claim-check --ai`.
-- `POST /api/v1/ai/citation-gaps` — CLI: `ledgerly ai citation-gaps --ai`.
-- `POST /api/v1/ai/artefact-cross-reference` — CLI: `ledgerly ai artefact-cross-reference --ai`.
-- `POST /api/v1/ai/source-relevance` — CLI: `ledgerly ai source-relevance --ai`.
-- `POST /api/v1/ai/abstract-screening` — CLI: `ledgerly ai abstract-screening --ai`.
+- `POST /api/v1/ai/corpus-summary` — CLI: `corroborly ai corpus-summary --ai`.
+- `POST /api/v1/ai/claim-check` — CLI: `corroborly ai claim-check --ai`.
+- `POST /api/v1/ai/citation-gaps` — CLI: `corroborly ai citation-gaps --ai`.
+- `POST /api/v1/ai/artefact-cross-reference` — CLI: `corroborly ai artefact-cross-reference --ai`.
+- `POST /api/v1/ai/source-relevance` — CLI: `corroborly ai source-relevance --ai`.
+- `POST /api/v1/ai/abstract-screening` — CLI: `corroborly ai abstract-screening --ai`.
 
 ### `GET /api/v1/ai/usage-log` (implemented, 2026-07-17)
 
-CLI equivalent: `ledgerly ai usage-log`. Engine source: `engine.ai.list_ai_usage`. The AI-usage audit ledger (TODO.md Phase 32): every call any `engine.ai` function makes gets one entry (`_record_ai_usage`), including calls that correctly refused via `insufficient_evidence` — a single place to answer "when was AI used on this workspace, and was it grounded" without needing to know which individual feature happens to persist its own side-effect file. **Requires no `ai: true` opt-in** — unlike every other route in this section, this one never calls an AI provider itself; it only reads an already-local YAML file.
+CLI equivalent: `corroborly ai usage-log`. Engine source: `engine.ai.list_ai_usage`. The AI-usage audit ledger (TODO.md Phase 32): every call any `engine.ai` function makes gets one entry (`_record_ai_usage`), including calls that correctly refused via `insufficient_evidence` — a single place to answer "when was AI used on this workspace, and was it grounded" without needing to know which individual feature happens to persist its own side-effect file. **Requires no `ai: true` opt-in** — unlike every other route in this section, this one never calls an AI provider itself; it only reads an already-local YAML file.
 
 Response `data`: a list of `{id, timestamp, kind, ai_used, insufficient_evidence, model, response_id, requires_user_review, grounding_fully_grounded}` entries, oldest first. `grounding_fully_grounded` is `null` for `insufficient_evidence` entries (no text was generated to check).
 
 ### `POST /api/v1/search/ai-query-plan` (implemented)
 
-CLI equivalent: `ledgerly search ai-query-plan --ai --external-search`. Engine source: `engine.ai.ai_workspace_report` (`kind="query_generation"`). Lives under `/api/v1/search/`, not `/api/v1/ai/`, matching the CLI's own `search` command group.
+CLI equivalent: `corroborly search ai-query-plan --ai --external-search`. Engine source: `engine.ai.ai_workspace_report` (`kind="query_generation"`). Lives under `/api/v1/search/`, not `/api/v1/ai/`, matching the CLI's own `search` command group.
 
 Request body: `{"ai": true, "external_search": true, "max_sources": int = 10, "max_excerpt_chars": int = 1200}`. Requires **both** opt-ins: `400 ai_not_enabled` if `ai` is not `true`, `400 external_search_not_enabled` if `external_search` is not `true` (checked after `ai`).
 
@@ -1387,7 +1387,7 @@ Response `data`: common envelope fields, plus `report` (markdown text: suggested
 
 ### `POST /api/v1/search/ai-candidate-review` (implemented)
 
-CLI equivalent: `ledgerly search ai-candidate-review --ai --external-search [--full-source-document-ai]`. Engine source: `engine.ai.ai_workspace_report` (`kind="candidate_validation"`).
+CLI equivalent: `corroborly search ai-candidate-review --ai --external-search [--full-source-document-ai]`. Engine source: `engine.ai.ai_workspace_report` (`kind="candidate_validation"`).
 
 Request body: `{"ai": true, "external_search": true, "full_source_document_ai": bool = false, "max_sources": int = 10, "max_excerpt_chars": int = 1200}`. Requires both `ai` and `external_search`; `full_source_document_ai` is a separate, optional third opt-in that only changes the response's `full_text_mode` field — the underlying context is candidate metadata/abstracts either way (no CLI or engine path today actually sends full source documents for this kind).
 
@@ -1416,8 +1416,8 @@ The following route classes must not be added:
 
 Before a route group is marked implemented, tests must prove that:
 
-- The route calls shared `ledgerly.engine` behavior instead of duplicating business logic in the API layer.
-- Workspace writes are limited to Ledgerly workspace files.
+- The route calls shared `corroborly.engine` behavior instead of duplicating business logic in the API layer.
+- Workspace writes are limited to Corroborly workspace files.
 - Original source files are not modified.
 - Local Zotero directories are never modified.
 - Zotero Web API routes use read-only operations only.

@@ -1,9 +1,9 @@
 from pathlib import Path
 
-from ledgerly.engine.artefacts import register_artefact, set_artefact_review_status
-from ledgerly.engine.progress_log import list_progress_events, research_progress_report
-from ledgerly.engine.research_questions import approve_research_question, reject_research_question
-from ledgerly.engine.workspace import init_workspace
+from corroborly.engine.artefacts import register_artefact, set_artefact_review_status
+from corroborly.engine.progress_log import list_progress_events, research_progress_report
+from corroborly.engine.research_questions import approve_research_question, reject_research_question
+from corroborly.engine.workspace import init_workspace
 
 
 def test_research_question_and_artefact_lifecycle_recorded(tmp_path: Path) -> None:

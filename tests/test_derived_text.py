@@ -2,11 +2,11 @@ from pathlib import Path
 
 import pytest
 
-from ledgerly.core.yamlio import write_yaml
-from ledgerly.engine.claims import add_claim
-from ledgerly.engine.derived_text import build_derived_text_snapshot
-from ledgerly.engine.vault import create_document_version
-from ledgerly.engine.workspace import init_workspace
+from corroborly.core.yamlio import write_yaml
+from corroborly.engine.claims import add_claim
+from corroborly.engine.derived_text import build_derived_text_snapshot
+from corroborly.engine.vault import create_document_version
+from corroborly.engine.workspace import init_workspace
 
 
 def _workspace(tmp_path: Path) -> Path:
@@ -106,7 +106,7 @@ def test_build_derived_text_snapshot_links_reference_ids_from_validation_report(
     # way citations.apply_citation_plan produces one -- write it back onto
     # the ledger directly since create_document_version doesn't take a
     # validation_report_id for a manual snapshot.
-    from ledgerly.core.yamlio import read_yaml
+    from corroborly.core.yamlio import read_yaml
 
     ledger_path = workspace / "document-vault.yaml"
     ledger = read_yaml(ledger_path)

@@ -2,21 +2,21 @@ from pathlib import Path
 
 import pytest
 
-from ledgerly.core.yamlio import read_yaml
-from ledgerly.engine.guidelines import default_guideline_ids, list_guidelines, register_guideline
-from ledgerly.engine.templates import (
+from corroborly.core.yamlio import read_yaml
+from corroborly.engine.guidelines import default_guideline_ids, list_guidelines, register_guideline
+from corroborly.engine.templates import (
     apply_template_guidelines,
     init_kwargs_from_template,
     list_workspace_templates,
     save_workspace_template,
     templates_root,
 )
-from ledgerly.engine.workspace import init_workspace
+from corroborly.engine.workspace import init_workspace
 
 
 @pytest.fixture(autouse=True)
 def _isolated_templates_root(tmp_path, monkeypatch):
-    monkeypatch.setenv("LEDGERLY_TEMPLATES_ROOT", str(tmp_path / "templates-root"))
+    monkeypatch.setenv("CORROBORLY_TEMPLATES_ROOT", str(tmp_path / "templates-root"))
 
 
 def _make_workspace_with_guideline(tmp_path: Path) -> Path:
@@ -35,7 +35,7 @@ def _make_workspace_with_guideline(tmp_path: Path) -> Path:
     guideline_source = tmp_path / "guideline.txt"
     guideline_source.write_text("Use IEEE citation style throughout.", encoding="utf-8")
     registration = register_guideline(workspace, str(guideline_source), title="Style Guide", scopes=["style"])
-    from ledgerly.engine.guidelines import set_default_guidelines
+    from corroborly.engine.guidelines import set_default_guidelines
 
     set_default_guidelines(workspace, [registration.record["id"]])
     return workspace

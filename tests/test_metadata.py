@@ -1,10 +1,10 @@
 from pathlib import Path
 
-from ledgerly.core.yamlio import read_yaml
-from ledgerly.engine.conversion import convert_sources
-from ledgerly.engine.metadata import detect_doi, extract_citation_metadata
-from ledgerly.engine.sources import scan_sources
-from ledgerly.engine.workspace import init_workspace
+from corroborly.core.yamlio import read_yaml
+from corroborly.engine.conversion import convert_sources
+from corroborly.engine.metadata import detect_doi, extract_citation_metadata
+from corroborly.engine.sources import scan_sources
+from corroborly.engine.workspace import init_workspace
 
 
 def make_workspace(tmp_path: Path) -> Path:

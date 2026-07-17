@@ -4,8 +4,8 @@ from urllib.request import Request
 
 import pytest
 
-from ledgerly.core.yamlio import read_yaml, write_yaml
-from ledgerly.engine.external_search import (
+from corroborly.core.yamlio import read_yaml, write_yaml
+from corroborly.engine.external_search import (
     ExternalSearchError,
     SearchBudgets,
     SearchThresholds,
@@ -24,7 +24,7 @@ from ledgerly.engine.external_search import (
     scopus_readiness,
     scopus_search,
 )
-from ledgerly.engine.workspace import init_workspace
+from corroborly.engine.workspace import init_workspace
 
 
 class FakeResponse:

@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from ledgerly.core.yamlio import read_yaml
-from ledgerly.engine.guidelines import (
+from corroborly.core.yamlio import read_yaml
+from corroborly.engine.guidelines import (
     build_ai_guideline_context,
     guideline_conflict_report,
     list_guidelines,
@@ -11,7 +11,7 @@ from ledgerly.engine.guidelines import (
     resolve_guidelines,
     set_default_guidelines,
 )
-from ledgerly.engine.workspace import init_workspace
+from corroborly.engine.workspace import init_workspace
 
 
 def test_register_guideline_snapshots_local_text_without_modifying_original(tmp_path: Path) -> None:

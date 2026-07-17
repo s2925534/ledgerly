@@ -4,8 +4,8 @@ from urllib.request import Request
 
 import pytest
 
-from ledgerly.core.yamlio import read_yaml, write_yaml
-from ledgerly.engine.ai import (
+from corroborly.core.yamlio import read_yaml, write_yaml
+from corroborly.engine.ai import (
     OpenAiCredentials,
     OpenAiError,
     ai_citation_plan_review,
@@ -27,10 +27,10 @@ from ledgerly.engine.ai import (
     require_full_source_document_ai_opt_in,
     require_full_target_document_ai_opt_in,
 )
-from ledgerly.engine.conversion import convert_sources
-from ledgerly.engine.database import sync_database
-from ledgerly.engine.sources import scan_sources, set_source_status
-from ledgerly.engine.workspace import init_workspace
+from corroborly.engine.conversion import convert_sources
+from corroborly.engine.database import sync_database
+from corroborly.engine.sources import scan_sources, set_source_status
+from corroborly.engine.workspace import init_workspace
 
 
 class FakeResponse:
@@ -641,7 +641,7 @@ def test_list_ai_usage_returns_empty_list_for_workspace_without_ledger_file(tmp_
 
 def test_record_ai_usage_logs_insufficient_evidence_calls(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
-    from ledgerly.engine.workspace import init_workspace
+    from corroborly.engine.workspace import init_workspace
 
     init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
 
@@ -666,9 +666,9 @@ def test_record_ai_usage_logs_grounded_and_ungrounded_calls_sequentially(tmp_pat
     source_root.mkdir()
     (source_root / "paper.txt").write_text("bounded evidence text", encoding="utf-8")
 
-    from ledgerly.engine.conversion import convert_sources
-    from ledgerly.engine.sources import scan_sources, set_source_status
-    from ledgerly.engine.workspace import init_workspace
+    from corroborly.engine.conversion import convert_sources
+    from corroborly.engine.sources import scan_sources, set_source_status
+    from corroborly.engine.workspace import init_workspace
 
     init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
     scan_sources(workspace, source_root)
@@ -696,7 +696,7 @@ def test_record_ai_usage_logs_grounded_and_ungrounded_calls_sequentially(tmp_pat
 
 def test_record_ai_usage_covers_citation_plan_review_and_workspace_reports(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
-    from ledgerly.engine.workspace import init_workspace
+    from corroborly.engine.workspace import init_workspace
 
     init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
 
@@ -749,7 +749,7 @@ def test_ai_review_document_returns_insufficient_evidence_without_calling_ai(tmp
 
 
 def test_ai_review_document_gathers_sources_claims_citation_plan_and_grounds_response(tmp_path: Path) -> None:
-    from ledgerly.engine.citations import create_citation_plan
+    from corroborly.engine.citations import create_citation_plan
 
     workspace = tmp_path / "workspace"
     source_root = tmp_path / "sources"
@@ -762,7 +762,7 @@ def test_ai_review_document_gathers_sources_claims_citation_plan_and_grounds_res
     set_source_status(workspace, source_id=source_id, new_status="accepted")
     convert_sources(workspace, status="accepted")
 
-    from ledgerly.engine.claims import add_claim
+    from corroborly.engine.claims import add_claim
 
     claim = add_claim(workspace, text="Automation reduces turnaround time.", linked_sources=[source_id])
 
@@ -798,7 +798,7 @@ def test_ai_review_document_gathers_sources_claims_citation_plan_and_grounds_res
 
 
 def test_ai_review_document_only_includes_explicitly_opted_in_note_kinds(tmp_path: Path) -> None:
-    from ledgerly.engine.notes import add_note
+    from corroborly.engine.notes import add_note
 
     workspace = tmp_path / "workspace"
     source_root = tmp_path / "sources"

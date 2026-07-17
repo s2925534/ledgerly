@@ -1,9 +1,9 @@
 from pathlib import Path
 
-from ledgerly.engine.claims import add_claim
-from ledgerly.engine.report_schemas import export_report_schemas
-from ledgerly.engine.reports import generate_workspace_report
-from ledgerly.engine.workspace import init_workspace
+from corroborly.engine.claims import add_claim
+from corroborly.engine.report_schemas import export_report_schemas
+from corroborly.engine.reports import generate_workspace_report
+from corroborly.engine.workspace import init_workspace
 
 
 def test_generate_workspace_report_writes_markdown_summary(tmp_path: Path) -> None:
@@ -14,7 +14,7 @@ def test_generate_workspace_report_writes_markdown_summary(tmp_path: Path) -> No
     output_path = generate_workspace_report(workspace)
 
     text = output_path.read_text(encoding="utf-8")
-    assert "# Ledgerly Report: Test Project" in text
+    assert "# Corroborly Report: Test Project" in text
     assert "- Type: M.Phil" in text
     assert "- Citation gaps: 1" in text
 

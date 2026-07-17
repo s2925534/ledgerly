@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from ledgerly.core.yamlio import read_yaml
-from ledgerly.engine.sources import (
+from corroborly.core.yamlio import read_yaml
+from corroborly.engine.sources import (
     iter_source_files,
     list_sources,
     scan_sources,
@@ -14,7 +14,7 @@ from ledgerly.engine.sources import (
     source_counts,
     validate_source_provider,
 )
-from ledgerly.engine.workspace import init_workspace
+from corroborly.engine.workspace import init_workspace
 
 
 def make_workspace(tmp_path: Path) -> Path:

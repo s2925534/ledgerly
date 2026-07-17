@@ -1,10 +1,10 @@
 from pathlib import Path
 
-from ledgerly.core.yamlio import read_yaml, write_yaml
-from ledgerly.engine.artefacts import register_artefact
-from ledgerly.engine.claims import add_claim
-from ledgerly.engine.relationships import citation_relationship_map
-from ledgerly.engine.workspace import init_workspace
+from corroborly.core.yamlio import read_yaml, write_yaml
+from corroborly.engine.artefacts import register_artefact
+from corroborly.engine.claims import add_claim
+from corroborly.engine.relationships import citation_relationship_map
+from corroborly.engine.workspace import init_workspace
 
 
 def test_citation_relationship_map(tmp_path: Path) -> None:

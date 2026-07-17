@@ -11,7 +11,7 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
-from ledgerly.cli import app
+from corroborly.cli import app
 
 
 runner = CliRunner()
@@ -35,7 +35,7 @@ def test_core_cli_surface_works_with_zero_ai_env_vars(tmp_path: Path, monkeypatc
     version_result = runner.invoke(app, ["version"])
     assert version_result.exit_code == 0, version_result.output
 
-    from ledgerly.engine.workspace import init_workspace
+    from corroborly.engine.workspace import init_workspace
 
     init_workspace(workspace, project_name="Zero AI Smoke Test", project_type="M.Phil", topic="")
 

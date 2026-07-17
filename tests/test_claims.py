@@ -3,9 +3,9 @@ from pathlib import Path
 
 import pytest
 
-from ledgerly.core.yamlio import read_yaml
-from ledgerly.core.yamlio import write_yaml
-from ledgerly.engine.claims import (
+from corroborly.core.yamlio import read_yaml
+from corroborly.core.yamlio import write_yaml
+from corroborly.engine.claims import (
     add_claim,
     citation_gap_claims,
     claim_source_validation_report,
@@ -17,7 +17,7 @@ from ledgerly.engine.claims import (
     write_duplicate_claims_report,
     write_stale_claims_report,
 )
-from ledgerly.engine.workspace import init_workspace
+from corroborly.engine.workspace import init_workspace
 
 
 def test_claim_ledger_and_citation_gap_report(tmp_path: Path) -> None:

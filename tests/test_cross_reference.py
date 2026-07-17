@@ -2,16 +2,16 @@ from pathlib import Path
 
 import pytest
 
-from ledgerly.core.yamlio import read_yaml, write_yaml
-from ledgerly.engine.claims import add_claim
-from ledgerly.engine.artefacts import register_artefact
-from ledgerly.engine.cross_reference import (
+from corroborly.core.yamlio import read_yaml, write_yaml
+from corroborly.engine.claims import add_claim
+from corroborly.engine.artefacts import register_artefact
+from corroborly.engine.cross_reference import (
     apply_cross_reference_links,
     cross_reference_candidates,
     set_cross_reference_candidate_review_status,
 )
-from ledgerly.engine.vault import intake_uploaded_artefact, list_uploaded_artefacts
-from ledgerly.engine.workspace import init_workspace
+from corroborly.engine.vault import intake_uploaded_artefact, list_uploaded_artefacts
+from corroborly.engine.workspace import init_workspace
 
 
 def _workspace(tmp_path: Path) -> Path:
@@ -274,8 +274,8 @@ def test_set_cross_reference_candidate_review_status_requires_candidates_report_
 
 
 def test_ai_cross_reference_suggestions_returns_insufficient_evidence_without_calling_ai(tmp_path: Path) -> None:
-    from ledgerly.engine.ai import OpenAiCredentials
-    from ledgerly.engine.cross_reference import ai_cross_reference_suggestions
+    from corroborly.engine.ai import OpenAiCredentials
+    from corroborly.engine.cross_reference import ai_cross_reference_suggestions
 
     workspace = _workspace(tmp_path)
     upload_source = tmp_path / "notes.md"
@@ -297,8 +297,8 @@ def test_ai_cross_reference_suggestions_appends_validated_candidates_without_rem
     tmp_path: Path,
 ) -> None:
     import json
-    from ledgerly.engine.ai import OpenAiCredentials
-    from ledgerly.engine.cross_reference import ai_cross_reference_suggestions
+    from corroborly.engine.ai import OpenAiCredentials
+    from corroborly.engine.cross_reference import ai_cross_reference_suggestions
 
     workspace = _workspace(tmp_path)
     upload_source = tmp_path / "berth-planning-notes.md"

@@ -2,15 +2,15 @@ from pathlib import Path
 
 import pytest
 
-from ledgerly.core.yamlio import read_yaml
-from ledgerly.engine.research_stages import (
+from corroborly.core.yamlio import read_yaml
+from corroborly.engine.research_stages import (
     list_stages,
     set_stage_status,
     set_stage_target_date,
     stages_ics,
     write_stages_ics,
 )
-from ledgerly.engine.workspace import init_workspace
+from corroborly.engine.workspace import init_workspace
 
 
 def test_list_stages_returns_mphil_template(tmp_path: Path) -> None:
@@ -97,7 +97,7 @@ def test_stages_ics_escapes_special_characters(tmp_path: Path) -> None:
     set_stage_target_date(workspace, stage_id, "2026-09-30")
     doc = read_yaml(workspace / "research-stages.yaml")
     doc["stages"][0]["name"] = "Submit, Review; Revise\\Finalize"
-    from ledgerly.core.yamlio import write_yaml
+    from corroborly.core.yamlio import write_yaml
 
     write_yaml(workspace / "research-stages.yaml", doc)
 

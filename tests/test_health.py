@@ -1,8 +1,8 @@
 from pathlib import Path
 
-from ledgerly.engine.claims import add_claim
-from ledgerly.engine.health import corpus_dashboard_summary, workspace_health_report
-from ledgerly.engine.workspace import init_workspace
+from corroborly.engine.claims import add_claim
+from corroborly.engine.health import corpus_dashboard_summary, workspace_health_report
+from corroborly.engine.workspace import init_workspace
 
 
 def test_workspace_health_report_writes_local_validation_report(tmp_path: Path) -> None:
