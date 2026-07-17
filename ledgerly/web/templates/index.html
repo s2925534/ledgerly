@@ -342,6 +342,19 @@
 
     <div id="citation-insertions-list" class="rq-list"></div>
     <p id="citation-insertions-empty" class="muted small" hidden>Create a plan to see proposed citation insertions here.</p>
+
+    <details id="citation-ai-plan-details" class="detail-box">
+      <summary class="link">AI-assisted plan review (optional)</summary>
+      <p class="muted small">Layers an AI review on top of the deterministic plan above -- suggests insertion locations and confidence notes. Never edits the document. Sends the whole target document's text to OpenAI.</p>
+      <label class="field-label">
+        <input id="citation-ai-plan-opt-in-checkbox" type="checkbox"> I explicitly consent to sending this document's full text to OpenAI
+      </label>
+      <div class="zotero-link-actions">
+        <button id="citation-ai-plan-btn" type="button">Run AI-assisted plan</button>
+      </div>
+      <p id="citation-ai-plan-message" class="small" hidden></p>
+      <div id="citation-ai-plan-result"></div>
+    </details>
   </section>
 
   <section class="panel">

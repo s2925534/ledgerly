@@ -1429,6 +1429,45 @@ async function createCitationPlan() {
   }
 }
 
+async function createAiCitationPlan() {
+  const messageEl = document.getElementById("citation-ai-plan-message");
+  const resultEl = document.getElementById("citation-ai-plan-result");
+  const target = document.getElementById("citation-target-input").value.trim();
+  const citationStyle = document.getElementById("citation-style-select").value;
+  const optedIn = document.getElementById("citation-ai-plan-opt-in-checkbox").checked;
+  resultEl.innerHTML = "";
+  messageEl.hidden = false;
+  messageEl.className = "small";
+  if (!target) {
+    messageEl.textContent = "Provide a document target path.";
+    messageEl.classList.add("error");
+    return;
+  }
+  if (!optedIn) {
+    messageEl.textContent = "Check the consent box to send this document to OpenAI.";
+    messageEl.classList.add("error");
+    return;
+  }
+  messageEl.textContent = "Running AI-assisted plan (this sends the whole document to OpenAI)...";
+  try {
+    const result = await api("POST", "/api/v1/citations/ai-plan", {
+      json: { target, citation_style: citationStyle, ai: true, full_target_document_ai: true },
+    });
+    messageEl.hidden = true;
+    const ai = result.plan.ai_assistance || {};
+    const grounding = ai.grounding;
+    let warningHtml = grounding ? `<p class="small">${groundingBadgeHtml(grounding)}</p>` : "";
+    resultEl.innerHTML = `${warningHtml}<pre class="code-block"></pre>`;
+    resultEl.querySelector("pre").textContent = ai.recommendations || "No recommendations returned.";
+    document.getElementById("citation-ai-plan-opt-in-checkbox").checked = false;
+    citationPlanState = { target, insertions: result.plan.insertions || [] };
+    renderCitationInsertions();
+  } catch (err) {
+    messageEl.textContent = err.message;
+    messageEl.classList.add("error");
+  }
+}
+
 function renderCitationInsertions() {
   const listEl = document.getElementById("citation-insertions-list");
   const emptyEl = document.getElementById("citation-insertions-empty");
@@ -1505,6 +1544,7 @@ async function applyCitationPlan() {
 function setupCitationPanel() {
   document.getElementById("citation-plan-btn").addEventListener("click", createCitationPlan);
   document.getElementById("citation-apply-btn").addEventListener("click", applyCitationPlan);
+  document.getElementById("citation-ai-plan-btn").addEventListener("click", createAiCitationPlan);
 }
 
 // --- guidelines ---

@@ -1520,6 +1520,72 @@ def test_citations_plan_rejects_unknown_citation_style_via_api(client: TestClien
     assert response.json()["errors"][0]["code"] == "invalid_citation_style"
 
 
+def test_citations_ai_plan_requires_both_ai_flags(client: TestClient, tmp_path: Path, monkeypatch) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    target = workspace / "artefacts" / "papers" / "draft.md"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("Some text.", encoding="utf-8")
+
+    no_ai = client.post(
+        "/api/v1/citations/ai-plan", params={"workspace": str(workspace)}, json={"target": str(target)}
+    )
+    assert no_ai.status_code == 400
+    assert no_ai.json()["errors"][0]["code"] == "ai_not_enabled"
+
+    no_full_target = client.post(
+        "/api/v1/citations/ai-plan",
+        params={"workspace": str(workspace)},
+        json={"target": str(target), "ai": True},
+    )
+    assert no_full_target.status_code == 400
+    assert no_full_target.json()["errors"][0]["code"] == "full_target_document_ai_not_enabled"
+
+
+def test_citations_ai_plan_full_workflow_via_api(client: TestClient, tmp_path: Path, monkeypatch) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    target = workspace / "artefacts" / "papers" / "draft.md"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("Container terminal automation uses berth planning evidence.", encoding="utf-8")
+    source_text = workspace / "sources_text" / "source-001.txt"
+    source_text.write_text("Berth planning evidence supports container terminal automation.", encoding="utf-8")
+    write_yaml(
+        workspace / "source-register.yaml",
+        {
+            "version": 1,
+            "sources": [
+                {
+                    "source_id": "source-001",
+                    "status": "accepted",
+                    "provider": "local_folder",
+                    "file_name": "paper.pdf",
+                    "conversion": {"status": "converted", "output_path": str(source_text)},
+                    "citation_metadata": {"title": "Accepted Source", "authors": ["Smith, A."], "year": 2024},
+                }
+            ],
+        },
+    )
+    _mock_openai(monkeypatch, "Insert a citation after sentence one.")
+
+    response = client.post(
+        "/api/v1/citations/ai-plan",
+        params={"workspace": str(workspace)},
+        json={"target": str(target), "ai": True, "full_target_document_ai": True},
+    )
+
+    assert response.status_code == 200, response.text
+    plan = response.json()["data"]["plan"]
+    assert plan["ai_used"] is True
+    assert plan["original_document_modified"] is False
+    assert plan["ai_assistance"]["recommendations"] == "Insert a citation after sentence one."
+    assert target.read_text(encoding="utf-8") == "Container terminal automation uses berth planning evidence."
+    markdown = Path(response.json()["data"]["markdown_path"]).read_text(encoding="utf-8")
+    assert "## AI Recommendations" in markdown
+
+
 def test_citations_plan_insertion_review_sets_status_without_hand_editing_via_api(
     client: TestClient, tmp_path: Path
 ) -> None:

@@ -8,8 +8,11 @@ from pydantic import BaseModel
 
 from ledgerly.api.deps import resolve_workspace
 from ledgerly.api.envelope import ApiError, ok
+from ledgerly.engine.ai import OpenAiError, ai_citation_plan_review, openai_credentials
 from ledgerly.engine.citations import apply_citation_plan, create_citation_plan, set_citation_plan_insertion_review_status
+from ledgerly.engine.conversion import extract_text
 from ledgerly.engine.references import CITATION_STYLES
+from ledgerly.core.yamlio import write_yaml
 
 
 router = APIRouter()
@@ -50,6 +53,76 @@ def citations_plan(payload: CitationPlanRequest, workspace: Path = Depends(resol
             "markdown_path": str(result.markdown_path),
         }
     )
+
+
+class CitationAiPlanRequest(BaseModel):
+    target: str
+    ai: bool = False
+    full_target_document_ai: bool = False
+    source_paths: list[str] = []
+    allow_candidate_citations: bool = False
+    citation_style: str = "apa7"
+
+
+@router.post("/ai-plan")
+def citations_ai_plan(payload: CitationAiPlanRequest, workspace: Path = Depends(resolve_workspace)) -> dict[str, Any]:
+    """The AI tier of citation planning -- the web equivalent of `ledgerly
+    cite ai-plan`. Requires both `ai: true` and `full_target_document_ai:
+    true` (the whole target document's text is sent, not just excerpts),
+    same double opt-in as `POST /api/v1/doc/ai-edit-sessions`. Builds the
+    deterministic plan first (same as `/plan`), then layers the AI review
+    on top -- never edits the target document.
+    """
+    if not payload.ai:
+        raise ApiError("ai_not_enabled", 'Set "ai": true to explicitly opt in to this AI action.', status_code=400)
+    if not payload.full_target_document_ai:
+        raise ApiError(
+            "full_target_document_ai_not_enabled",
+            'Set "full_target_document_ai": true to explicitly allow sending the whole target document to an AI provider.',
+            status_code=400,
+        )
+    if payload.citation_style not in CITATION_STYLES:
+        raise ApiError(
+            "invalid_citation_style",
+            f"Unknown citation style: {payload.citation_style}. Expected one of: {', '.join(sorted(CITATION_STYLES))}",
+        )
+    try:
+        credentials = openai_credentials(workspace)
+    except OpenAiError as exc:
+        raise ApiError("openai_not_configured", str(exc), status_code=503) from exc
+    try:
+        deterministic = create_citation_plan(
+            workspace,
+            payload.target,
+            source_paths=[Path(p) for p in payload.source_paths] or None,
+            allow_candidate_citations=payload.allow_candidate_citations,
+            citation_style=payload.citation_style,
+        )
+        target_path = Path(str(deterministic.plan["target"]["path"]))
+        target_text = extract_text(target_path)
+        ai_review = ai_citation_plan_review(
+            workspace, credentials, target_text=target_text, citation_plan=deterministic.plan
+        )
+    except (ValueError, OpenAiError) as exc:
+        raise ApiError("citation_ai_plan_failed", str(exc)) from exc
+
+    plan = {
+        **deterministic.plan,
+        "ai_used": True,
+        "ai_assistance": ai_review,
+        "full_target_document_ai_opt_in": True,
+        "original_document_modified": False,
+        "plan_status": "ai_review_required",
+    }
+    write_yaml(deterministic.yaml_path, plan)
+    deterministic.markdown_path.write_text(
+        deterministic.markdown_path.read_text(encoding="utf-8")
+        + "\n## AI Recommendations\n\n"
+        + str(ai_review.get("recommendations") or "No recommendations returned.")
+        + "\n",
+        encoding="utf-8",
+    )
+    return ok({"plan": plan, "yaml_path": str(deterministic.yaml_path), "markdown_path": str(deterministic.markdown_path)})
 
 
 class CitationInsertionReviewRequest(BaseModel):

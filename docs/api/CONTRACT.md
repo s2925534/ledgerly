@@ -771,6 +771,21 @@ Engine source:
 
 CLI equivalent: `ledgerly cite plan <target>`.
 
+### `POST /api/v1/citations/ai-plan` (implemented, 2026-07-17)
+
+The AI tier of citation planning — the web equivalent of `ledgerly cite ai-plan`. Requires **both** `ai: true` and `full_target_document_ai: true` (`400 ai_not_enabled` / `400 full_target_document_ai_not_enabled`), the same double opt-in as `POST /api/v1/doc/ai-edit-sessions`, since the whole target document's text is sent. Builds the deterministic plan first (same as `/plan`), then layers an AI review on top via `engine.ai.ai_citation_plan_review` — writes the same enriched plan YAML (`ai_used: true`, `ai_assistance`, `plan_status: "ai_review_required"`) and appends an "## AI Recommendations" section to the plan Markdown, exactly matching the CLI's behavior. Never edits the target document.
+
+Request body: `{"target": str, "ai": true, "full_target_document_ai": true, "source_paths": list[str] = [], "allow_candidate_citations": bool = false, "citation_style": str = "apa7"}`.
+
+Response `data`: `{plan, yaml_path, markdown_path}` — same shape as `/plan`, with `plan.ai_assistance` containing `{recommendations, grounding, response_id, ...}`.
+
+Engine source:
+
+- `ledgerly.engine.citations.create_citation_plan`
+- `ledgerly.engine.ai.ai_citation_plan_review`
+
+CLI equivalent: `ledgerly cite ai-plan <target> --ai --full-target-document-ai`.
+
 ### `POST /api/v1/citations/plan/insertion-review` (implemented)
 
 Sets one citation-plan insertion's `review_status` (`needs_human_review`/`accepted`/`approved`/`rejected`, identified by `sentence_index`+`source_id` — the same pair `create_citation_plan` builds each insertion from) in the persisted plan file, without hand-editing it. Mirrors `POST /api/v1/artefacts/cross-reference/candidate-review` — same gap (a browser-based reviewer has no filesystem access to hand-edit the plan YAML), same fix. `404 citation_insertion_review_failed` for an unknown target/plan or an unmatched insertion; `400 citation_insertion_review_failed` for an invalid `review_status` value.
