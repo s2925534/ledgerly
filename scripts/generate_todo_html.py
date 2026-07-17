@@ -258,9 +258,22 @@ __CAT_CSS_LIGHT_SCOPED__
     .toc-bar-track { display: none; }
   }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  .top-progress-track { position: fixed; top: 0; left: 0; right: 0; height: 5px; background: var(--surface-alt); z-index: 20; }
+  .top-progress-fill { height: 100%; width: 0%; background: var(--done); transition: width .4s ease; }
+  .top-progress-badge {
+    position: fixed; top: 12px; right: 14px; z-index: 21;
+    display: flex; align-items: center; gap: .4rem;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 999px;
+    box-shadow: var(--shadow); padding: .3rem .7rem .3rem .55rem;
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "Consolas", "Roboto Mono", monospace;
+    font-size: .76rem; color: var(--text-muted);
+  }
+  .top-progress-badge .top-progress-pct { font-weight: 700; color: var(--done); font-size: .82rem; }
 </style>
 </head>
 <body>
+<div class="top-progress-track"><div class="top-progress-fill" id="top-progress-fill"></div></div>
+<div class="top-progress-badge" id="top-progress-badge"><span class="top-progress-pct" id="top-progress-pct">0%</span> done</div>
 <div class="page">
   <header class="masthead">
     <div class="eyebrow">__PROJECT__ &middot; __SOURCE__</div>
@@ -308,6 +321,8 @@ __CAT_CSS_LIGHT_SCOPED__
   const summaryHeadlineEl = document.getElementById('summary-headline');
   const ringEl = document.getElementById('ring');
   const ringPctEl = document.getElementById('ring-pct');
+  const topProgressFillEl = document.getElementById('top-progress-fill');
+  const topProgressPctEl = document.getElementById('top-progress-pct');
   const visibleCountEl = document.getElementById('visible-count');
   const searchInput = document.getElementById('search');
   const statusFilterEl = document.getElementById('status-filter');
@@ -337,6 +352,8 @@ __CAT_CSS_LIGHT_SCOPED__
     const pct = total ? Math.round((done / total) * 100) : 0;
     ringEl.style.setProperty('--pct', pct);
     ringPctEl.textContent = pct + '%';
+    topProgressFillEl.style.width = pct + '%';
+    topProgressPctEl.textContent = pct + '%';
     summaryHeadlineEl.innerHTML = `<strong>${done}</strong> / ${total} tasks complete`;
     if (HAS_CATS) {
       catBreakdownEl.innerHTML = Object.entries(byCat).map(([cat, v]) =>
