@@ -443,6 +443,46 @@ Engine source:
 
 - `ledgerly.engine.artefact_creation.create_deterministic_artefact`
 
+### `POST /api/v1/artefacts/paper-draft/ai` (implemented, 2026-07-17)
+
+The AI-assisted tier of paper drafting (Phase 28), built directly on Phase 8's AI edit sessions rather than a separate drafting mechanism. Ensures the deterministic `paper-draft` skeleton exists first (creating it via `create_deterministic_artefact` if missing), then proposes reviewable AI edits replacing only its two known placeholder passages — the Evidence section's "sorting not done automatically" sentence and the Conclusion section's "Status: DRAFT"/"never generates a conclusion" sentences — with grounded prose. Never touches the sources/claims tables, and never applies anything itself: returns an AI edit session for the normal `doc ai-edit-session-review`/`doc ai-edit-session-apply` flow.
+
+Requires both `ai: true` and `full_target_document_ai: true` (`400 ai_not_enabled` / `full_target_document_ai_not_enabled`), matching `cite ai-plan`'s double opt-in — the whole skeleton's sentence map is sent, not bounded excerpts.
+
+Request body: `{"rq_id": str, "ai": true, "full_target_document_ai": true, "max_sources": int = 10, "max_excerpt_chars": int = 1200}`.
+
+Response `data`: the same AI edit session shape `POST /api/v1/doc/ai-edit-sessions` returns.
+
+Engine source:
+
+- `ledgerly.engine.artefact_creation.create_ai_paper_draft`
+
+CLI equivalent: `ledgerly paper draft <rq-id> --ai --full-target-document-ai`.
+
+### `POST /api/v1/artefacts/paper-draft/promote` (implemented, 2026-07-17)
+
+Adopts an already-applied AI edit session's output (`doc ai-edit-session-apply` must have been run first) as the paper draft's real content, and opens its mandatory review gate: sets `ai_generated: true`, `requires_user_review: true`, `paper_review_gate: "requires_validate"`. From this point, `set_artefact_review_status` refuses `reviewed`/`accepted` transitions until the gate is cleared (below) — a paper must never silently become "final" just because AI produced it. Also snapshots the original artefact path's own document-vault version history immediately before (`pre_ai_paper_draft_promotion_snapshot`) and after (`ai_paper_draft_promoted`) the overwrite, so `doc versions`/`doc restore` on the artefact's real path shows and can roll back the promotion — not just the `.ai-edited.md` side file's own version chain.
+
+Request body: `{"rq_id": str, "session_id": str}`.
+
+Engine source:
+
+- `ledgerly.engine.artefacts.promote_ai_paper_draft`
+
+CLI equivalent: `ledgerly paper promote-ai-draft <rq-id> <session-id>`.
+
+### `POST /api/v1/artefacts/paper-draft/clear-review-gate` (implemented, 2026-07-17)
+
+The *only* legal way to clear a paper draft's `paper_review_gate`. Requires a real `ledgerly validate <target>` report to already exist for that exact artefact path, and that report to be newer (by file mtime) than the artefact's current content — a stale validation from before the AI draft was promoted, or from before a further edit, does not satisfy it. `400 paper_review_gate_clear_failed` if there's no open gate, no report, or a stale report.
+
+Request body: `{"rq_id": str}`.
+
+Engine source:
+
+- `ledgerly.engine.artefacts.clear_paper_review_gate`
+
+CLI equivalent: `ledgerly paper clear-review-gate <rq-id>`.
+
 ### `POST /api/v1/artefacts/{artefact_id}/review` (implemented)
 
 Sets artefact review status.

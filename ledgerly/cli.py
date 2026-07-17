@@ -34,12 +34,24 @@ from ledgerly.engine.ai import (
 from ledgerly.engine.ai_edit_sessions import (
     apply_ai_edit_session,
     create_ai_edit_session,
+    get_ai_edit_session,
     list_ai_edit_sessions,
     set_ai_edit_review_status,
 )
 from ledgerly.engine.abstracts import import_abstract_folder
-from ledgerly.engine.artefact_creation import SUPPORTED_ARTEFACT_TYPES, create_deterministic_artefact
-from ledgerly.engine.artefacts import artefact_dependency_report, list_artefacts, register_artefact, set_artefact_review_status
+from ledgerly.engine.artefact_creation import (
+    SUPPORTED_ARTEFACT_TYPES,
+    create_ai_paper_draft,
+    create_deterministic_artefact,
+)
+from ledgerly.engine.artefacts import (
+    artefact_dependency_report,
+    clear_paper_review_gate,
+    list_artefacts,
+    promote_ai_paper_draft,
+    register_artefact,
+    set_artefact_review_status,
+)
 from ledgerly.engine.backup import (
     BackupEncryptionError,
     create_encrypted_workspace_backup,
@@ -4073,12 +4085,30 @@ def artefacts_create(
         console.print(f"Wrote {result.path}")
 
 
+def _safe_workspace_path_for_paper(workspace: Path, rq_id: str) -> Path:
+    path_template = SUPPORTED_ARTEFACT_TYPES["paper-draft"]
+    return workspace / path_template.format(rq_id=rq_id)
+
+
+def _paper_artefact_id_for_rq(workspace: Path, rq_id: str) -> str:
+    for artefact in list_artefacts(workspace):
+        if artefact.get("type") == "paper-draft" and rq_id in (artefact.get("linked_research_questions") or []):
+            return artefact["id"]
+    raise ValueError(f"No paper-draft artefact found for research question {rq_id!r}. Run `paper draft {rq_id}` first.")
+
+
 @paper_app.command("draft")
 def paper_draft(
     rq_id: str = typer.Argument(..., help="Research question ID (e.g. rq-001) this paper draft is scoped to."),
     title: Optional[str] = typer.Option(None, "--title", help="Optional paper title."),
     include_maybe: bool = typer.Option(False, "--include-maybe", help="Include maybe sources as well as accepted sources."),
     overwrite: bool = typer.Option(False, "--overwrite", help="Overwrite an existing draft for this research question."),
+    ai: bool = typer.Option(False, "--ai", help="AI-assisted tier: propose drafted prose for the Evidence/Conclusion placeholders (requires review before applying)."),
+    full_target_document_ai: bool = typer.Option(
+        False, "--full-target-document-ai", help="Required alongside --ai: explicitly allow sending the whole skeleton document to an AI provider."
+    ),
+    max_sources: int = typer.Option(10, "--max-sources", help="Maximum accepted sources to include as safe context (--ai only)."),
+    max_excerpt_chars: int = typer.Option(1200, "--max-excerpt-chars", help="Maximum converted-text excerpt characters per source (--ai only)."),
     workspace: Optional[Path] = typer.Option(None, "--workspace", "-w"),
     log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
     quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
@@ -4089,9 +4119,46 @@ def paper_draft(
     real claim ledger, and an explicitly unfinished conclusion — a genuinely useful scaffold, not empty prose.
     Claims aren't auto-sorted into supporting/refuting the hypothesis; that stays a human judgment call (or a
     future AI-assisted pass, gated behind explicit review) rather than a guess presented as fact.
+
+    With --ai: proposes reviewable AI edits (a Phase 8 AI edit session) replacing only the Evidence/Conclusion
+    placeholder sentences with genuinely drafted, grounded prose. Never applies automatically -- review with
+    `doc ai-edit-session-review`, apply with `doc ai-edit-session-apply`, then `paper promote-ai-draft` and
+    `ledgerly validate` before `paper clear-review-gate` can ever mark it final.
     """
     ws = _resolve_workspace(workspace)
     _slug, logger, summary, summary_path, _log_path = _run_ctx(["paper", "draft"], ws, log_level)
+    if ai:
+        try:
+            require_full_target_document_ai_opt_in(ai=ai, full_target_document=full_target_document_ai)
+            session = create_ai_paper_draft(
+                ws,
+                openai_credentials(ws),
+                rq_id,
+                max_sources=max_sources,
+                max_excerpt_chars=max_excerpt_chars,
+                cwd=Path.cwd(),
+            )
+        except (OpenAiError, ValueError) as e:
+            logger.error("AI paper draft failed", operation="paper_draft_ai", rq_id=rq_id, error=str(e))
+            summary.errors += 1
+            _finish(summary, summary_path)
+            if not quiet:
+                console.print(f"[red]{e}[/red]")
+            raise typer.Exit(code=2)
+        logger.info(
+            "Created AI paper draft edit session", operation="paper_draft_ai", rq_id=rq_id, session_id=session["session_id"]
+        )
+        _finish(
+            summary,
+            summary_path,
+            next_action=f"Review with `doc ai-edit-session-review {session['session_id']} <edit_id> accepted`, "
+            f"then `doc ai-edit-session-apply {session['session_id']}`, then `paper promote-ai-draft {rq_id} {session['session_id']}`.",
+        )
+        if not quiet:
+            console.print(f"[green]Created AI edit session:[/green] {session['session_id']} ({session['edit_count']} proposed edit(s))")
+            _print_ai_review_footer(session, "Human review is required before applying this output.")
+        return
+
     try:
         result = create_deterministic_artefact(
             ws,
@@ -4125,6 +4192,70 @@ def paper_draft(
         console.print(f"[green]Created[/green] {result.record['id']}")
         console.print(f"Wrote {result.path}")
         console.print("[yellow]Draft — the Evidence and Conclusion sections require your own work before this is final.[/yellow]")
+
+
+@paper_app.command("promote-ai-draft")
+def paper_promote_ai_draft(
+    rq_id: str = typer.Argument(..., help="Research question ID whose paper draft this session applies to."),
+    session_id: str = typer.Argument(..., help="The AI edit session ID (from `paper draft --ai`), already applied via `doc ai-edit-session-apply`."),
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Adopt an applied AI edit session's output as the paper draft's real content, and open its mandatory review gate.
+
+    Requires `doc ai-edit-session-apply <session_id>` to have already been run. Sets requires_user_review and a
+    paper_review_gate that only `ledgerly validate` followed by `paper clear-review-gate` can clear -- a paper
+    must never silently become final just because AI produced it (AGENTS.md Core Rule).
+    """
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["paper", "promote-ai-draft"], ws, log_level)
+    try:
+        session = get_ai_edit_session(ws, session_id)
+        artefact_path = _safe_workspace_path_for_paper(ws, rq_id)
+        applied_path = artefact_path.with_name(f"{artefact_path.stem}.ai-edited{artefact_path.suffix}")
+        artefact_id = _paper_artefact_id_for_rq(ws, rq_id)
+        artefact = promote_ai_paper_draft(ws, artefact_id, applied_path)
+    except ValueError as e:
+        logger.error("Paper promote-ai-draft failed", operation="paper_promote_ai_draft", rq_id=rq_id, session_id=session_id, error=str(e))
+        summary.errors += 1
+        _finish(summary, summary_path)
+        if not quiet:
+            console.print(f"[red]{e}[/red]")
+        raise typer.Exit(code=2)
+
+    logger.info("Promoted AI paper draft", operation="paper_promote_ai_draft", rq_id=rq_id, artefact_id=artefact["id"])
+    _finish(summary, summary_path, next_action=f"Run `ledgerly validate {artefact['path']}`, then `paper clear-review-gate {rq_id}`.")
+    if not quiet:
+        console.print(f"[green]Promoted[/green] {artefact['id']} -- review gate open (requires_validate).")
+        console.print(session.get("session_id", ""))
+
+
+@paper_app.command("clear-review-gate")
+def paper_clear_review_gate(
+    rq_id: str = typer.Argument(..., help="Research question ID whose paper draft's review gate to clear."),
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Clear an AI-touched paper draft's mandatory review gate -- only possible after a genuine, up-to-date `ledgerly validate` run against it."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["paper", "clear-review-gate"], ws, log_level)
+    try:
+        artefact_id = _paper_artefact_id_for_rq(ws, rq_id)
+        artefact = clear_paper_review_gate(ws, artefact_id)
+    except ValueError as e:
+        logger.error("Paper clear-review-gate failed", operation="paper_clear_review_gate", rq_id=rq_id, error=str(e))
+        summary.errors += 1
+        _finish(summary, summary_path)
+        if not quiet:
+            console.print(f"[red]{e}[/red]")
+        raise typer.Exit(code=2)
+
+    logger.info("Cleared paper review gate", operation="paper_clear_review_gate", rq_id=rq_id, artefact_id=artefact["id"])
+    _finish(summary, summary_path)
+    if not quiet:
+        console.print(f"[green]Review gate cleared[/green] for {artefact['id']}.")
 
 
 @artefacts_app.command("list")

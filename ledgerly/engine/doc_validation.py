@@ -105,8 +105,8 @@ def validate_document(
             "Unknown source metadata is preserved as unknown.",
         ],
     }
-    yaml_path = _report_path(workspace, resolved_target.path, ".yaml")
-    markdown_path = _report_path(workspace, resolved_target.path, ".md")
+    yaml_path = validation_report_path(workspace, resolved_target.path, ".yaml")
+    markdown_path = validation_report_path(workspace, resolved_target.path, ".md")
     write_yaml(yaml_path, report)
     markdown_path.write_text(_markdown_report(report), encoding="utf-8")
     return DocumentValidationRun(report=report, yaml_path=yaml_path, markdown_path=markdown_path)
@@ -593,7 +593,7 @@ def _summary(comparisons: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def _report_path(workspace: Path, target_path: Path, suffix: str) -> Path:
+def validation_report_path(workspace: Path, target_path: Path, suffix: str) -> Path:
     stem = _safe_slug(target_path.stem) or "target"
     return workspace / "outputs" / "validation" / f"document-validation-{stem}{suffix}"
 

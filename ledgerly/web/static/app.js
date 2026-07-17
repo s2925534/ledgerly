@@ -1124,6 +1124,79 @@ async function createArtefact() {
   }
 }
 
+async function createPaperDraftAi() {
+  const messageEl = document.getElementById("paper-draft-ai-create-message");
+  const rqId = document.getElementById("paper-draft-ai-rq-input").value.trim();
+  const optIn = document.getElementById("paper-draft-ai-opt-in-checkbox").checked;
+  messageEl.hidden = false;
+  messageEl.className = "small";
+  if (!rqId) {
+    messageEl.textContent = "Research question ID is required.";
+    messageEl.classList.add("error");
+    return;
+  }
+  if (!optIn) {
+    messageEl.textContent = "Consent checkbox is required to send the document to OpenAI.";
+    messageEl.classList.add("error");
+    return;
+  }
+  messageEl.textContent = "Drafting...";
+  try {
+    const session = await api("POST", "/api/v1/artefacts/paper-draft/ai", {
+      json: { rq_id: rqId, ai: true, full_target_document_ai: true },
+    });
+    messageEl.textContent = `Created AI edit session ${session.session_id} (${session.edit_count} proposed edit(s)). Review and apply it in "AI edit sessions" below, then promote it here.`;
+    await refreshArtefacts();
+    if (typeof refreshAiEditSessions === "function") await refreshAiEditSessions();
+  } catch (err) {
+    messageEl.textContent = err.message;
+    messageEl.classList.add("error");
+  }
+}
+
+async function promotePaperDraftAi() {
+  const messageEl = document.getElementById("paper-draft-ai-promote-message");
+  const rqId = document.getElementById("paper-draft-ai-promote-rq-input").value.trim();
+  const sessionId = document.getElementById("paper-draft-ai-promote-session-input").value.trim();
+  messageEl.hidden = false;
+  messageEl.className = "small";
+  if (!rqId || !sessionId) {
+    messageEl.textContent = "Research question ID and AI edit session ID are both required.";
+    messageEl.classList.add("error");
+    return;
+  }
+  messageEl.textContent = "Promoting...";
+  try {
+    await api("POST", "/api/v1/artefacts/paper-draft/promote", { json: { rq_id: rqId, session_id: sessionId } });
+    messageEl.textContent = "Promoted. Run `ledgerly validate` against it, then clear the review gate.";
+    await refreshArtefacts();
+  } catch (err) {
+    messageEl.textContent = err.message;
+    messageEl.classList.add("error");
+  }
+}
+
+async function clearPaperReviewGate() {
+  const messageEl = document.getElementById("paper-draft-ai-promote-message");
+  const rqId = document.getElementById("paper-draft-ai-promote-rq-input").value.trim();
+  messageEl.hidden = false;
+  messageEl.className = "small";
+  if (!rqId) {
+    messageEl.textContent = "Research question ID is required.";
+    messageEl.classList.add("error");
+    return;
+  }
+  messageEl.textContent = "Clearing...";
+  try {
+    await api("POST", "/api/v1/artefacts/paper-draft/clear-review-gate", { json: { rq_id: rqId } });
+    messageEl.textContent = "Review gate cleared.";
+    await refreshArtefacts();
+  } catch (err) {
+    messageEl.textContent = err.message;
+    messageEl.classList.add("error");
+  }
+}
+
 async function registerArtefact() {
   const messageEl = document.getElementById("artefact-register-message");
   const title = document.getElementById("artefact-register-title-input").value.trim();
@@ -1166,6 +1239,9 @@ async function checkArtefactDependencies() {
 function setupRqAndArtefactPanels() {
   document.getElementById("rq-check-btn").addEventListener("click", checkRqReadiness);
   document.getElementById("artefact-create-btn").addEventListener("click", createArtefact);
+  document.getElementById("paper-draft-ai-create-btn").addEventListener("click", createPaperDraftAi);
+  document.getElementById("paper-draft-ai-promote-btn").addEventListener("click", promotePaperDraftAi);
+  document.getElementById("paper-draft-ai-clear-gate-btn").addEventListener("click", clearPaperReviewGate);
   document.getElementById("artefact-register-btn").addEventListener("click", registerArtefact);
   document.getElementById("artefact-dependencies-btn").addEventListener("click", checkArtefactDependencies);
 }

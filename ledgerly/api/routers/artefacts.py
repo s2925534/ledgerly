@@ -12,10 +12,12 @@ from pydantic import BaseModel
 
 from ledgerly.api.deps import resolve_workspace
 from ledgerly.api.envelope import ApiError, ok
-from ledgerly.engine.artefact_creation import create_deterministic_artefact
+from ledgerly.engine.artefact_creation import create_ai_paper_draft, create_deterministic_artefact
 from ledgerly.engine.artefacts import (
     artefact_dependency_report,
+    clear_paper_review_gate,
     list_artefacts,
+    promote_ai_paper_draft,
     register_artefact,
     set_artefact_review_status,
 )
@@ -120,6 +122,94 @@ def artefacts_review(
         status_code = 404 if str(exc).startswith("Unknown artefact_id") else 400
         raise ApiError("invalid_artefact_review_status", str(exc), status_code=status_code) from exc
     return ok({"artefact_id": artefact_id, "review_status": payload.status})
+
+
+def _require_full_target_document_ai(ai: bool, full_target_document_ai: bool, workspace: Path):
+    """The web equivalent of `require_full_target_document_ai_opt_in`, duplicated
+    from `doc.py`'s identical helper (not imported cross-router, to keep this
+    file's AI opt-in check self-contained): needs both `ai: true` and
+    `full_target_document_ai: true` since paper drafting sends the whole
+    skeleton document's sentence map, not just bounded excerpts.
+    """
+    if not ai:
+        raise ApiError("ai_not_enabled", 'Set "ai": true to explicitly opt in to this AI action.', status_code=400)
+    if not full_target_document_ai:
+        raise ApiError(
+            "full_target_document_ai_not_enabled",
+            'Set "full_target_document_ai": true to explicitly allow sending the whole target document to an AI provider.',
+            status_code=400,
+        )
+    try:
+        return openai_credentials(workspace)
+    except OpenAiError as exc:
+        raise ApiError("openai_not_configured", str(exc), status_code=503) from exc
+
+
+class PaperDraftAiRequest(BaseModel):
+    rq_id: str
+    ai: bool = False
+    full_target_document_ai: bool = False
+    max_sources: int = 10
+    max_excerpt_chars: int = 1200
+
+
+@router.post("/paper-draft/ai")
+def artefacts_paper_draft_ai(payload: PaperDraftAiRequest, workspace: Path = Depends(resolve_workspace)) -> dict[str, Any]:
+    credentials = _require_full_target_document_ai(payload.ai, payload.full_target_document_ai, workspace)
+    try:
+        session = create_ai_paper_draft(
+            workspace, credentials, payload.rq_id, max_sources=payload.max_sources, max_excerpt_chars=payload.max_excerpt_chars
+        )
+    except (OpenAiError, ValueError) as exc:
+        raise ApiError("ai_paper_draft_failed", str(exc), status_code=400) from exc
+    return ok(session)
+
+
+class PaperPromoteAiDraftRequest(BaseModel):
+    rq_id: str
+    session_id: str
+
+
+@router.post("/paper-draft/promote")
+def artefacts_paper_promote_ai_draft(
+    payload: PaperPromoteAiDraftRequest, workspace: Path = Depends(resolve_workspace)
+) -> dict[str, Any]:
+    from ledgerly.engine.ai_edit_sessions import get_ai_edit_session
+    from ledgerly.engine.artefact_creation import SUPPORTED_ARTEFACT_TYPES
+
+    try:
+        get_ai_edit_session(workspace, payload.session_id)
+        target_path = workspace / SUPPORTED_ARTEFACT_TYPES["paper-draft"].format(rq_id=payload.rq_id)
+        applied_path = target_path.with_name(f"{target_path.stem}.ai-edited{target_path.suffix}")
+        artefact_id = next(
+            a["id"] for a in list_artefacts(workspace)
+            if a.get("type") == "paper-draft" and payload.rq_id in (a.get("linked_research_questions") or [])
+        )
+        artefact = promote_ai_paper_draft(workspace, artefact_id, applied_path)
+    except (ValueError, StopIteration) as exc:
+        raise ApiError("ai_paper_draft_promote_failed", str(exc), status_code=400) from exc
+    return ok(artefact)
+
+
+class PaperClearReviewGateRequest(BaseModel):
+    rq_id: str
+
+
+@router.post("/paper-draft/clear-review-gate")
+def artefacts_paper_clear_review_gate(
+    payload: PaperClearReviewGateRequest, workspace: Path = Depends(resolve_workspace)
+) -> dict[str, Any]:
+    from ledgerly.engine.artefact_creation import SUPPORTED_ARTEFACT_TYPES
+
+    try:
+        artefact_id = next(
+            a["id"] for a in list_artefacts(workspace)
+            if a.get("type") == "paper-draft" and payload.rq_id in (a.get("linked_research_questions") or [])
+        )
+        artefact = clear_paper_review_gate(workspace, artefact_id)
+    except (ValueError, StopIteration) as exc:
+        raise ApiError("paper_review_gate_clear_failed", str(exc), status_code=400) from exc
+    return ok(artefact)
 
 
 @router.get("/dependencies")

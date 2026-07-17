@@ -1,17 +1,74 @@
+import json
 from pathlib import Path
+from urllib.request import Request
 
 import pytest
 
 from ledgerly.core.yamlio import read_yaml, write_yaml
-from ledgerly.engine.artefact_creation import create_deterministic_artefact
+from ledgerly.engine.ai import OpenAiCredentials
+from ledgerly.engine.ai_edit_sessions import apply_ai_edit_session, set_ai_edit_review_status
+from ledgerly.engine.artefact_creation import create_ai_paper_draft, create_deterministic_artefact
 from ledgerly.engine.artefacts import (
     artefact_dependency_report,
+    clear_paper_review_gate,
     list_artefacts,
+    promote_ai_paper_draft,
     register_artefact,
     set_artefact_review_status,
 )
 from ledgerly.engine.claims import add_claim
+from ledgerly.engine.doc_validation import validate_document
+from ledgerly.engine.vault import list_document_versions
 from ledgerly.engine.workspace import init_workspace
+
+
+class FakeResponse:
+    def __init__(self, data: object):
+        self.data = json.dumps(data).encode("utf-8")
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args):
+        return False
+
+    def read(self) -> bytes:
+        return self.data
+
+
+def _paper_workspace(tmp_path: Path) -> Path:
+    workspace = tmp_path / "workspace"
+    init_workspace(
+        workspace,
+        project_name="Test Project",
+        project_type="PhD",
+        topic="",
+        research_questions=[
+            {"question": "Does automation improve throughput?", "status": "draft", "subquestions": []}
+        ],
+    )
+    write_yaml(
+        workspace / "source-register.yaml",
+        {
+            "version": 1,
+            "sources": [
+                {
+                    "source_id": "source-001",
+                    "status": "accepted",
+                    "file_name": "automation.pdf",
+                    "file_ext": "pdf",
+                    "citation_metadata": {"title": "Automation Study", "authors": ["A. Smith"], "year": 2020},
+                }
+            ],
+        },
+    )
+    add_claim(
+        workspace,
+        text="Automated handling reduced dwell time by 20%.",
+        linked_sources=["source-001"],
+        linked_research_questions=["rq-001"],
+    )
+    return workspace
 
 
 def test_register_artefact_records_links_and_review_flags(tmp_path: Path) -> None:
@@ -274,3 +331,122 @@ def test_artefact_review_status_and_dependency_report(tmp_path: Path) -> None:
     assert list_artefacts(workspace)[0]["review_status"] == "needs_revision"
     assert report["artefacts"][0]["status"] == "needs_review"
     assert report["artefacts"][0]["issues"][0]["kind"] == "source_not_accepted"
+
+
+def test_create_deterministic_artefact_auto_versions_on_creation_and_regeneration(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test Project", project_type="M.Phil", topic="")
+
+    result = create_deterministic_artefact(workspace, "source-summary-report")
+    versions = list_document_versions(workspace, target=str(result.path))
+    assert len(versions) == 1
+    assert versions[0]["creation_reason"] == "artefact_created"
+
+    create_deterministic_artefact(workspace, "source-summary-report", overwrite=True)
+    versions = list_document_versions(workspace, target=str(result.path))
+    assert len(versions) == 2
+    assert versions[1]["creation_reason"] == "artefact_regenerated"
+    assert versions[1]["parent_version_id"] == versions[0]["version_id"]
+
+
+def test_create_ai_paper_draft_ensures_skeleton_exists_first(tmp_path: Path) -> None:
+    workspace = _paper_workspace(tmp_path)
+    skeleton = workspace / "artefacts" / "papers" / "paper-draft-rq-001.md"
+    assert not skeleton.is_file()
+
+    def opener(_req: Request):
+        return FakeResponse({"id": "resp-1", "output": [{"content": [{"type": "output_text", "text": ""}]}]})
+
+    create_ai_paper_draft(workspace, OpenAiCredentials(api_key="sk-fake"), "rq-001", opener=opener)
+    assert skeleton.is_file()
+    assert len(list_artefacts(workspace)) == 1
+
+
+def test_create_ai_paper_draft_rejects_unknown_rq(tmp_path: Path) -> None:
+    workspace = _paper_workspace(tmp_path)
+
+    with pytest.raises(ValueError, match="Unknown research question"):
+        create_ai_paper_draft(workspace, OpenAiCredentials(api_key="sk-fake"), "rq-999")
+
+
+def test_ai_paper_draft_full_review_gate_lifecycle(tmp_path: Path) -> None:
+    workspace = _paper_workspace(tmp_path)
+
+    # First, create the deterministic skeleton to learn the real placeholder anchor.
+    skeleton = create_deterministic_artefact(workspace, "paper-draft", rq_id="rq-001")
+    from ledgerly.engine.derived_text import build_derived_text_snapshot
+    from ledgerly.engine.vault import create_document_version
+
+    version = create_document_version(workspace, str(skeleton.path), creation_reason="test_setup")
+    derived = build_derived_text_snapshot(workspace, version["version_id"])
+    target_sentence = None
+    for paragraph in derived["paragraphs"]:
+        for sentence in paragraph["sentences"]:
+            if "DRAFT" in sentence["text"]:
+                target_sentence = {"paragraph_id": paragraph["paragraph_id"], **sentence}
+                break
+        if target_sentence:
+            break
+    assert target_sentence is not None
+
+    edit_block = (
+        f"### EDIT paragraph_id={target_sentence['paragraph_id']} sentence_id={target_sentence['sentence_id']}\n"
+        f"ORIGINAL: {target_sentence['text']}\n"
+        "PROPOSED: The evidence supports the hypothesis. [[claim:claim-001]]\n"
+        "RATIONALE: Grounded in the available claim.\n"
+        "### END EDIT\n"
+    )
+
+    def opener(_req: Request):
+        return FakeResponse({"id": "resp-1", "output": [{"content": [{"type": "output_text", "text": edit_block}]}]})
+
+    session = create_ai_paper_draft(workspace, OpenAiCredentials(api_key="sk-fake"), "rq-001", opener=opener)
+    assert session["edit_count"] == 1
+    assert session["edits"][0]["anchor_verified"] is True
+
+    set_ai_edit_review_status(workspace, session["session_id"], session["edits"][0]["edit_id"], "accepted")
+    applied = apply_ai_edit_session(workspace, session["session_id"])
+
+    artefact_id = next(
+        a["id"] for a in list_artefacts(workspace)
+        if a.get("type") == "paper-draft" and "rq-001" in (a.get("linked_research_questions") or [])
+    )
+
+    promoted = promote_ai_paper_draft(workspace, artefact_id, Path(applied["output_path"]))
+    assert promoted["ai_generated"] is True
+    assert promoted["paper_review_gate"] == "requires_validate"
+    assert promoted["review_status"] == "pending_review"
+
+    # The original target path's own version history must show the promotion, restorable independently
+    # of the .ai-edited.md side file (TODO.md: "all is tracked for any documents produced").
+    original_versions = list_document_versions(workspace, target=str(skeleton.path))
+    assert [v["creation_reason"] for v in original_versions[-2:]] == [
+        "pre_ai_paper_draft_promotion_snapshot",
+        "ai_paper_draft_promoted",
+    ]
+    assert original_versions[-1]["parent_version_id"] == original_versions[-2]["version_id"]
+
+    with pytest.raises(ValueError, match="cannot be marked reviewed/accepted"):
+        set_artefact_review_status(workspace, artefact_id, "reviewed")
+
+    with pytest.raises(ValueError, match="Run `ledgerly validate`"):
+        clear_paper_review_gate(workspace, artefact_id)
+
+    validate_document(workspace, str(skeleton.path))
+    cleared = clear_paper_review_gate(workspace, artefact_id)
+    assert cleared["paper_review_gate"] == "cleared"
+    assert cleared["review_status"] == "reviewed"
+    assert cleared["requires_user_review"] is False
+
+    # Once cleared, no further open gate remains to clear.
+    with pytest.raises(ValueError, match="no open review gate"):
+        clear_paper_review_gate(workspace, artefact_id)
+
+
+def test_promote_ai_paper_draft_rejects_missing_applied_file(tmp_path: Path) -> None:
+    workspace = _paper_workspace(tmp_path)
+    result = create_deterministic_artefact(workspace, "paper-draft", rq_id="rq-001")
+    artefact_id = list_artefacts(workspace)[0]["id"]
+
+    with pytest.raises(ValueError, match="does not exist"):
+        promote_ai_paper_draft(workspace, artefact_id, result.path.with_suffix(".missing.md"))

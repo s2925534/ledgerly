@@ -2653,3 +2653,129 @@ def test_cli_doc_ai_edit_session_full_workflow(tmp_path: Path, monkeypatch) -> N
     assert output_path.is_file()
     assert "[[AI-EDIT-START]]" in output_path.read_text(encoding="utf-8")
     assert target.read_text(encoding="utf-8") == "# Intro\n\nContainer terminals require automation.\n"
+
+
+def _paper_ai_workspace(tmp_path: Path):
+    from ledgerly.core.yamlio import write_yaml
+    from ledgerly.engine.claims import add_claim
+
+    workspace = tmp_path / "workspace"
+    init_workspace(
+        workspace,
+        project_name="Test Project",
+        project_type="PhD",
+        topic="",
+        research_questions=[{"question": "Does automation improve throughput?", "status": "draft", "subquestions": []}],
+    )
+    (workspace / ".env").write_text("OPENAI_API_KEY=sk-secret\n", encoding="utf-8")
+    write_yaml(
+        workspace / "source-register.yaml",
+        {
+            "version": 1,
+            "sources": [
+                {
+                    "source_id": "source-001",
+                    "status": "accepted",
+                    "file_name": "automation.pdf",
+                    "file_ext": "pdf",
+                    "citation_metadata": {"title": "Automation Study", "authors": ["A. Smith"], "year": 2020},
+                }
+            ],
+        },
+    )
+    add_claim(
+        workspace,
+        text="Automated handling reduced dwell time by 20%.",
+        linked_sources=["source-001"],
+        linked_research_questions=["rq-001"],
+    )
+    return workspace
+
+
+def test_cli_paper_draft_ai_requires_full_target_document_ai_flag(tmp_path: Path) -> None:
+    workspace = _paper_ai_workspace(tmp_path)
+
+    result = runner.invoke(app, ["paper", "draft", "rq-001", "--ai", "--workspace", str(workspace), "--quiet"])
+    assert result.exit_code == 2
+
+
+def test_cli_paper_draft_ai_full_review_gate_lifecycle(tmp_path: Path, monkeypatch) -> None:
+    workspace = _paper_ai_workspace(tmp_path)
+
+    # First, run the deterministic skeleton to learn the real anchor for the placeholder sentence.
+    det_result = runner.invoke(app, ["paper", "draft", "rq-001", "--workspace", str(workspace), "--quiet"])
+    assert det_result.exit_code == 0, det_result.output
+    skeleton = workspace / "artefacts" / "papers" / "paper-draft-rq-001.md"
+    assert skeleton.is_file()
+
+    from ledgerly.engine.derived_text import build_derived_text_snapshot
+    from ledgerly.engine.vault import create_document_version
+
+    version = create_document_version(workspace, str(skeleton), creation_reason="test_setup")
+    derived = build_derived_text_snapshot(workspace, version["version_id"])
+    target_sentence = None
+    for paragraph in derived["paragraphs"]:
+        for sentence in paragraph["sentences"]:
+            if "DRAFT" in sentence["text"]:
+                target_sentence = {"paragraph_id": paragraph["paragraph_id"], **sentence}
+                break
+        if target_sentence:
+            break
+    assert target_sentence is not None
+
+    _mock_openai_for_cli(
+        monkeypatch,
+        f"### EDIT paragraph_id={target_sentence['paragraph_id']} sentence_id={target_sentence['sentence_id']}\n"
+        f"ORIGINAL: {target_sentence['text']}\n"
+        "PROPOSED: The evidence supports the hypothesis. [[claim:claim-001]]\n"
+        "RATIONALE: Grounded in the available claim.\n"
+        "### END EDIT\n",
+    )
+
+    ai_result = runner.invoke(
+        app,
+        [
+            "paper", "draft", "rq-001", "--ai", "--full-target-document-ai",
+            "--workspace", str(workspace), "--quiet",
+        ],
+    )
+    assert ai_result.exit_code == 0, ai_result.output
+
+    from ledgerly.engine.ai_edit_sessions import list_ai_edit_sessions
+
+    sessions = list_ai_edit_sessions(workspace)
+    assert len(sessions) == 1
+    session_id = sessions[0]["session_id"]
+    edit_id = sessions[0]["edits"][0]["edit_id"]
+
+    review_result = runner.invoke(
+        app,
+        ["doc", "ai-edit-session-review", session_id, edit_id, "accepted", "--workspace", str(workspace), "--quiet"],
+    )
+    assert review_result.exit_code == 0, review_result.output
+
+    apply_result = runner.invoke(
+        app, ["doc", "ai-edit-session-apply", session_id, "--workspace", str(workspace), "--quiet"]
+    )
+    assert apply_result.exit_code == 0, apply_result.output
+
+    promote_result = runner.invoke(
+        app, ["paper", "promote-ai-draft", "rq-001", session_id, "--workspace", str(workspace), "--quiet"]
+    )
+    assert promote_result.exit_code == 0, promote_result.output
+    assert "[[AI-EDIT-START]]" in skeleton.read_text(encoding="utf-8")
+
+    gate_result = runner.invoke(app, ["paper", "clear-review-gate", "rq-001", "--workspace", str(workspace), "--quiet"])
+    assert gate_result.exit_code == 2, gate_result.output
+
+    validate_result = runner.invoke(app, ["validate", str(skeleton), "--workspace", str(workspace), "--quiet"])
+    assert validate_result.exit_code == 0, validate_result.output
+
+    gate_result2 = runner.invoke(app, ["paper", "clear-review-gate", "rq-001", "--workspace", str(workspace), "--quiet"])
+    assert gate_result2.exit_code == 0, gate_result2.output
+
+    from ledgerly.engine.artefacts import list_artefacts
+
+    artefact = list_artefacts(workspace)[0]
+    assert artefact["paper_review_gate"] == "cleared"
+    assert artefact["review_status"] == "reviewed"

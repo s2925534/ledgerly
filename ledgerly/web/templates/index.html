@@ -257,6 +257,33 @@
       </div>
     </details>
 
+    <details id="paper-draft-ai-details" class="detail-box">
+      <summary class="link">AI-assisted paper draft (optional)</summary>
+      <p class="muted small">Ensures the deterministic skeleton exists, then proposes reviewable AI edits replacing only its Evidence/Conclusion placeholders with drafted, grounded prose &mdash; sources and claims tables are never altered. Review and apply the resulting session below in "AI edit sessions", then promote it here. A promoted draft cannot be marked reviewed until a fresh <code>ledgerly validate</code> report exists for it.</p>
+      <div class="source-scan-form">
+        <label class="field-label" for="paper-draft-ai-rq-input">Research question ID</label>
+        <input id="paper-draft-ai-rq-input" type="text" placeholder="e.g. rq-001">
+        <label class="field-label">
+          <input id="paper-draft-ai-opt-in-checkbox" type="checkbox"> I explicitly consent to sending this document's full sentence map to OpenAI
+        </label>
+        <div class="zotero-link-actions">
+          <button id="paper-draft-ai-create-btn" type="button">Draft with AI</button>
+        </div>
+        <p id="paper-draft-ai-create-message" class="small" hidden></p>
+      </div>
+      <div class="source-scan-form">
+        <label class="field-label" for="paper-draft-ai-promote-rq-input">Research question ID</label>
+        <input id="paper-draft-ai-promote-rq-input" type="text" placeholder="e.g. rq-001">
+        <label class="field-label" for="paper-draft-ai-promote-session-input">AI edit session ID (already applied)</label>
+        <input id="paper-draft-ai-promote-session-input" type="text" placeholder="e.g. aiedit-001">
+        <div class="zotero-link-actions">
+          <button id="paper-draft-ai-promote-btn" type="button">Promote applied session to paper draft</button>
+          <button id="paper-draft-ai-clear-gate-btn" type="button" class="secondary">Clear review gate</button>
+        </div>
+        <p id="paper-draft-ai-promote-message" class="small" hidden></p>
+      </div>
+    </details>
+
     <details id="artefact-register-details" class="detail-box">
       <summary class="link">Register an artefact created outside this tool</summary>
       <div class="source-scan-form">

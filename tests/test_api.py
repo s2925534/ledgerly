@@ -290,6 +290,124 @@ def test_doc_ai_edit_session_full_workflow_via_api(client: TestClient, tmp_path:
     assert target.read_text(encoding="utf-8") == "# Intro\n\nContainer terminals require automation.\n"
 
 
+def test_paper_draft_ai_full_review_gate_lifecycle_via_api(client: TestClient, tmp_path: Path, monkeypatch) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(
+        workspace,
+        project_name="Test",
+        project_type="PhD",
+        topic="",
+        research_questions=[{"question": "Does automation improve throughput?", "status": "draft", "subquestions": []}],
+    )
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    write_yaml(
+        workspace / "source-register.yaml",
+        {
+            "version": 1,
+            "sources": [
+                {
+                    "source_id": "source-001",
+                    "status": "accepted",
+                    "file_name": "automation.pdf",
+                    "file_ext": "pdf",
+                    "citation_metadata": {"title": "Automation Study", "authors": ["A. Smith"], "year": 2020},
+                }
+            ],
+        },
+    )
+    from ledgerly.engine.claims import add_claim
+
+    add_claim(
+        workspace,
+        text="Automated handling reduced dwell time by 20%.",
+        linked_sources=["source-001"],
+        linked_research_questions=["rq-001"],
+    )
+
+    no_ai = client.post(
+        "/api/v1/artefacts/paper-draft/ai", params={"workspace": str(workspace)}, json={"rq_id": "rq-001"}
+    )
+    assert no_ai.status_code == 400
+    assert no_ai.json()["errors"][0]["code"] == "ai_not_enabled"
+
+    create_response = client.post(
+        "/api/v1/artefacts/create",
+        params={"workspace": str(workspace)},
+        json={"artefact_type": "paper-draft", "rq_id": "rq-001"},
+    )
+    assert create_response.status_code == 200, create_response.text
+    skeleton_path = Path(create_response.json()["data"]["path"])
+
+    from ledgerly.engine.derived_text import build_derived_text_snapshot
+    from ledgerly.engine.vault import create_document_version
+
+    version = create_document_version(workspace, str(skeleton_path), creation_reason="test_setup")
+    derived = build_derived_text_snapshot(workspace, version["version_id"])
+    target_sentence = None
+    for paragraph in derived["paragraphs"]:
+        for sentence in paragraph["sentences"]:
+            if "DRAFT" in sentence["text"]:
+                target_sentence = {"paragraph_id": paragraph["paragraph_id"], **sentence}
+                break
+        if target_sentence:
+            break
+    assert target_sentence is not None
+
+    _mock_openai(
+        monkeypatch,
+        f"### EDIT paragraph_id={target_sentence['paragraph_id']} sentence_id={target_sentence['sentence_id']}\n"
+        f"ORIGINAL: {target_sentence['text']}\n"
+        "PROPOSED: The evidence supports the hypothesis. [[claim:claim-001]]\n"
+        "RATIONALE: Grounded in the available claim.\n"
+        "### END EDIT\n",
+    )
+
+    ai_response = client.post(
+        "/api/v1/artefacts/paper-draft/ai",
+        params={"workspace": str(workspace)},
+        json={"rq_id": "rq-001", "ai": True, "full_target_document_ai": True},
+    )
+    assert ai_response.status_code == 200, ai_response.text
+    session = ai_response.json()["data"]
+    session_id = session["session_id"]
+    edit_id = session["edits"][0]["edit_id"]
+
+    review_response = client.post(
+        f"/api/v1/doc/ai-edit-sessions/{session_id}/edits/{edit_id}/review",
+        params={"workspace": str(workspace)},
+        json={"review_status": "accepted"},
+    )
+    assert review_response.status_code == 200
+
+    apply_response = client.post(
+        f"/api/v1/doc/ai-edit-sessions/{session_id}/apply", params={"workspace": str(workspace)}
+    )
+    assert apply_response.status_code == 200
+
+    promote_response = client.post(
+        "/api/v1/artefacts/paper-draft/promote",
+        params={"workspace": str(workspace)},
+        json={"rq_id": "rq-001", "session_id": session_id},
+    )
+    assert promote_response.status_code == 200, promote_response.text
+    assert promote_response.json()["data"]["paper_review_gate"] == "requires_validate"
+
+    gate_before_validate = client.post(
+        "/api/v1/artefacts/paper-draft/clear-review-gate", params={"workspace": str(workspace)}, json={"rq_id": "rq-001"}
+    )
+    assert gate_before_validate.status_code == 400
+
+    from ledgerly.engine.doc_validation import validate_document
+
+    validate_document(workspace, str(skeleton_path))
+
+    gate_after_validate = client.post(
+        "/api/v1/artefacts/paper-draft/clear-review-gate", params={"workspace": str(workspace)}, json={"rq_id": "rq-001"}
+    )
+    assert gate_after_validate.status_code == 200, gate_after_validate.text
+    assert gate_after_validate.json()["data"]["paper_review_gate"] == "cleared"
+
+
 def test_doc_ai_edit_session_review_unknown_session_returns_404(client: TestClient, tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")

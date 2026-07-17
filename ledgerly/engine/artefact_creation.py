@@ -2,12 +2,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any, Callable
+from urllib.request import Request
 
 from ledgerly.core.yamlio import read_yaml
 from ledgerly.engine.artefacts import register_artefact
 from ledgerly.engine.claims import list_claims
 from ledgerly.engine.research_questions import list_research_questions
+
+if TYPE_CHECKING:
+    from ledgerly.engine.ai import OpenAiCredentials
 
 
 SUPPORTED_ARTEFACT_TYPES = {
@@ -94,7 +98,75 @@ def create_deterministic_artefact(
         linked_research_questions=linked_rqs,
         requires_user_review=True,
     )
+
+    from ledgerly.engine.vault import create_document_version
+
+    create_document_version(
+        workspace, str(output_path), creation_reason="artefact_regenerated" if overwrite else "artefact_created"
+    )
     return ArtefactCreationResult(record=record, path=output_path)
+
+
+def create_ai_paper_draft(
+    workspace: Path,
+    credentials: "OpenAiCredentials",
+    rq_id: str,
+    *,
+    max_sources: int = 10,
+    max_excerpt_chars: int = 1200,
+    opener: Callable[[Request], Any] | None = None,
+    cwd: Path | None = None,
+) -> dict[str, Any]:
+    """The AI-assisted tier of `paper draft <rq-id>` (TODO.md Phase 28): a
+    large-scale instance of Phase 8's AI edit sessions
+    (`engine.ai_edit_sessions.create_ai_edit_session`), not a separate
+    drafting mechanism, per Pedro's explicit requirement. Ensures the
+    deterministic skeleton exists first (creating it if missing), then
+    proposes replacing its placeholder guidance sentences -- never the
+    real sources/claims tables -- with genuinely drafted literature-review
+    analysis and a prove-or-disprove conclusion, grounded strictly in the
+    evidence already in the skeleton. Never auto-applies: returns a
+    reviewable edit session for the normal
+    `doc ai-edit-session-review`/`apply` flow, exactly like any other
+    edit session. The mandatory "must run `validate` before this can be
+    considered final" gate (item 454) is applied separately, when the
+    reviewed session is promoted via `engine.artefacts.promote_ai_paper_draft`
+    -- not here, since nothing is applied yet at this point.
+    """
+    from ledgerly.engine.ai_edit_sessions import create_ai_edit_session
+
+    path_template = SUPPORTED_ARTEFACT_TYPES["paper-draft"]
+    relative_path = path_template.format(rq_id=rq_id)
+    output_path = _safe_workspace_path(workspace, relative_path)
+    if not output_path.is_file():
+        research_questions = list_research_questions(workspace)
+        if _find_research_question(research_questions, rq_id) is None:
+            raise ValueError(f"Unknown research question: {rq_id}")
+        create_deterministic_artefact(workspace, "paper-draft", rq_id=rq_id)
+
+    instructions = (
+        "This is a deterministic paper-draft skeleton for one research question, built from real workspace "
+        "data (the sources table and the claims table are both real and must not be altered). Your job is to "
+        "replace ONLY the placeholder guidance sentences that say drafting has not been done yet: (1) in the "
+        "Evidence section, replace the sentence about sorting claims manually with genuine analysis of which "
+        "listed claims support versus refute the hypothesis; (2) in the Conclusion section, replace the "
+        "'Status: DRAFT' placeholder and the sentence about never generating a conclusion without evidence "
+        "with an actual prove-or-disprove conclusion, grounded strictly in the evidence tables above. If the "
+        "evidence doesn't clearly support a confident conclusion, write that explicitly -- 'the corpus does "
+        "not provide sufficient evidence for a confident conclusion' is a valid, required outcome when true, "
+        "never something to paper over with invented confidence."
+    )
+    return create_ai_edit_session(
+        workspace,
+        credentials,
+        str(output_path),
+        instructions=instructions,
+        full_target_document_ai=True,
+        max_sources=max_sources,
+        max_excerpt_chars=max_excerpt_chars,
+        opener=opener,
+        cwd=cwd,
+    )
 
 
 def _safe_workspace_path(workspace: Path, relative_path: str) -> Path:
