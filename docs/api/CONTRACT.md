@@ -28,7 +28,7 @@ The API must be local-first, workspace-scoped, and a thin transport layer over `
 
 ### `POST /api/v1/auth/login` (implemented)
 
-Accepts `{"username": "...", "password": "..."}`. Returns `503 auth_not_configured` if either isn't set, `401 invalid_credentials` on a wrong username or password (the two aren't distinguished in the response, to avoid confirming which one was wrong), or `200` with a session token (also set as an httponly `corroborly_session` cookie) on success. Sessions expire after `CORROBORLY_API_SESSION_HOURS` hours (default 12) and live in server memory only, so a server restart invalidates all sessions. This is still one shared credential pair, not a per-user account system — the username field matches the login UX of a real account without implying multi-tenancy exists yet.
+Accepts `{"username": "...", "password": "...", "remember": false}`. Returns `503 auth_not_configured` if either credential isn't set, `401 invalid_credentials` on a wrong username or password (the two aren't distinguished in the response, to avoid confirming which one was wrong), or `200` with a session token (also set as an httponly `corroborly_session` cookie) on success. Sessions expire after `CORROBORLY_API_SESSION_HOURS` hours (default 12) and live in server memory only, so a server restart invalidates all sessions. `remember: true` (added 2026-07-17, the web login form's "Remember me" checkbox) grants a 30-day session instead, regardless of `CORROBORLY_API_SESSION_HOURS`. This is still one shared credential pair, not a per-user account system — the username field matches the login UX of a real account without implying multi-tenancy exists yet.
 
 Engine source:
 
@@ -39,6 +39,16 @@ Engine source:
 Invalidates the session named by the `Authorization: Bearer <token>` header or the `corroborly_session` cookie, and clears the cookie. No public self-registration route exists.
 
 Callers may authenticate with either the cookie set by `/login` or an `Authorization: Bearer <token>` header carrying the same token.
+
+### `POST /api/v1/auth/change-password` (implemented, 2026-07-17)
+
+Session-protected self-service credential change for the single shared login — not a per-account "forgot password" flow (that needs real per-user accounts, TODO.md's multi-tenant item, not started). Accepts `{"current_password": "...", "new_password": "..."}`. Requires the current password even though the caller already has a valid session, as defense in depth against a hijacked session token (`401 invalid_credentials` if wrong, `400 invalid_new_password` if the new password is empty). On success, rewrites `CORROBORLY_API_PASSWORD` in the server's `.env` file and invalidates every existing session, including the caller's own — a fresh login with the new password is required, everywhere.
+
+`409 credential_change_failed` if the current password is actually set as a real process environment variable rather than read live from `.env` (e.g. Docker's `environment:` block, or a shell export) — `os.environ` always takes priority over a live `.env` read, so rewriting `.env` in that case would silently have no effect. This means today the route only actually works for local CLI/dev use (`corroborly serve` run with a real `.env` in its working directory); the deployed NAS container currently receives credentials via Docker env injection, not a live `.env` read, so this doesn't apply there yet without a separate `docker-compose.yml` change.
+
+Engine source:
+
+- `corroborly.api.auth.set_credentials`
 
 ## Common Conventions
 

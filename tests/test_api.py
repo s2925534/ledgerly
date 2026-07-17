@@ -1517,6 +1517,73 @@ def test_login_remember_me_grants_a_much_longer_session(unauthenticated_client: 
     assert (remembered_expires - now) < REMEMBER_ME_TTL_SECONDS + 5
 
 
+def test_change_password_rejects_when_credentials_are_env_vars(client: TestClient) -> None:
+    # The `client` fixture configures credentials via monkeypatch.setenv, exactly
+    # the case set_credentials must refuse (os.environ always wins over .env, so
+    # rewriting .env there would silently have no effect).
+    response = client.post(
+        "/api/v1/auth/change-password", json={"current_password": TEST_PASSWORD, "new_password": "new-password-123"}
+    )
+    assert response.status_code == 409
+    assert response.json()["errors"][0]["code"] == "credential_change_failed"
+
+
+def _dotenv_backed_client(monkeypatch, tmp_path: Path) -> TestClient:
+    monkeypatch.delenv("CORROBORLY_API_USERNAME", raising=False)
+    monkeypatch.delenv("CORROBORLY_API_PASSWORD", raising=False)
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".env").write_text(
+        f"CORROBORLY_API_USERNAME={TEST_USERNAME}\nCORROBORLY_API_PASSWORD={TEST_PASSWORD}\nOPENAI_API_KEY=\n",
+        encoding="utf-8",
+    )
+    return TestClient(create_app())
+
+
+def test_change_password_rejects_wrong_current_password(monkeypatch, tmp_path: Path) -> None:
+    test_client = _dotenv_backed_client(monkeypatch, tmp_path)
+    login_response = test_client.post("/api/v1/auth/login", json={"username": TEST_USERNAME, "password": TEST_PASSWORD})
+    assert login_response.status_code == 200
+
+    response = test_client.post(
+        "/api/v1/auth/change-password", json={"current_password": "wrong", "new_password": "new-password-123"}
+    )
+    assert response.status_code == 401
+    assert response.json()["errors"][0]["code"] == "invalid_credentials"
+
+
+def test_change_password_success_rewrites_env_and_invalidates_all_sessions(monkeypatch, tmp_path: Path) -> None:
+    test_client = _dotenv_backed_client(monkeypatch, tmp_path)
+    login_response = test_client.post("/api/v1/auth/login", json={"username": TEST_USERNAME, "password": TEST_PASSWORD})
+    old_token = login_response.json()["data"]["token"]
+
+    change_response = test_client.post(
+        "/api/v1/auth/change-password",
+        json={"current_password": TEST_PASSWORD, "new_password": "new-password-123"},
+        headers={"Authorization": f"Bearer {old_token}"},
+    )
+    assert change_response.status_code == 200, change_response.text
+    assert change_response.json()["data"]["changed"] is True
+
+    env_text = (tmp_path / ".env").read_text(encoding="utf-8")
+    assert "CORROBORLY_API_PASSWORD=new-password-123" in env_text
+    assert f"CORROBORLY_API_USERNAME={TEST_USERNAME}" in env_text  # untouched
+    assert "OPENAI_API_KEY=" in env_text  # unrelated lines preserved
+
+    # The old session (even the one that made the change) is invalidated.
+    stale_response = test_client.get(
+        "/api/v1/rqs", params={"workspace": str(tmp_path)}, headers={"Authorization": f"Bearer {old_token}"}
+    )
+    assert stale_response.status_code == 401
+
+    # Old password no longer works; new password does.
+    old_login = test_client.post("/api/v1/auth/login", json={"username": TEST_USERNAME, "password": TEST_PASSWORD})
+    assert old_login.status_code == 401
+    new_login = test_client.post(
+        "/api/v1/auth/login", json={"username": TEST_USERNAME, "password": "new-password-123"}
+    )
+    assert new_login.status_code == 200
+
+
 def test_login_success_grants_access_via_bearer_token(unauthenticated_client: TestClient, tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")

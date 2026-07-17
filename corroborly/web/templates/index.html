@@ -21,6 +21,7 @@
         <button type="button" class="theme-option" data-theme-value="system">System</button>
       </div>
     </details>
+    <button id="change-password-link" type="button" class="secondary">Change password</button>
     <button id="logout-btn" type="button" class="secondary">Sign out</button>
   </div>
 </header>
@@ -1048,6 +1049,28 @@
     </div>
     <div class="modal-footer">
       <button id="source-edit-save-note-btn" type="button">Save note</button>
+    </div>
+  </div>
+</div>
+
+<div id="change-password-modal" class="modal-overlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="change-password-title">
+    <div class="modal-header">
+      <span id="change-password-title">Change password</span>
+      <button type="button" class="close-btn" data-close="change-password-modal" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p class="muted small">This is the single shared login for this deployment, not a per-account system — changing it signs everyone out everywhere, immediately.</p>
+      <form id="change-password-form" autocomplete="off">
+        <label class="field-label" for="change-password-current-input">Current password</label>
+        <input type="password" id="change-password-current-input" required autocomplete="current-password">
+        <label class="field-label" for="change-password-new-input">New password</label>
+        <input type="password" id="change-password-new-input" required autocomplete="new-password">
+        <div class="zotero-link-actions">
+          <button type="submit">Change password</button>
+        </div>
+        <p id="change-password-message" class="small" hidden></p>
+      </form>
     </div>
   </div>
 </div>

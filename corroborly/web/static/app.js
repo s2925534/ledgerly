@@ -3052,7 +3052,7 @@ function setupZoteroPanel() {
   document.getElementById("zotero-export-bibtex-btn").addEventListener("click", () => runZoteroReport("BibTeX export", "/api/v1/zotero/local/export-bibtex"));
 }
 
-// --- modal plumbing (shared by preview / cross-reference / about) ---
+// --- modal plumbing (shared by preview / cross-reference / about / change-password) ---
 
 function openModal(id) {
   document.getElementById(id).hidden = false;
@@ -3060,6 +3060,29 @@ function openModal(id) {
 
 function closeModal(id) {
   document.getElementById(id).hidden = true;
+}
+
+// Self-service credential change for the single shared login (not a
+// per-account "forgot password" flow -- see TODO.md). Success invalidates
+// every session, including this one, so the only sane next step is straight
+// back to /login.
+async function handleChangePasswordSubmit(event) {
+  event.preventDefault();
+  const messageEl = document.getElementById("change-password-message");
+  const currentInput = document.getElementById("change-password-current-input");
+  const newInput = document.getElementById("change-password-new-input");
+  messageEl.hidden = false;
+  messageEl.className = "small";
+  messageEl.textContent = "Changing...";
+  try {
+    await api("POST", "/api/v1/auth/change-password", {
+      json: { current_password: currentInput.value, new_password: newInput.value },
+    });
+    window.location.href = "/login";
+  } catch (err) {
+    messageEl.textContent = err.message;
+    messageEl.classList.add("error");
+  }
 }
 
 function setupModals() {
@@ -3470,6 +3493,9 @@ document.addEventListener("DOMContentLoaded", () => {
       window.location.href = "/login";
     }
   });
+
+  document.getElementById("change-password-link").addEventListener("click", () => openModal("change-password-modal"));
+  document.getElementById("change-password-form").addEventListener("submit", handleChangePasswordSubmit);
 
   document.getElementById("about-link").addEventListener("click", () => openModal("about-modal"));
   document.getElementById("crossref-apply-btn").addEventListener("click", applyCrossReferenceLinks);
