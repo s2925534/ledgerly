@@ -549,6 +549,27 @@
       <p id="doc-derive-text-message" class="small" hidden></p>
       <p class="muted small">Paragraph/sentence anchors for precise citation, evidence, and future AI-suggestion traceability — prep infrastructure, not a standalone view yet.</p>
     </div>
+
+    <details id="ai-edit-session-details" class="detail-box">
+      <summary class="link">AI edit sessions (optional)</summary>
+      <p class="muted small">Propose reviewable AI edits to a Markdown document, anchored to specific sentences. Never edits the document directly — review each proposed edit, then apply only the ones you accept. Sends the whole target document's sentence map (not just excerpts) to OpenAI.</p>
+      <div class="source-scan-form">
+        <label class="field-label" for="ai-edit-target-input">Document target (.md only)</label>
+        <input id="ai-edit-target-input" type="text" placeholder="e.g. artefacts/papers/draft.md">
+        <label class="field-label" for="ai-edit-instructions-input">Instructions (optional)</label>
+        <input id="ai-edit-instructions-input" type="text" placeholder="e.g. tighten the introduction">
+        <label class="field-label">
+          <input id="ai-edit-opt-in-checkbox" type="checkbox"> I explicitly consent to sending this document's full sentence map to OpenAI
+        </label>
+        <div class="zotero-link-actions">
+          <button id="ai-edit-create-btn" type="button">Propose edits</button>
+          <button id="ai-edit-refresh-btn" type="button" class="secondary">Refresh sessions</button>
+        </div>
+        <p id="ai-edit-create-message" class="small" hidden></p>
+      </div>
+      <div id="ai-edit-sessions-list" class="rq-list"></div>
+      <p id="ai-edit-sessions-empty" class="muted small" hidden>No AI edit sessions yet.</p>
+    </details>
   </section>
 
   <section class="panel">

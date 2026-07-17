@@ -30,6 +30,12 @@ from ledgerly.engine.ai import (
     require_full_source_document_ai_opt_in,
     require_full_target_document_ai_opt_in,
 )
+from ledgerly.engine.ai_edit_sessions import (
+    apply_ai_edit_session,
+    create_ai_edit_session,
+    list_ai_edit_sessions,
+    set_ai_edit_review_status,
+)
 from ledgerly.engine.abstracts import import_abstract_folder
 from ledgerly.engine.artefact_creation import SUPPORTED_ARTEFACT_TYPES, create_deterministic_artefact
 from ledgerly.engine.artefacts import artefact_dependency_report, list_artefacts, register_artefact, set_artefact_review_status
@@ -3503,6 +3509,168 @@ def doc_cross_reference_apply(
     if not quiet:
         console.print(f"[green]Applied links to upload:[/green] {upload_id}")
         console.print(f"Links: {len(result.get('cross_references', []))}")
+
+
+@doc_app.command("ai-edit-session-create")
+def doc_ai_edit_session_create(
+    target: str = typer.Argument(..., help="Document target: path, artefact ID/title, alias, or artefact type. Markdown (.md) only."),
+    ai: bool = typer.Option(False, "--ai", help="Required explicit opt-in for OpenAI edit proposals."),
+    full_target_document_ai: bool = typer.Option(
+        False,
+        "--full-target-document-ai",
+        help="Explicitly allow sending the whole target document's sentence map to the AI provider.",
+    ),
+    instructions: str = typer.Option("", "--instructions", help="Optional free-text instructions for the AI (e.g. 'tighten the introduction')."),
+    max_sources: int = typer.Option(10, "--max-sources", help="Maximum accepted sources to include as safe context."),
+    max_excerpt_chars: int = typer.Option(1200, "--max-excerpt-chars", help="Maximum converted-text excerpt characters per source."),
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Propose reviewable AI edits to a document, anchored to specific paragraphs/sentences. Never edits the document directly."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["doc", "ai-edit-session-create"], ws, log_level)
+    try:
+        require_full_target_document_ai_opt_in(ai=ai, full_target_document=full_target_document_ai)
+        session = create_ai_edit_session(
+            ws,
+            openai_credentials(ws),
+            target,
+            instructions=instructions,
+            full_target_document_ai=True,
+            max_sources=max_sources,
+            max_excerpt_chars=max_excerpt_chars,
+            cwd=Path.cwd(),
+        )
+    except (OpenAiError, ValueError) as e:
+        logger.error("AI edit session creation failed", operation="doc_ai_edit_session_create", target=target, error=str(e))
+        summary.errors += 1
+        _finish(summary, summary_path)
+        if not quiet:
+            console.print(f"[red]{e}[/red]")
+        raise typer.Exit(code=2)
+
+    logger.info(
+        "Created AI edit session",
+        operation="doc_ai_edit_session_create",
+        session_id=session["session_id"],
+        edit_count=session["edit_count"],
+    )
+    _finish(summary, summary_path, next_action=f"Review with `doc ai-edit-session-review {session['session_id']} <edit_id> accepted`")
+    if not quiet:
+        console.print(f"[green]Created AI edit session:[/green] {session['session_id']} ({session['edit_count']} proposed edit(s))")
+        grounding = session.get("grounding")
+        if grounding and not grounding.get("fully_grounded", True):
+            console.print(
+                f"[red]Grounding warning:[/red] {len(grounding.get('ungrounded_citations', []))} citation(s) "
+                "reference an ID not present in the supplied context -- verify manually before trusting them."
+            )
+        if session.get("unverified_anchor_count"):
+            console.print(
+                f"[red]{session['unverified_anchor_count']} proposed edit(s) have an unverified anchor "
+                "(claimed original text doesn't match the document) -- review with extra scrutiny.[/red]"
+            )
+
+
+@doc_app.command("ai-edit-sessions")
+def doc_ai_edit_sessions_list(
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """List AI edit sessions for this workspace."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["doc", "ai-edit-sessions"], ws, log_level)
+    sessions = list_ai_edit_sessions(ws)
+    logger.info("Listed AI edit sessions", operation="doc_ai_edit_sessions", count=len(sessions))
+    _finish(summary, summary_path)
+    if quiet:
+        return
+    table = Table(title="AI Edit Sessions")
+    table.add_column("session_id")
+    table.add_column("target")
+    table.add_column("edits")
+    table.add_column("fully_grounded")
+    for session in sessions:
+        grounding = session.get("grounding") or {}
+        table.add_row(
+            session.get("session_id", ""),
+            session.get("target", ""),
+            str(session.get("edit_count", 0)),
+            str(grounding.get("fully_grounded", "")),
+        )
+    console.print(table)
+
+
+@doc_app.command("ai-edit-session-review")
+def doc_ai_edit_session_review(
+    session_id: str = typer.Argument(...),
+    edit_id: str = typer.Argument(...),
+    review_status: str = typer.Argument(..., help="needs_human_review|accepted|approved|rejected"),
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Set one proposed edit's review_status without hand-editing the session file."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["doc", "ai-edit-session-review"], ws, log_level)
+    try:
+        edit = set_ai_edit_review_status(ws, session_id, edit_id, review_status)
+    except ValueError as e:
+        logger.error(
+            "AI edit review update failed",
+            operation="doc_ai_edit_session_review",
+            session_id=session_id,
+            edit_id=edit_id,
+            error=str(e),
+        )
+        summary.errors += 1
+        _finish(summary, summary_path)
+        if not quiet:
+            console.print(f"[red]{e}[/red]")
+        raise typer.Exit(code=2)
+    logger.info(
+        "Updated AI edit review status",
+        operation="doc_ai_edit_session_review",
+        session_id=session_id,
+        edit_id=edit_id,
+        review_status=review_status,
+    )
+    _finish(summary, summary_path)
+    if not quiet:
+        console.print(f"[green]Updated:[/green] {edit['edit_id']} -> {edit['review_status']}")
+
+
+@doc_app.command("ai-edit-session-apply")
+def doc_ai_edit_session_apply(
+    session_id: str = typer.Argument(...),
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w"),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Apply only the accepted/approved edits from a session, writing a new document version. Original target is never modified in place."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["doc", "ai-edit-session-apply"], ws, log_level)
+    try:
+        report = apply_ai_edit_session(ws, session_id, cwd=Path.cwd())
+    except ValueError as e:
+        logger.error("AI edit session apply failed", operation="doc_ai_edit_session_apply", session_id=session_id, error=str(e))
+        summary.errors += 1
+        _finish(summary, summary_path)
+        if not quiet:
+            console.print(f"[red]{e}[/red]")
+        raise typer.Exit(code=2)
+    logger.info(
+        "Applied AI edit session",
+        operation="doc_ai_edit_session_apply",
+        session_id=session_id,
+        applied_edit_count=report["applied_edit_count"],
+    )
+    _finish(summary, summary_path)
+    if not quiet:
+        console.print(f"[green]Wrote[/green] {report['output_path']}")
+        console.print(f"Applied: {report['applied_edit_count']}, skipped: {report['skipped_edit_count']}")
+        console.print("[yellow]Original document was not modified. AI-generated text is marked inline with [[AI-EDIT-START]]...[[AI-EDIT-END]].[/yellow]")
 
 
 @rqs_app.command("list")

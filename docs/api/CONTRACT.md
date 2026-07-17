@@ -699,6 +699,54 @@ Engine source:
 
 - `ledgerly.engine.derived_text.build_derived_text_snapshot`
 
+### `POST /api/v1/doc/ai-edit-sessions` (implemented, 2026-07-17)
+
+Proposes reviewable AI edits to a Markdown (`.md`) target document, anchored to specific paragraph/sentence IDs from a fresh derived-text snapshot (route above). Never modifies the target — mirrors the deterministic citation-plan propose-then-apply pattern (`/api/v1/citations/plan` + `/apply`). Requires **both** `ai: true` and `full_target_document_ai: true` (`400 ai_not_enabled` / `400 full_target_document_ai_not_enabled`), matching `cite ai-plan`'s CLI double opt-in, since the whole document's sentence map (not just excerpts) is sent so the model can anchor edits to it. `503 openai_not_configured` if no API key is available.
+
+Request body: `{"target": str, "ai": true, "full_target_document_ai": true, "instructions": str = "", "max_sources": int = 10, "max_excerpt_chars": int = 1200}`.
+
+Response `data`: `{session_id, target, target_path, source_version_id, derived_text_path, instructions, ai_used, requires_user_review, original_document_modified: false, model, response_id, grounding, edit_count, unverified_anchor_count, edits: [{edit_id, paragraph_id, sentence_id, original_text, proposed_text, rationale, anchor_verified, review_status}]}`. `anchor_verified: false` means the model's claimed original text didn't actually match the real document at that anchor — never silently trusted, surfaced for extra scrutiny rather than dropped.
+
+Engine source:
+
+- `ledgerly.engine.ai_edit_sessions.create_ai_edit_session`
+
+CLI equivalent: `ledgerly doc ai-edit-session-create <target> --ai --full-target-document-ai`.
+
+### `GET /api/v1/doc/ai-edit-sessions` (implemented, 2026-07-17)
+
+Lists AI edit sessions for the workspace.
+
+Engine source:
+
+- `ledgerly.engine.ai_edit_sessions.list_ai_edit_sessions`
+
+CLI equivalent: `ledgerly doc ai-edit-sessions`.
+
+### `POST /api/v1/doc/ai-edit-sessions/{session_id}/edits/{edit_id}/review` (implemented, 2026-07-17)
+
+Sets one proposed edit's `review_status` (`needs_human_review`/`accepted`/`approved`/`rejected`) without hand-editing the session file. `404 invalid_ai_edit_review_status` for an unknown session/edit, `400` for an invalid status value.
+
+Request body: `{"review_status": str}`.
+
+Engine source:
+
+- `ledgerly.engine.ai_edit_sessions.set_ai_edit_review_status`
+
+CLI equivalent: `ledgerly doc ai-edit-session-review <session_id> <edit_id> <review_status>`.
+
+### `POST /api/v1/doc/ai-edit-sessions/{session_id}/apply` (implemented, 2026-07-17)
+
+Applies only the edits explicitly marked `accepted`/`approved`, writing a new document version (`<name>.ai-edited<ext>`) whose parent is the pre-session snapshot — the original target is never modified in place. Each applied replacement is wrapped in a `[[AI-EDIT-START]]...[[AI-EDIT-END]]` plain-text marker so it stays visibly distinguishable from human-authored text directly in the raw file (AGENTS.md Core Rule item 4). `404 unknown_ai_edit_session` for an unknown session.
+
+Response `data`: `{session_id, output_path, original_document_modified: false, applied_edit_count, skipped_edit_count, skipped_not_found_in_current_text, document_version_id, source_snapshot_version_id}`.
+
+Engine source:
+
+- `ledgerly.engine.ai_edit_sessions.apply_ai_edit_session`
+
+CLI equivalent: `ledgerly doc ai-edit-session-apply <session_id>`.
+
 ## Validation Routes
 
 ### `POST /api/v1/validation/run` (implemented)

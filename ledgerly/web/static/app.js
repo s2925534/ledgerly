@@ -110,6 +110,7 @@ async function loadWorkspace(workspace) {
   refreshAiUsageLog();
   refreshStages();
   showSinceLastVisitDigest();
+  refreshAiEditSessions();
 }
 
 // A proactive "what changed since you were last here" banner, shown once
@@ -1922,12 +1923,125 @@ async function buildDerivedTextAnchors() {
   }
 }
 
+async function createAiEditSession() {
+  const messageEl = document.getElementById("ai-edit-create-message");
+  const target = document.getElementById("ai-edit-target-input").value.trim();
+  const instructions = document.getElementById("ai-edit-instructions-input").value.trim();
+  const optedIn = document.getElementById("ai-edit-opt-in-checkbox").checked;
+  messageEl.hidden = false;
+  messageEl.className = "small";
+  if (!target) {
+    messageEl.textContent = "Provide a document target.";
+    messageEl.classList.add("error");
+    return;
+  }
+  if (!optedIn) {
+    messageEl.textContent = "Check the consent box to send this document to OpenAI.";
+    messageEl.classList.add("error");
+    return;
+  }
+  messageEl.textContent = "Proposing edits (this sends the whole document's sentence map to OpenAI)...";
+  try {
+    await api("POST", "/api/v1/doc/ai-edit-sessions", {
+      json: { target, instructions, ai: true, full_target_document_ai: true },
+    });
+    messageEl.hidden = true;
+    document.getElementById("ai-edit-opt-in-checkbox").checked = false;
+    await refreshAiEditSessions();
+  } catch (err) {
+    messageEl.textContent = err.message;
+    messageEl.classList.add("error");
+  }
+}
+
+async function refreshAiEditSessions() {
+  const listEl = document.getElementById("ai-edit-sessions-list");
+  const emptyEl = document.getElementById("ai-edit-sessions-empty");
+  try {
+    const sessions = await api("GET", "/api/v1/doc/ai-edit-sessions");
+    listEl.innerHTML = "";
+    emptyEl.hidden = sessions.length > 0;
+    for (const session of sessions) {
+      const card = document.createElement("div");
+      card.className = "rq-item";
+      const groundingBadge = groundingBadgeHtml(session.grounding);
+      const editsHtml = (session.edits || [])
+        .map((edit) => {
+          const anchorNote = edit.anchor_verified
+            ? ""
+            : `<span class="candidate-status rejected">unverified anchor</span> `;
+          return `
+            <div class="rq-row">
+              <p class="muted small">${escapeHtml(edit.paragraph_id)} / ${escapeHtml(edit.sentence_id)} ${anchorNote}${statusBadgeHtml(edit.review_status)}</p>
+              <p class="small"><del>${escapeHtml(edit.original_text)}</del></p>
+              <p class="small">${escapeHtml(edit.proposed_text)}</p>
+              <p class="muted small">${escapeHtml(edit.rationale || "")}</p>
+              <div class="row-actions" data-edit-id="${escapeHtml(edit.edit_id)}"></div>
+            </div>`;
+        })
+        .join("");
+      card.innerHTML = `
+        <strong>${escapeHtml(session.session_id)}</strong> — ${escapeHtml(session.target || "")}
+        <p class="muted small">${session.edit_count} proposed edit(s) ${groundingBadge}</p>
+        ${editsHtml}
+        <div class="zotero-link-actions">
+          <button type="button" class="secondary apply-session-btn">Apply accepted edits</button>
+        </div>
+        <p class="small session-apply-message" hidden></p>
+      `;
+      for (const rowActions of card.querySelectorAll(".row-actions")) {
+        const editId = rowActions.getAttribute("data-edit-id");
+        for (const status of ["accepted", "rejected"]) {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.textContent = status;
+          btn.addEventListener("click", () => setAiEditReviewStatus(session.session_id, editId, status));
+          rowActions.appendChild(btn);
+        }
+      }
+      card.querySelector(".apply-session-btn").addEventListener("click", () => applyAiEditSession(session.session_id, card));
+      listEl.appendChild(card);
+    }
+  } catch (err) {
+    listEl.innerHTML = "";
+    emptyEl.hidden = false;
+    emptyEl.textContent = err.message;
+  }
+}
+
+async function setAiEditReviewStatus(sessionId, editId, reviewStatus) {
+  try {
+    await api("POST", `/api/v1/doc/ai-edit-sessions/${encodeURIComponent(sessionId)}/edits/${encodeURIComponent(editId)}/review`, {
+      json: { review_status: reviewStatus },
+    });
+    await refreshAiEditSessions();
+  } catch (err) {
+    showWorkspaceError(err.message);
+  }
+}
+
+async function applyAiEditSession(sessionId, card) {
+  const messageEl = card.querySelector(".session-apply-message");
+  messageEl.hidden = false;
+  messageEl.className = "small session-apply-message";
+  messageEl.textContent = "Applying...";
+  try {
+    const report = await api("POST", `/api/v1/doc/ai-edit-sessions/${encodeURIComponent(sessionId)}/apply`, { json: {} });
+    messageEl.textContent = `Wrote ${report.output_path} (applied ${report.applied_edit_count}, skipped ${report.skipped_edit_count}). Original document was not modified.`;
+  } catch (err) {
+    messageEl.textContent = err.message;
+    messageEl.classList.add("error");
+  }
+}
+
 function setupDocVaultPanel() {
   document.getElementById("doc-snapshot-btn").addEventListener("click", snapshotDocument);
   document.getElementById("doc-versions-load-btn").addEventListener("click", loadDocVersions);
   document.getElementById("doc-diff-btn").addEventListener("click", diffDocVersions);
   document.getElementById("doc-compare-btn").addEventListener("click", compareDocVersions);
   document.getElementById("doc-derive-text-btn").addEventListener("click", buildDerivedTextAnchors);
+  document.getElementById("ai-edit-create-btn").addEventListener("click", createAiEditSession);
+  document.getElementById("ai-edit-refresh-btn").addEventListener("click", refreshAiEditSessions);
 }
 
 // --- data sources, metadata quality, conversion, backup, db admin ---

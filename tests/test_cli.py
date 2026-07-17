@@ -2458,3 +2458,98 @@ def test_cli_doc_cross_reference_review_invalid_status_exits_nonzero(tmp_path: P
         ["doc", "cross-reference-review", "bogus-upload", "artefact", "bogus-id", "accepted", "--workspace", str(workspace)],
     )
     assert result.exit_code == 2
+
+
+def _mock_openai_for_cli(monkeypatch, output_text: str) -> None:
+    import json as json_module
+
+    import ledgerly.engine.ai as ai_module
+
+    class _FakeResponse:
+        def __init__(self, data: dict) -> None:
+            self.data = json_module.dumps(data).encode("utf-8")
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read(self) -> bytes:
+            return self.data
+
+    monkeypatch.setattr(ai_module, "urlopen", lambda request: _FakeResponse({"id": "resp_test", "output_text": output_text}))
+
+
+def test_cli_doc_ai_edit_session_requires_ai_flags(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test Project", project_type="M.Phil", topic="")
+    target = workspace / "artefacts" / "papers" / "draft.md"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("# Intro\n\nSome text here. More text here.\n", encoding="utf-8")
+
+    result = runner.invoke(app, ["doc", "ai-edit-session-create", str(target), "--workspace", str(workspace), "--quiet"])
+    assert result.exit_code == 2
+
+    result2 = runner.invoke(
+        app, ["doc", "ai-edit-session-create", str(target), "--ai", "--workspace", str(workspace), "--quiet"]
+    )
+    assert result2.exit_code == 2
+
+
+def test_cli_doc_ai_edit_session_full_workflow(tmp_path: Path, monkeypatch) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test Project", project_type="M.Phil", topic="")
+    (workspace / ".env").write_text("OPENAI_API_KEY=sk-secret\n", encoding="utf-8")
+    target = workspace / "artefacts" / "papers" / "draft.md"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("# Intro\n\nContainer terminals require automation.\n", encoding="utf-8")
+
+    _mock_openai_for_cli(
+        monkeypatch,
+        "### EDIT paragraph_id=para-001 sentence_id=para-001-sent-01\n"
+        "ORIGINAL: Container terminals require automation.\n"
+        "PROPOSED: Container terminals require automation to stay competitive.\n"
+        "RATIONALE: Clearer wording.\n"
+        "### END EDIT\n",
+    )
+
+    create_result = runner.invoke(
+        app,
+        [
+            "doc",
+            "ai-edit-session-create",
+            str(target),
+            "--ai",
+            "--full-target-document-ai",
+            "--workspace",
+            str(workspace),
+            "--quiet",
+        ],
+    )
+    assert create_result.exit_code == 0, create_result.output
+
+    from ledgerly.engine.ai_edit_sessions import list_ai_edit_sessions
+
+    sessions = list_ai_edit_sessions(workspace)
+    assert len(sessions) == 1
+    session_id = sessions[0]["session_id"]
+    edit_id = sessions[0]["edits"][0]["edit_id"]
+
+    list_result = runner.invoke(app, ["doc", "ai-edit-sessions", "--workspace", str(workspace)])
+    assert list_result.exit_code == 0, list_result.output
+
+    review_result = runner.invoke(
+        app,
+        ["doc", "ai-edit-session-review", session_id, edit_id, "accepted", "--workspace", str(workspace), "--quiet"],
+    )
+    assert review_result.exit_code == 0, review_result.output
+
+    apply_result = runner.invoke(
+        app, ["doc", "ai-edit-session-apply", session_id, "--workspace", str(workspace), "--quiet"]
+    )
+    assert apply_result.exit_code == 0, apply_result.output
+    output_path = workspace / "artefacts" / "papers" / "draft.ai-edited.md"
+    assert output_path.is_file()
+    assert "[[AI-EDIT-START]]" in output_path.read_text(encoding="utf-8")
+    assert target.read_text(encoding="utf-8") == "# Intro\n\nContainer terminals require automation.\n"

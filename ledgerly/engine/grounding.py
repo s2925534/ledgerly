@@ -170,3 +170,25 @@ def strip_ai_provenance_markers(text: str) -> str:
     return text.replace(f"{AI_PROVENANCE_START}\n", "").replace(f"\n{AI_PROVENANCE_END}", "").replace(
         AI_PROVENANCE_END, ""
     )
+
+
+AI_EDIT_SPAN_START = "[[AI-EDIT-START]]"
+AI_EDIT_SPAN_END = "[[AI-EDIT-END]]"
+
+
+def wrap_ai_edit_span(text: str) -> str:
+    """The inline sibling of `wrap_ai_generated_text`: a plain-text marker
+    for AI-proposed text spliced *inside* otherwise human-authored flowing
+    prose (e.g. `engine.ai_edit_sessions.apply_ai_edit_session` replacing one
+    sentence within a paragraph), where a multi-line blockquote block would
+    break the surrounding paragraph's structure. Visible directly in the raw
+    file in any plain-text viewer -- not just a UI-only affordance -- per
+    AGENTS.md Core Rule item 4.
+    """
+    return f"{AI_EDIT_SPAN_START}{text}{AI_EDIT_SPAN_END}"
+
+
+def strip_ai_edit_span_markers(text: str) -> str:
+    """Inverse of `wrap_ai_edit_span`, for callers that need the plain
+    replacement text back (e.g. diffing or re-validating grounding)."""
+    return text.replace(AI_EDIT_SPAN_START, "").replace(AI_EDIT_SPAN_END, "")

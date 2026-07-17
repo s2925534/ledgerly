@@ -433,7 +433,7 @@ def _insufficient_evidence_response(kind: str, context: dict[str, Any]) -> dict[
     }
 
 
-def _record_ai_usage(workspace: Path, report: dict[str, Any]) -> dict[str, Any]:
+def record_ai_usage(workspace: Path, report: dict[str, Any]) -> dict[str, Any]:
     """Append one entry to the AI-usage audit ledger (TODO.md Phase 32) --
     a single place to answer "when was AI used on this workspace, and was
     it grounded", regardless of whether the individual feature happens to
@@ -441,7 +441,7 @@ def _record_ai_usage(workspace: Path, report: dict[str, Any]) -> dict[str, Any]:
     Records every invocation, including ones that refused via
     `insufficient_evidence`, since "AI was requested but correctly refused"
     is itself audit-worthy. Returns `report` unchanged, so call sites can
-    write `return _record_ai_usage(workspace, report)`.
+    write `return record_ai_usage(workspace, report)`.
     """
     ledger_path = workspace / WORKSPACE_FILES.ai_usage_ledger
     # Tolerant of a missing file (unlike other ledgers here) since this
@@ -471,7 +471,7 @@ def _record_ai_usage(workspace: Path, report: dict[str, Any]) -> dict[str, Any]:
 
 
 def list_ai_usage(workspace: Path) -> list[dict[str, Any]]:
-    """The full AI-usage audit trail (`_record_ai_usage`), oldest first --
+    """The full AI-usage audit trail (`record_ai_usage`), oldest first --
     the single-place answer to "when was AI used on this workspace, and was
     it grounded" (TODO.md Phase 32). Read-only; never itself a place AI
     usage is recorded from.
@@ -505,7 +505,7 @@ def ai_assisted_review(
         workspace, max_sources=max_sources, max_excerpt_chars=max_excerpt_chars, query=_workspace_topic_query(workspace)
     )
     if not context["has_evidence"]:
-        return _record_ai_usage(workspace, _insufficient_evidence_response("ai_assisted_review", context))
+        return record_ai_usage(workspace, _insufficient_evidence_response("ai_assisted_review", context))
     model = default_openai_model(workspace)
     response = openai_post(
         "responses",
@@ -517,7 +517,7 @@ def ai_assisted_review(
         opener=opener,
     )
     review_text = extract_response_text(response)
-    return _record_ai_usage(
+    return record_ai_usage(
         workspace,
         {
             "version": 1,
@@ -578,7 +578,7 @@ def ai_novelty_assessment(
         report = _insufficient_evidence_response("ai_assisted_novelty_assessment", context)
         report["novelty_not_proven"] = True
         report["research_question_count"] = len(research_questions["approved"]) + len(research_questions["candidates"])
-        return _record_ai_usage(workspace, report)
+        return record_ai_usage(workspace, report)
     model = default_openai_model(workspace)
     response = openai_post(
         "responses",
@@ -620,7 +620,7 @@ def ai_novelty_assessment(
             "assessment": assessment_text,
         },
     )
-    return _record_ai_usage(workspace, report)
+    return record_ai_usage(workspace, report)
 
 
 def _rq_assessment_prompt(context: dict[str, Any], research_questions: dict[str, Any], rq_id: str | None) -> str:
@@ -674,7 +674,7 @@ def ai_research_question_assessment(
         report["novelty_not_proven"] = True
         report["research_question_count"] = question_count
         report["rq_id"] = rq_id
-        return _record_ai_usage(workspace, report)
+        return record_ai_usage(workspace, report)
     model = default_openai_model(workspace)
     response = openai_post(
         "responses",
@@ -686,7 +686,7 @@ def ai_research_question_assessment(
         opener=opener,
     )
     assessment_text = extract_response_text(response)
-    return _record_ai_usage(
+    return record_ai_usage(
         workspace,
         {
             "version": 1,
@@ -810,7 +810,7 @@ def ai_workspace_report(
     if not _payload_has_evidence(payload):
         report = _insufficient_evidence_response(kind, context)
         report["status_changes_applied"] = False
-        return _record_ai_usage(workspace, report)
+        return record_ai_usage(workspace, report)
     model = default_openai_model(workspace)
     response = openai_post(
         "responses",
@@ -822,7 +822,7 @@ def ai_workspace_report(
         opener=opener,
     )
     text = extract_response_text(response)
-    return _record_ai_usage(
+    return record_ai_usage(
         workspace,
         {
             "version": 1,
@@ -877,7 +877,7 @@ def ai_citation_plan_review(
     plan_source_ids = [
         item.get("source_id") for item in citation_plan.get("insertions", []) if isinstance(item, dict)
     ]
-    return _record_ai_usage(
+    return record_ai_usage(
         workspace,
         {
             "kind": "ai_citation_plan_review",

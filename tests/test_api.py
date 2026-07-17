@@ -217,6 +217,93 @@ def test_doc_versions_diff_compare_and_restore_via_api(client: TestClient, tmp_p
     assert target.read_text(encoding="utf-8") == "line one\nline two\n"  # current document untouched
 
 
+def test_doc_ai_edit_session_requires_both_ai_flags(client: TestClient, tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    target = workspace / "artefacts" / "papers" / "draft.md"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("# Intro\n\nSome text here.\n", encoding="utf-8")
+
+    no_ai = client.post(
+        "/api/v1/doc/ai-edit-sessions", params={"workspace": str(workspace)}, json={"target": str(target)}
+    )
+    assert no_ai.status_code == 400
+    assert no_ai.json()["errors"][0]["code"] == "ai_not_enabled"
+
+    no_full_target = client.post(
+        "/api/v1/doc/ai-edit-sessions",
+        params={"workspace": str(workspace)},
+        json={"target": str(target), "ai": True},
+    )
+    assert no_full_target.status_code == 400
+    assert no_full_target.json()["errors"][0]["code"] == "full_target_document_ai_not_enabled"
+
+
+def test_doc_ai_edit_session_full_workflow_via_api(client: TestClient, tmp_path: Path, monkeypatch) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    target = workspace / "artefacts" / "papers" / "draft.md"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("# Intro\n\nContainer terminals require automation.\n", encoding="utf-8")
+
+    _mock_openai(
+        monkeypatch,
+        "### EDIT paragraph_id=para-001 sentence_id=para-001-sent-01\n"
+        "ORIGINAL: Container terminals require automation.\n"
+        "PROPOSED: Container terminals require automation to stay competitive.\n"
+        "RATIONALE: Clearer wording.\n"
+        "### END EDIT\n",
+    )
+
+    create_response = client.post(
+        "/api/v1/doc/ai-edit-sessions",
+        params={"workspace": str(workspace)},
+        json={"target": str(target), "ai": True, "full_target_document_ai": True},
+    )
+    assert create_response.status_code == 200, create_response.text
+    session = create_response.json()["data"]
+    assert session["edit_count"] == 1
+    assert session["original_document_modified"] is False
+    session_id = session["session_id"]
+    edit_id = session["edits"][0]["edit_id"]
+
+    list_response = client.get("/api/v1/doc/ai-edit-sessions", params={"workspace": str(workspace)})
+    assert list_response.status_code == 200
+    assert len(list_response.json()["data"]) == 1
+
+    review_response = client.post(
+        f"/api/v1/doc/ai-edit-sessions/{session_id}/edits/{edit_id}/review",
+        params={"workspace": str(workspace)},
+        json={"review_status": "accepted"},
+    )
+    assert review_response.status_code == 200
+    assert review_response.json()["data"]["review_status"] == "accepted"
+
+    apply_response = client.post(
+        f"/api/v1/doc/ai-edit-sessions/{session_id}/apply", params={"workspace": str(workspace)}
+    )
+    assert apply_response.status_code == 200
+    report = apply_response.json()["data"]
+    assert report["applied_edit_count"] == 1
+    assert Path(report["output_path"]).read_text(encoding="utf-8").count("[[AI-EDIT-START]]") == 1
+    assert target.read_text(encoding="utf-8") == "# Intro\n\nContainer terminals require automation.\n"
+
+
+def test_doc_ai_edit_session_review_unknown_session_returns_404(client: TestClient, tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+
+    response = client.post(
+        "/api/v1/doc/ai-edit-sessions/aiedit-999/edits/edit-001/review",
+        params={"workspace": str(workspace)},
+        json={"review_status": "accepted"},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["errors"][0]["code"] == "invalid_ai_edit_review_status"
+
+
 def test_doc_diff_unknown_version_returns_404_error_envelope(client: TestClient, tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
