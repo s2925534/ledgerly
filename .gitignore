@@ -18,6 +18,14 @@ build/
 /workspaces/**
 !/workspaces/
 !/workspaces/.keep
+
+# Deployed container's bind-mounted workspace volume (docker-compose.yml) --
+# tracked as an empty directory so a fresh `--source-dir` deploy upload has
+# a valid bind-mount source on the remote host; real workspace data written
+# into it at runtime stays untracked.
+/data/workspaces/**
+!/data/workspaces/
+!/data/workspaces/.keep
 /tedt/
 /Container-Readiness-Framework-for-Port-Logistics--A-Deterministic-and-Explainable-Model-for-Operational-Eligibility/
 oldResearchProject
