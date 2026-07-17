@@ -55,8 +55,19 @@ services:
     profiles: ["db-backends"]
     restart: unless-stopped
     environment:
+      # Deliberately `:-` (empty default), not `:?` (required) -- Compose
+      # interpolates every service's environment block at parse time
+      # regardless of whether its profile is active, so a `:?` here made
+      # plain `docker compose up` (no --profile db-backends) fail outright
+      # on any host without CORROBORLY_POSTGRES_PASSWORD set, even though
+      # this service never starts in that case. The official postgres image
+      # itself refuses to start with an empty POSTGRES_PASSWORD, so the
+      # "never silently run with a weak/empty password" guarantee still
+      # holds -- just enforced at container-start time, and only when this
+      # profile is actually invoked. Approved by Pedro 2026-07-17 after the
+      # first live NAS deploy attempt failed on exactly this.
       POSTGRES_USER: ${CORROBORLY_POSTGRES_USER:-corroborly}
-      POSTGRES_PASSWORD: ${CORROBORLY_POSTGRES_PASSWORD:?Set CORROBORLY_POSTGRES_PASSWORD in .env to use the db-backends profile}
+      POSTGRES_PASSWORD: ${CORROBORLY_POSTGRES_PASSWORD:-}
       POSTGRES_DB: ${CORROBORLY_POSTGRES_DATABASE:-corroborly}
     volumes:
       - ./data/postgres-backend:/var/lib/postgresql/data
@@ -66,8 +77,14 @@ services:
     profiles: ["db-backends"]
     restart: unless-stopped
     environment:
+      # Same `:-` vs `:?` reasoning as postgres-backend above. The official
+      # mariadb image refuses to start with a user configured but no
+      # password, so the safety guarantee still holds at container-start
+      # time when this profile is actually invoked. Approved by Pedro
+      # 2026-07-17 after the first live NAS deploy attempt failed on
+      # exactly this.
       MARIADB_USER: ${CORROBORLY_MARIADB_USER:-corroborly}
-      MARIADB_PASSWORD: ${CORROBORLY_MARIADB_PASSWORD:?Set CORROBORLY_MARIADB_PASSWORD in .env to use the db-backends profile}
+      MARIADB_PASSWORD: ${CORROBORLY_MARIADB_PASSWORD:-}
       MARIADB_DATABASE: ${CORROBORLY_MARIADB_DATABASE:-corroborly}
       MARIADB_RANDOM_ROOT_PASSWORD: "yes"
     volumes:
