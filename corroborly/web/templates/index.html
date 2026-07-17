@@ -54,7 +54,11 @@
     <p id="digest-empty" class="muted small" hidden>Nothing new since your last visit.</p>
   </section>
 
-  <section class="panel">
+  <div id="app-shell">
+    <nav id="app-nav" aria-label="Section navigation"></nav>
+    <div id="app-content">
+
+  <section id="panel-dashboard" class="panel">
     <h2>Workspace dashboard</h2>
     <div id="dashboard-stats" class="stat-tiles"></div>
     <p>
@@ -64,7 +68,7 @@
     <p id="dashboard-health-detail" class="muted small" hidden></p>
   </section>
 
-  <section class="panel">
+  <section id="panel-search" class="panel">
     <h2>Search corpus</h2>
     <p class="muted small">Full-text keyword search across converted source text, artefact text, guideline text, claims, accepted-source references, and research questions — built on the SQLite index (Data &amp; Metadata panel below has "Sync"). Never runs without an index you've already built.</p>
     <div class="zotero-search-row">
@@ -75,7 +79,7 @@
     <div id="corpus-search-results" class="rq-list"></div>
   </section>
 
-  <section class="panel">
+  <section id="panel-compare" class="panel">
     <h2>Compare workspaces</h2>
     <p class="muted small">Source/claim/artefact/RQ counts and last activity, side by side, for anyone running more than one research project at once.</p>
     <div class="source-scan-form">
@@ -94,7 +98,7 @@
     </table>
   </section>
 
-  <section class="panel">
+  <section id="panel-ai" class="panel">
     <h2>AI-assisted features</h2>
     <p class="muted small">Optional. Sends bounded excerpts of accepted sources (never original files, whole documents, CSVs, or SQLite databases) to OpenAI for the single action you run — never automatically, never in the background. Requires <code>OPENAI_API_KEY</code> configured server-side. Every result requires your review before use; nothing is applied automatically.</p>
     <div class="zotero-link-actions">
@@ -158,7 +162,7 @@
     </details>
   </section>
 
-  <section class="panel">
+  <section id="panel-sources" class="panel">
     <h2>Sources</h2>
 
     <details id="source-scan-details" class="detail-box">
@@ -195,7 +199,7 @@
     <p id="sources-empty" class="muted small" hidden>No sources match this filter yet — try a different tab above, or "Scan a folder for new sources" to add some.</p>
   </section>
 
-  <section class="panel">
+  <section id="panel-rqs" class="panel">
     <h2>Research questions</h2>
     <button id="rq-check-btn" type="button" class="secondary">Check readiness (deterministic)</button>
     <p id="rq-check-message" class="small" hidden></p>
@@ -294,7 +298,7 @@
     <p id="rq-rejected-empty" class="muted small" hidden>None yet.</p>
   </section>
 
-  <section class="panel">
+  <section id="panel-stages" class="panel">
     <h2>Research stages</h2>
     <p class="muted small">Optional target dates on your project's stage template. Never guessed at -- a stage with no target date just stays off the calendar.</p>
     <div class="zotero-link-actions">
@@ -309,7 +313,7 @@
     <p id="stages-empty" class="muted small" hidden>No stages defined for this project type.</p>
   </section>
 
-  <section class="panel">
+  <section id="panel-artefacts" class="panel">
     <h2>Artefact registry</h2>
 
     <details id="artefact-create-details" class="detail-box">
@@ -395,7 +399,7 @@
     <p id="artefacts-empty" class="muted small" hidden>No artefacts registered yet — use "Create a deterministic artefact" or "Register an artefact created outside this tool" above.</p>
   </section>
 
-  <section class="panel">
+  <section id="panel-claims" class="panel">
     <h2>Claims</h2>
 
     <details id="claim-add-details" class="detail-box">
@@ -427,7 +431,7 @@
     <p id="claims-empty" class="muted small" hidden>No claims recorded yet — use "Add a claim" above.</p>
   </section>
 
-  <section class="panel">
+  <section id="panel-citation-planning" class="panel">
     <h2>Citation planning</h2>
     <p class="muted small">Create a deterministic citation plan against a document target, review each proposed insertion, then apply the accepted ones. Never modifies the document until you apply.</p>
 
@@ -465,7 +469,7 @@
     </details>
   </section>
 
-  <section class="panel">
+  <section id="panel-citation-relationships" class="panel">
     <h2>Citation relationships</h2>
     <p class="muted small">Which sources support which claims, and which sources/research questions each artefact draws on — all from local links already in the corpus, no external graph service required.</p>
     <div class="zotero-link-actions">
@@ -475,7 +479,7 @@
     <p id="relationships-empty" class="muted small" hidden>No sources with linked claims or artefacts yet.</p>
   </section>
 
-  <section class="panel">
+  <section id="panel-progress" class="panel">
     <h2>Research progress</h2>
     <p class="muted small">Research question / artefact activity over time — an honest local record for a progress report, not a gamified streak feature.</p>
     <div class="zotero-link-actions">
@@ -485,7 +489,7 @@
     <p id="progress-empty" class="muted small" hidden>No research question or artefact activity recorded yet.</p>
   </section>
 
-  <section class="panel">
+  <section id="panel-guidelines" class="panel">
     <h2>Guidelines</h2>
 
     <details id="guideline-register-details" class="detail-box">
@@ -519,7 +523,7 @@
     <p id="guidelines-empty" class="muted small" hidden>No guidelines registered yet — use "Register a guideline" above.</p>
   </section>
 
-  <section class="panel">
+  <section id="panel-project-log" class="panel">
     <h2>Project log</h2>
 
     <h3>Decisions</h3>
@@ -601,7 +605,7 @@
     <p id="context-empty" class="muted small" hidden>No context changes recorded yet — use "Add a context change" above.</p>
   </section>
 
-  <section class="panel">
+  <section id="panel-upload" class="panel">
     <h2>Upload artefacts</h2>
     <p id="upload-limits" class="muted small"></p>
     <div id="dropzone" class="dropzone" tabindex="0">
@@ -611,7 +615,7 @@
     <div id="upload-report" class="upload-report"></div>
   </section>
 
-  <section class="panel">
+  <section id="panel-uploaded" class="panel">
     <h2>Uploaded artefacts</h2>
     <div class="zotero-link-actions">
       <button id="uploads-view-list-btn" type="button" class="secondary">List view</button>
@@ -627,7 +631,7 @@
     <p id="uploads-empty" class="muted small" hidden>No artefacts uploaded yet — drag files into the "Upload artefacts" box above, or click "browse".</p>
   </section>
 
-  <section class="panel">
+  <section id="panel-vault" class="panel">
     <h2>Document vault &amp; version history</h2>
     <p class="muted small">Snapshot a document target, browse its version history, diff or compare two versions, and restore an older version as a new copy. Restoring never overwrites the current document.</p>
 
@@ -708,7 +712,7 @@
     </details>
   </section>
 
-  <section class="panel">
+  <section id="panel-admin" class="panel">
     <h2>Data, metadata &amp; workspace admin</h2>
 
     <h3>Data sources</h3>
@@ -785,7 +789,7 @@
     </details>
   </section>
 
-  <section class="panel">
+  <section id="panel-notes" class="panel">
     <h2>Personal notes, meeting notes &amp; transcripts</h2>
     <p class="muted small">Your own working material — distinct from per-source notes and supervisor feedback. Stored locally like everything else; never sent anywhere unless AI is explicitly enabled and this note type is included in that request (not available yet — see TODO Phase 25).</p>
 
@@ -834,7 +838,7 @@
     <p id="notes-empty" class="muted small" hidden>No notes recorded yet — use "Add a note" or "Import a transcript file" above.</p>
   </section>
 
-  <section class="panel">
+  <section id="panel-transcription" class="panel">
     <h2>Audio/video transcription (SourceScribe)</h2>
     <p class="muted small">Shells out to a local SourceScribe checkout (subprocess, never imported). Local Whisper is used by default; the OpenAI backend is only used if you explicitly check "Use OpenAI API" below. Completed transcripts are imported into the notes store above — no AI processing happens on the transcript text itself.</p>
 
@@ -879,7 +883,7 @@
     <p id="transcribe-jobs-empty" class="muted small" hidden>No transcription jobs yet — upload a file above to get started.</p>
   </section>
 
-  <section class="panel">
+  <section id="panel-export" class="panel">
     <h2>Export &amp; reporting</h2>
 
     <div class="zotero-link-actions">
@@ -911,7 +915,7 @@
     <div id="report-result"></div>
   </section>
 
-  <section class="panel">
+  <section id="panel-zotero" class="panel">
     <h2>Zotero</h2>
     <p class="muted small">Link your Zotero account and browse your library here for quick reference — read-only, nothing is ever written back to Zotero.</p>
 
@@ -984,6 +988,9 @@
       <p id="zotero-report-message" class="small" hidden></p>
     </div>
   </section>
+
+    </div>
+  </div>
 </main>
 
 <div id="preview-modal" class="modal-overlay" hidden>

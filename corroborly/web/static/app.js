@@ -80,6 +80,58 @@ function showWorkspaceError(message) {
   el.hidden = !message;
 }
 
+// --- persistent navigation shell (Phase 13) ---
+// Sections are shown/hidden via the `hidden` attribute, never removed from
+// the DOM -- every existing panel's element IDs and event listeners keep
+// working exactly as before regardless of which nav item is active. Pure
+// client-side state (localStorage), matching how the last-used workspace
+// is already persisted -- no new server/API surface needed.
+
+const NAV_ACTIVE_SECTION_KEY = "corroborly-active-nav-section";
+
+function setupAppNav() {
+  const nav = document.getElementById("app-nav");
+  const sections = Array.from(document.querySelectorAll("#app-content > section.panel"));
+  if (!nav || sections.length === 0) return;
+
+  const buttons = [];
+  for (const section of sections) {
+    const heading = section.querySelector("h2");
+    const label = heading ? heading.textContent.trim() : section.id;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "nav-item";
+    btn.textContent = label;
+    btn.dataset.target = section.id;
+    btn.addEventListener("click", () => showNavSection(section.id));
+    nav.appendChild(btn);
+    buttons.push(btn);
+  }
+
+  const stored = localStorage.getItem(NAV_ACTIVE_SECTION_KEY);
+  const initial = sections.some((s) => s.id === stored) ? stored : sections[0].id;
+  showNavSection(initial);
+}
+
+function showNavSection(targetId) {
+  const sections = document.querySelectorAll("#app-content > section.panel");
+  const buttons = document.querySelectorAll("#app-nav .nav-item");
+  let found = false;
+  for (const section of sections) {
+    const active = section.id === targetId;
+    section.hidden = !active;
+    if (active) found = true;
+  }
+  if (!found && sections.length > 0) {
+    sections[0].hidden = false;
+    targetId = sections[0].id;
+  }
+  for (const btn of buttons) {
+    btn.classList.toggle("active", btn.dataset.target === targetId);
+  }
+  localStorage.setItem(NAV_ACTIVE_SECTION_KEY, targetId);
+}
+
 async function loadWorkspace(workspace) {
   state.workspace = workspace;
   showWorkspaceError("");
@@ -3378,6 +3430,7 @@ function setupCreateWorkspacePanel() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  setupAppNav();
   setupDropzone();
   document.getElementById("uploads-view-list-btn").addEventListener("click", () => setUploadsView("list"));
   document.getElementById("uploads-view-gallery-btn").addEventListener("click", () => setUploadsView("gallery"));

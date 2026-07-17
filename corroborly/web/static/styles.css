@@ -142,11 +142,82 @@ main {
   gap: 1.5rem;
 }
 
+#app-main {
+  max-width: 1400px;
+}
+
 .panel {
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 1.25rem;
+}
+
+/* --- persistent navigation shell (Phase 13) --- */
+#app-shell {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
+}
+
+#app-nav {
+  flex: 0 0 220px;
+  position: sticky;
+  top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  max-height: calc(100vh - 3rem);
+  overflow-y: auto;
+}
+
+#app-nav .nav-item {
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text);
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius);
+  font-size: 0.9rem;
+  white-space: normal;
+}
+
+#app-nav .nav-item:hover {
+  background: var(--bg-muted);
+}
+
+#app-nav .nav-item.active {
+  background: var(--bg-muted);
+  border-color: var(--border);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+#app-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+@media (max-width: 860px) {
+  #app-shell {
+    flex-direction: column;
+  }
+  #app-nav {
+    flex: none;
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: visible;
+    position: static;
+    max-height: none;
+  }
+  #app-nav .nav-item {
+    white-space: nowrap;
+  }
 }
 
 .banner {
