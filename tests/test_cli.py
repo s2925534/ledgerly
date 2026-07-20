@@ -970,6 +970,99 @@ def test_cli_search_scopus_passes_threshold_options(tmp_path: Path, monkeypatch)
     assert captured["budgets"].max_result_count == 7
 
 
+def test_cli_search_scholar_requires_external_search_flag(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+
+    result = runner.invoke(app, ["search", "scholar", "container logistics", "--workspace", str(workspace), "--quiet"])
+
+    assert result.exit_code == 2, result.output
+
+
+def test_cli_search_scholar_writes_snapshot_on_success(tmp_path: Path, monkeypatch) -> None:
+    from corroborly.engine.scholar_providers import ProviderAttempt, ScholarResult, ScholarSearchResponse
+
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+    captured = {}
+
+    class FakeScholarDataService:
+        def __init__(self, *, workspace=None, opener=None):
+            captured["workspace"] = workspace
+
+        def search(self, query, *, max_results=10):
+            captured["query"] = query
+            captured["max_results"] = max_results
+            return ScholarSearchResponse(
+                query=query,
+                provider_used="semantic_scholar",
+                results=[
+                    ScholarResult(
+                        title="Container Terminal Efficiency",
+                        authors=["A Author"],
+                        year=2022,
+                        citation_count=5,
+                        url="https://example.com/paper",
+                        abstract=None,
+                        venue=None,
+                        source_provider="semantic_scholar",
+                    )
+                ],
+                attempts=[
+                    ProviderAttempt(provider="serpapi", status="error", detail="Missing SERPAPI_API_KEY"),
+                    ProviderAttempt(provider="semantic_scholar", status="ok", detail="1 result(s)"),
+                ],
+            )
+
+    monkeypatch.setattr(cli, "ScholarDataService", FakeScholarDataService)
+
+    result = runner.invoke(
+        app,
+        ["search", "scholar", "container logistics", "--workspace", str(workspace), "--external-search", "--max-results", "3", "--quiet"],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert captured["query"] == "container logistics"
+    assert captured["max_results"] == 3
+    snapshot = read_yaml(workspace / "outputs" / "external-search" / "scholar-search-result.yaml")
+    assert snapshot["provider_used"] == "semantic_scholar"
+    assert snapshot["succeeded"] is True
+    assert snapshot["result_count"] == 1
+    assert snapshot["results"][0]["title"] == "Container Terminal Efficiency"
+    assert [attempt["provider"] for attempt in snapshot["attempts"]] == ["serpapi", "semantic_scholar"]
+
+
+def test_cli_search_scholar_reports_failure_without_crashing_when_all_providers_fail(tmp_path: Path, monkeypatch) -> None:
+    from corroborly.engine.scholar_providers import ProviderAttempt, ScholarSearchResponse
+
+    workspace = tmp_path / "workspace"
+    init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")
+
+    class FakeScholarDataService:
+        def __init__(self, *, workspace=None, opener=None):
+            pass
+
+        def search(self, query, *, max_results=10):
+            return ScholarSearchResponse(
+                query=query,
+                provider_used=None,
+                results=[],
+                attempts=[ProviderAttempt(provider="serpapi", status="error", detail="Missing SERPAPI_API_KEY")],
+            )
+
+    monkeypatch.setattr(cli, "ScholarDataService", FakeScholarDataService)
+
+    result = runner.invoke(
+        app,
+        ["search", "scholar", "container logistics", "--workspace", str(workspace), "--external-search", "--quiet"],
+    )
+
+    assert result.exit_code == 0, result.output
+    snapshot = read_yaml(workspace / "outputs" / "external-search" / "scholar-search-result.yaml")
+    assert snapshot["succeeded"] is False
+    assert snapshot["provider_used"] is None
+
+
 def test_cli_export_corpus_writes_combined_accepted_text(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     init_workspace(workspace, project_name="Test", project_type="M.Phil", topic="Topic")

@@ -1106,7 +1106,7 @@ Engine source:
 
 ## External Search Routes
 
-Deterministic external-search query planning, report regeneration, and reviewed-candidate import. These never call an external API themselves — they operate on local candidate registers already populated by the CLI's `search scopus`/`search scopus-test` commands (which require the explicit `--external-search` opt-in and aren't exposed as web routes). AI-assisted query planning/candidate review (`search ai-query-plan`, `search ai-candidate-review`) stay CLI-only, blocked on the same AI opt-in decision as Phase 22. Added 2026-07-16.
+Deterministic external-search query planning, report regeneration, and reviewed-candidate import. These never call an external API themselves — they operate on local candidate registers already populated by the CLI's `search scopus`/`search scopus-test` commands (which require the explicit `--external-search` opt-in and aren't exposed as web routes). AI-assisted query planning/candidate review (`search ai-query-plan`, `search ai-candidate-review`) stay CLI-only, blocked on the same AI opt-in decision as Phase 22. Added 2026-07-16. The Google Scholar fallback pipeline (`search scholar --external-search`, `engine/scholar_providers.py`) is likewise CLI-only and not exposed as a web route, matching Scopus.
 
 ### `POST /api/v1/search/plan` (implemented)
 

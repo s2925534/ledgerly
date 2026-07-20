@@ -622,6 +622,7 @@ Implemented baseline:
 - `corroborly search plan` creates deterministic query plans from project context and research questions.
 - `corroborly search scopus --external-search` runs explicit Scopus searches and stores response snapshots.
 - `corroborly search scopus-test --external-search` checks credentials without printing keys.
+- `corroborly search scholar --external-search` runs a sequential Google Scholar fallback pipeline (SerpApi -> Semantic Scholar -> `scholarly` -> ScholarAPI.net stub, `engine/scholar_providers.py`), independent of the Scopus provider above, stopping at the first backend that succeeds and logging every failed attempt.
 - Search query history and no-result snapshots are written inside the Corroborly workspace.
 - Scopus search runs now write quality-scored candidate registers, threshold-filtered candidate lists, query validation reports, low-result logs, and metadata-only full-text availability signals.
 - Query planning now supports legacy params-file import, broad/balanced/strict strategy modes, structured query records, query group labels, and research-question links.

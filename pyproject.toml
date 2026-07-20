@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "corroborly"
-version = "0.12.5"
+version = "0.12.6"
 description = "Local-first, evidence-first research workspace engine and CLI."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -38,6 +38,13 @@ postgres = [
 ]
 mariadb = [
   "PyMySQL>=1.1.0",
+]
+# Optional Google Scholar fallback provider (option 3 of
+# corroborly.engine.scholar_providers.ScholarDataService). Only imported
+# lazily inside that module's scholarly-backed provider function; every
+# other provider in the pipeline works with zero new dependencies.
+scholar = [
+  "scholarly>=1.7.0",
 ]
 
 [project.scripts]

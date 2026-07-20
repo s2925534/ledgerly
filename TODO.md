@@ -181,6 +181,7 @@ Each item below carries a status dot (🟡 Pending · 🟢 Done · ✅ Done Done
 - [x] **Done** - **API** - 🟢 🟣 Add external-search run comparison reports showing which query strategies produced the strongest accepted candidate yield.
 - [x] **Done** - **AI** - 🟢 🟠 Add optional AI-assisted query generation and query refinement from safe context only, gated by both `--ai` and `--external-search`.
 - [x] **Done** - **AI** - 🟢 🟠 Add optional AI-assisted paper relevance, research-question validation, idea validation, and novelty validation using candidate metadata or abstracts first, with full-text modes requiring explicit per-run opt-in.
+- [x] **Done** - **API** - 🟢 🟣 Add a Google Scholar fallback provider layer (`engine.scholar_providers.ScholarDataService`, `corroborly search scholar --external-search`) as an isolated module alongside the existing Scopus provider, not wired into it: tries SerpApi, then Semantic Scholar, then the optional `scholarly` package, then ScholarAPI.net in order, catching each provider's failure (missing key, HTTP/rate-limit error, uninstalled package) and falling through, with every attempt logged to a local response snapshot. ScholarAPI.net ships as an honest stub (always raises) rather than a guessed request/response contract, since its real endpoint/auth/schema could not be verified. CLI-only, matching Scopus — no `/api/v1` route, since it makes live third-party network calls.
 
 ## Phase 6: Document Validation, Guidelines, and Citation Assistance
 

@@ -183,6 +183,7 @@ from corroborly.engine.research_stages import (
 )
 from corroborly.engine.report_schemas import export_report_schemas
 from corroborly.engine.reports import generate_workspace_report
+from corroborly.engine.scholar_providers import ScholarDataService
 from corroborly.engine.sidecars import import_sidecar_metadata
 from corroborly.engine.vault import (
     compare_document_versions,
@@ -2156,6 +2157,57 @@ def search_scopus(
         console.print(f"[green]Wrote[/green] {report['metrics']['candidate_duplicates_path']}")
         console.print(f"[green]Wrote[/green] {report['metrics']['evidence_validation_path']}")
         console.print(f"[green]Wrote[/green] {report['metrics']['run_comparison_path']}")
+
+
+@search_app.command("scholar")
+def search_scholar(
+    query: str = typer.Argument(..., help="Scholar search query to run."),
+    workspace: Optional[Path] = typer.Option(None, "--workspace", "-w", help="Workspace path (default: CWD)"),
+    external_search: bool = typer.Option(False, "--external-search", help="Required explicit opt-in for live Scholar provider access."),
+    max_results: int = typer.Option(10, "--max-results", help="Maximum results to request from whichever provider succeeds."),
+    log_level: str = typer.Option("info", "--log-level", help="debug|info|warning|error"),
+    quiet: bool = typer.Option(False, "--quiet", help="Reduce console output (still logs/run summary)."),
+):
+    """Run the Google Scholar fallback pipeline (SerpApi -> Semantic Scholar -> scholarly -> ScholarAPI.net)
+    and save a local response snapshot. Tries each provider in order and stops at the first one that
+    completes without raising; a provider returning zero results still counts as success."""
+    ws = _resolve_workspace(workspace)
+    _slug, logger, summary, summary_path, _log_path = _run_ctx(["search", "scholar"], ws, log_level)
+    try:
+        require_external_search_flag(external_search)
+        response = ScholarDataService(workspace=ws).search(query, max_results=max_results)
+    except (ExternalSearchError, ValueError) as e:
+        logger.error("Scholar search failed", operation="search_scholar", error=str(e))
+        summary.errors += 1
+        _finish(summary, summary_path)
+        if not quiet:
+            console.print(f"[red]{e}[/red]")
+        raise typer.Exit(code=2)
+    output_dir = ws / "outputs" / "external-search"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    snapshot_path = output_dir / "scholar-search-result.yaml"
+    write_yaml(snapshot_path, {"version": 1, "provider": "scholar_fallback_pipeline", **response.as_dict()})
+    logger.info(
+        "Ran Scholar fallback search",
+        operation="search_scholar",
+        provider_used=response.provider_used,
+        result_count=len(response.results),
+    )
+    if not response.succeeded:
+        summary.errors += 1
+    _finish(summary, summary_path)
+    if not quiet:
+        if response.succeeded:
+            console.print(
+                f"[green]Scholar search succeeded via '{response.provider_used}'[/green] "
+                f"({len(response.results)} result(s))"
+            )
+        else:
+            console.print("[yellow]All Scholar providers failed for this query.[/yellow]")
+        for attempt in response.attempts:
+            color = "green" if attempt.status == "ok" else "red"
+            console.print(f"  [{color}]{attempt.provider}: {attempt.status}[/{color}] - {attempt.detail}")
+        console.print(f"[green]Wrote[/green] {snapshot_path}")
 
 
 @app.command("assess-novelty")

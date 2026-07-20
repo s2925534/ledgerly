@@ -1,6 +1,6 @@
 # Corroborly
 
-Current version: 0.12.5
+Current version: 0.12.6
 
 Corroborly is a local-first, evidence-first research workspace for managing research context, source files, review state, and project memory without requiring cloud services for the MVP.
 
@@ -63,6 +63,7 @@ Phase 1 complete:
 - Safe local AI context previews through `corroborly ai context-preview --ai`, excluding original files and whole documents or datasets by default
 - AI-assisted review, novelty assessment, research-question assessment, corpus summary, claim-checking, citation-gap, artefact cross-reference, and source-relevance commands, all requiring explicit `--ai`
 - Explicit Scopus external-search runs with structured query plans, legacy params-file import, query strategy modes, local snapshots, query validation, quality-scored candidate registers, threshold filters, no-result or low-result logs, saved refine plans, and local candidate reports
+- Explicit Google Scholar fallback search through `corroborly search scholar --external-search`: tries SerpApi, then Semantic Scholar, then the optional `scholarly` package in order, logging each failed attempt and stopping at the first provider that succeeds, with a local response snapshot
 - Deterministic document target resolution and `corroborly validate <target>` reports with strengths, weaknesses, unsupported or weakly supported sentences, citation gaps, confidence factors, confidence scores, and APA7 references
 - Guideline registration through `corroborly guidelines add`, with local or remote snapshots and extracted text stored inside the workspace, plus validated guideline scopes
 - Optional workspace SQLite index and memory layer through `corroborly db init/sync/status/rebuild`, preserving YAML and Markdown as the source of truth
@@ -271,6 +272,7 @@ corroborly search refine-plan [--workspace <path>]
 corroborly search reports [--workspace <path>]
 corroborly search scopus-test --external-search [--workspace <path>]
 corroborly search scopus --external-search "query" [--workspace <path>]
+corroborly search scholar --external-search "query" [--workspace <path>] [--max-results <n>]
 corroborly zotero search "keyword terms" [--workspace <path>] [--storage <zotero-storage-folder>]
 corroborly zotero collections [--workspace <path>]
 corroborly zotero test [--workspace <path>]
