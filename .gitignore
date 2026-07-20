@@ -39,3 +39,6 @@ docs/DEPLOY.personal.md
 
 # Personal domain-shopping notes (rename candidates, not project content).
 /DOMAIN_SEARCH_*.md
+
+# Email correspondence log — contains live API keys/tokens (e.g. Elsevier).
+/EMAILS_REPORT.md
